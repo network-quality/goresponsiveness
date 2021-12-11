@@ -2,7 +2,6 @@ package mc
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -10,25 +9,20 @@ import (
 
 type MeasurableConnection interface {
 	Start(context.Context) bool
-	Stop() bool
-	Downloaded() uint64
+	Transferred() uint64
 }
 
-type LoadBearingConnection struct {
+type LoadBearingDownload struct {
 	Path       string
-	ctx        context.Context
-	cancel     context.CancelFunc
 	downloaded uint64
 	client     *http.Client
 }
 
-func (lbc *LoadBearingConnection) Downloaded() uint64 {
+func (lbc *LoadBearingDownload) Transferred() uint64 {
 	return lbc.downloaded
 }
 
-func (lbc *LoadBearingConnection) Start(ctx context.Context) bool {
-	fmt.Printf("Starting a LBC ...")
-	lbc.ctx, lbc.cancel = context.WithCancel(ctx)
+func (lbc *LoadBearingDownload) Start(ctx context.Context) bool {
 	lbc.downloaded = 0
 	lbc.client = &http.Client{}
 	get, err := lbc.client.Get(lbc.Path)
@@ -36,25 +30,52 @@ func (lbc *LoadBearingConnection) Start(ctx context.Context) bool {
 	if err != nil {
 		return false
 	}
-	go doDownload(get, &lbc.downloaded, lbc.ctx)
-	return true
-}
-
-func (lbc *LoadBearingConnection) Stop() bool {
-	lbc.cancel()
+	go doDownload(get, &lbc.downloaded, ctx)
 	return true
 }
 
 func doDownload(get *http.Response, count *uint64, ctx context.Context) {
 	for ctx.Err() == nil {
-		n, err := io.CopyN(ioutil.Discard, get.Body, 1024*1024)
+		n, err := io.CopyN(ioutil.Discard, get.Body, 100)
 		if err != nil {
-			fmt.Printf("Done reading!\n")
 			break
 		}
-		fmt.Printf("Read some bytes: %d\n", n)
 		*count += uint64(n)
 	}
-	fmt.Printf("Cancelling my download.\n")
 	get.Body.Close()
+}
+
+type LoadBearingUpload struct {
+	Path     string
+	uploaded uint64
+	client   *http.Client
+}
+
+func (lbu *LoadBearingUpload) Transferred() uint64 {
+	return lbu.uploaded
+}
+
+type syntheticCountingReader struct {
+	n   *uint64
+	ctx context.Context
+}
+
+func (s *syntheticCountingReader) Read(p []byte) (n int, err error) {
+	if s.ctx.Err() != nil {
+		return 0, io.EOF
+	}
+	err = nil
+	n = len(p)
+	*s.n += uint64(n)
+	return
+}
+func (lbu *LoadBearingUpload) Start(ctx context.Context) bool {
+	lbu.uploaded = 0
+	lbu.client = &http.Client{}
+	s := &syntheticCountingReader{n: &lbu.uploaded, ctx: ctx}
+	go func() {
+		resp, _ := lbu.client.Post(lbu.Path, "application/octet-stream", s)
+		resp.Body.Close()
+	}()
+	return true
 }
