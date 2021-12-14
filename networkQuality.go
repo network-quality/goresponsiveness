@@ -45,24 +45,29 @@ var (
 	timeout    = flag.Int("timeout", 20, "Maximum time to spend measuring.")
 )
 
-func addFlows(ctx context.Context, toAdd uint64, mcs *[]mc.MeasurableConnection, mcsPreviousTransferred *[]uint64, lbcGenerator func() mc.MeasurableConnection) {
+func addFlows(ctx context.Context, toAdd uint64, mcs *[]mc.MeasurableConnection, mcsPreviousTransferred *[]uint64, lbcGenerator func() mc.MeasurableConnection, debug bool) {
 	for i := uint64(0); i < toAdd; i++ {
 		//mcs[i] = &mc.LoadBearingUpload{Path: config.Urls.UploadUrl}
 		*mcs = append(*mcs, lbcGenerator())
 		*mcsPreviousTransferred = append(*mcsPreviousTransferred, 0)
-		if !(*mcs)[len(*mcs)-1].Start(ctx) {
+		if !(*mcs)[len(*mcs)-1].Start(ctx, debug) {
 			fmt.Printf("Error starting %dth MC!\n", i)
 			return
 		}
 	}
 }
 
-func saturate(ctx context.Context, saturated chan<- float64, lbcGenerator func() mc.MeasurableConnection, debug bool) {
+type SaturationResult struct {
+	RateBps   float64
+	FlowCount uint64
+}
+
+func saturate(ctx context.Context, saturated chan<- SaturationResult, lbcGenerator func() mc.MeasurableConnection, debug bool) {
 	mcs := make([]mc.MeasurableConnection, 0)
 	mcsPreviousTransferred := make([]uint64, 0)
 
 	// Create 4 load bearing connections
-	addFlows(ctx, 4, &mcs, &mcsPreviousTransferred, lbcGenerator)
+	addFlows(ctx, 4, &mcs, &mcsPreviousTransferred, lbcGenerator, debug)
 
 	previousFlowIncreaseIteration := uint64(0)
 	previousMovingAverage := float64(0)
@@ -92,7 +97,7 @@ func saturate(ctx context.Context, saturated chan<- float64, lbcGenerator func()
 		movingAverage.AddMeasurement(float64(totalTransfer))
 		currentMovingAverage := movingAverage.CalculateAverage()
 		movingAverageAverage.AddMeasurement(currentMovingAverage)
-		movingAverageDelta := utilities.PercentDifference(currentMovingAverage, previousMovingAverage)
+		movingAverageDelta := utilities.SignedPercentDifference(currentMovingAverage, previousMovingAverage)
 		previousMovingAverage = currentMovingAverage
 
 		if debug {
@@ -108,7 +113,7 @@ func saturate(ctx context.Context, saturated chan<- float64, lbcGenerator func()
 				if debug {
 					fmt.Printf("Adding flows because we are unsaturated and waited a while.\n")
 				}
-				addFlows(ctx, 4, &mcs, &mcsPreviousTransferred, lbcGenerator)
+				addFlows(ctx, 4, &mcs, &mcsPreviousTransferred, lbcGenerator, debug)
 				previousFlowIncreaseIteration = currentIteration
 			} else {
 				if debug {
@@ -127,13 +132,13 @@ func saturate(ctx context.Context, saturated chan<- float64, lbcGenerator func()
 				if debug {
 					fmt.Printf("New flows to add to try to increase our saturation!\n")
 				}
-				addFlows(ctx, 4, &mcs, &mcsPreviousTransferred, lbcGenerator)
+				addFlows(ctx, 4, &mcs, &mcsPreviousTransferred, lbcGenerator, debug)
 				previousFlowIncreaseIteration = currentIteration
 			}
 		}
 
 	}
-	saturated <- movingAverage.CalculateAverage()
+	saturated <- SaturationResult{RateBps: movingAverage.CalculateAverage(), FlowCount: uint64(len(mcs))}
 }
 
 func main() {
@@ -147,22 +152,24 @@ func main() {
 	configClient := &http.Client{}
 	resp, err := configClient.Get(configUrl)
 	if err != nil {
-		fmt.Printf("Error connecting to %s: %v\n", configHostPort, err)
+		fmt.Fprintf(os.Stderr, "Error: Could not connect to configuration host %s: %v\n", configHostPort, err)
 		return
 	}
 
 	jsonConfig, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Printf("Error reading content downloaded from %s: %v\n", configUrl, err)
+		fmt.Fprintf(os.Stderr, "Error: Could not read configuration content downloaded from %s: %v\n", configUrl, err)
 		return
 	}
 
 	var config Config
 	err = json.Unmarshal(jsonConfig, &config)
 	if err != nil {
-		fmt.Printf("Error parsing configuration returned from %s: %v\n", configUrl, err)
+		fmt.Fprintf(os.Stderr, "Error: Could not parse configuration returned from %s: %v\n", configUrl, err)
 		return
 	}
+
+	// TODO: Make sure that all configuration values are present and accounted for!
 
 	if *debug {
 		fmt.Printf("Configuration: %s\n", &config)
@@ -170,11 +177,10 @@ func main() {
 
 	operatingCtx, cancelOperatingCtx := context.WithCancel(context.Background())
 
-	uploadSaturationChannel := make(chan float64)
-	downloadSaturationChannel := make(chan float64)
-	timeoutChannel := make(chan interface{})
+	uploadSaturationChannel := make(chan SaturationResult)
+	downloadSaturationChannel := make(chan SaturationResult)
 
-	_ = timeoutat.NewTimeoutAt(operatingCtx, time.Now().Add(timeoutDuration), timeoutChannel)
+	timeoutChannel := timeoutat.TimeoutAt(operatingCtx, time.Now().Add(timeoutDuration), *debug)
 
 	generate_lbd := func() mc.MeasurableConnection {
 		return &mc.LoadBearingDownload{Path: config.Urls.LargeUrl}
@@ -196,14 +202,14 @@ func main() {
 			{
 				download_saturated = true
 				if *debug {
-					fmt.Printf("################## download is saturated (%f)!\n", toMBs(saturatedDownloadRate))
+					fmt.Printf("################# download is saturated (%fMBps, %d flows)!\n", toMBs(saturatedDownloadRate.RateBps), saturatedDownloadRate.FlowCount)
 				}
 			}
 		case saturatedUploadRate := <-uploadSaturationChannel:
 			{
 				upload_saturated = true
 				if *debug {
-					fmt.Printf("################# upload is saturated (%f)!\n", toMBs(saturatedUploadRate))
+					fmt.Printf("################# upload is saturated (%fMBps, %d flows)!\n", toMBs(saturatedUploadRate.RateBps), saturatedUploadRate.FlowCount)
 				}
 			}
 		case <-timeoutChannel:
@@ -218,7 +224,7 @@ func main() {
 
 	if saturation_timeout {
 		cancelOperatingCtx()
-		fmt.Fprintf(os.Stderr, "Error: Did not reach upload/download saturation in maximum time of %v.", timeoutDuration)
+		fmt.Fprintf(os.Stderr, "Error: Did not reach upload/download saturation in maximum time of %v\n.", timeoutDuration)
 		return
 	}
 

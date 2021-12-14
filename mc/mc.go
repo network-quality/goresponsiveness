@@ -2,16 +2,16 @@ package mc
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
-	"fmt"
 )
 
 var chunkSize int = 5000
 
 type MeasurableConnection interface {
-	Start(context.Context) bool
+	Start(context.Context, bool) bool
 	Transferred() uint64
 }
 
@@ -25,16 +25,18 @@ func (lbd *LoadBearingDownload) Transferred() uint64 {
 	return lbd.downloaded
 }
 
-func (lbd *LoadBearingDownload) Start(ctx context.Context) bool {
+func (lbd *LoadBearingDownload) Start(ctx context.Context, debug bool) bool {
 	lbd.downloaded = 0
 	lbd.client = &http.Client{}
 
-	fmt.Printf("Started a load bearing download.\n")
-	go doDownload(lbd.client, lbd.Path, &lbd.downloaded, ctx)
+	if debug {
+		fmt.Printf("Started a load bearing download.\n")
+	}
+	go doDownload(ctx, lbd.client, lbd.Path, &lbd.downloaded, debug)
 	return true
 }
 
-func doDownload(client *http.Client, path string, count *uint64, ctx context.Context) {
+func doDownload(ctx context.Context, client *http.Client, path string, count *uint64, debug bool) {
 	get, err := client.Get(path)
 	if err != nil {
 		return
@@ -47,7 +49,9 @@ func doDownload(client *http.Client, path string, count *uint64, ctx context.Con
 		*count += uint64(n)
 	}
 	get.Body.Close()
-	fmt.Printf("Ending a load-bearing download.\n");
+	if debug {
+		fmt.Printf("Ending a load-bearing download.\n")
+	}
 }
 
 type LoadBearingUpload struct {
@@ -76,19 +80,21 @@ func (s *syntheticCountingReader) Read(p []byte) (n int, err error) {
 	return
 }
 
-func doUpload(client *http.Client, path string, count *uint64, ctx context.Context) bool {
+func doUpload(ctx context.Context, client *http.Client, path string, count *uint64, debug bool) bool {
 	*count = 0
 	s := &syntheticCountingReader{n: count, ctx: ctx}
 	resp, _ := client.Post(path, "application/octet-stream", s)
 	resp.Body.Close()
-	fmt.Printf("Ending a load-bearing upload.\n")
+	if debug {
+		fmt.Printf("Ending a load-bearing upload.\n")
+	}
 	return true
 }
 
-func (lbu *LoadBearingUpload) Start(ctx context.Context) bool {
+func (lbu *LoadBearingUpload) Start(ctx context.Context, debug bool) bool {
 	lbu.uploaded = 0
 	lbu.client = &http.Client{}
 	fmt.Printf("Started a load bearing upload.\n")
-	go doUpload(lbu.client, lbu.Path, &lbu.uploaded, ctx)
+	go doUpload(ctx, lbu.client, lbu.Path, &lbu.uploaded, debug)
 	return true
 }

@@ -6,25 +6,22 @@ import (
 	"time"
 )
 
-type TimeoutAt struct {
-	when     time.Time
-	response chan interface{}
-}
-
-func NewTimeoutAt(ctx context.Context, when time.Time, response chan interface{}) *TimeoutAt {
-	timeoutAt := &TimeoutAt{when: when, response: response}
-	timeoutAt.start(ctx)
-	return timeoutAt
-}
-
-func (ta *TimeoutAt) start(ctx context.Context) {
-	go func() {
-		fmt.Printf("Timeout expected to end at %v\n", ta.when)
-		select {
-		case <-time.After(ta.when.Sub(time.Now())):
-		case <-ctx.Done():
-		}
-		ta.response <- struct{}{}
-		fmt.Printf("Timeout ended at %v\n", time.Now())
-	}()
+func TimeoutAt(ctx context.Context, when time.Time, debug bool) (response chan interface{}) {
+	response = make(chan interface{})
+	go func(ctx context.Context) {
+		go func() {
+			if debug {
+				fmt.Printf("Timeout expected to end at %v\n", when)
+			}
+			select {
+			case <-time.After(when.Sub(time.Now())):
+			case <-ctx.Done():
+			}
+			response <- struct{}{}
+			if debug {
+				fmt.Printf("Timeout ended at %v\n", time.Now())
+			}
+		}()
+	}(ctx)
+	return
 }

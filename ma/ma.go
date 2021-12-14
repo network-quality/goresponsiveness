@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/hawkinsw/goresponsiveness/saturating"
+	"github.com/hawkinsw/goresponsiveness/utilities"
 )
 
 // Convert this to a Type Parameterized interface when they are available
@@ -37,9 +38,7 @@ func (ma *MovingAverage) ConsistentWithin(limit float64) bool {
 	previous := ma.instants[0]
 	for i := 1; i < ma.intervals; i++ {
 		current := ma.instants[i]
-		delta := math.Abs(current - previous)
-		percentChange := (float64(delta) / (float64(current+previous) / 2.0)) * float64(100)
-
+		percentChange := utilities.AbsPercentDifference(current, previous)
 		previous = current
 		if math.Abs(percentChange) > limit {
 			return false
