@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	_ "log"
 	"net/http"
+	"net/url"
 	"os"
 	"time"
 
@@ -31,6 +32,19 @@ type Config struct {
 
 func (c *Config) String() string {
 	return fmt.Sprintf("Version: %d\nSmall URL: %s\nLarge URL: %s\nUpload URL: %s", c.Version, c.Urls.SmallUrl, c.Urls.LargeUrl, c.Urls.UploadUrl)
+}
+
+func (c *Config) IsValid() error {
+	if parsedUrl, err := url.ParseRequestURI(c.Urls.LargeUrl); err != nil || parsedUrl.Scheme != "https" {
+		return fmt.Errorf("Configuration url large_https_download_url is invalid: %s", utilities.Conditional(len(c.Urls.LargeUrl) != 0, c.Urls.LargeUrl, "Missing"))
+	}
+	if parsedUrl, err := url.ParseRequestURI(c.Urls.SmallUrl); err != nil || parsedUrl.Scheme != "https" {
+		return fmt.Errorf("Configuration url small_https_download_url is invalid: %s", utilities.Conditional(len(c.Urls.SmallUrl) != 0, c.Urls.SmallUrl, "Missing"))
+	}
+	if parsedUrl, err := url.ParseRequestURI(c.Urls.UploadUrl); err != nil || parsedUrl.Scheme != "https" {
+		return fmt.Errorf("Configuration url https_upload_url is invalid: %s", utilities.Conditional(len(c.Urls.UploadUrl) != 0, c.Urls.UploadUrl, "Missing"))
+	}
+	return nil
 }
 
 func toMBs(bytes float64) float64 {
@@ -170,6 +184,11 @@ func main() {
 	}
 
 	// TODO: Make sure that all configuration values are present and accounted for!
+
+	if err := config.IsValid(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: Invalid configuration returned from %s: %v\n", configUrl, err)
+		return
+	}
 
 	if *debug {
 		fmt.Printf("Configuration: %s\n", &config)
