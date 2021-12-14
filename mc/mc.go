@@ -5,7 +5,10 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"fmt"
 )
+
+var chunkSize int = 5000
 
 type MeasurableConnection interface {
 	Start(context.Context) bool
@@ -18,31 +21,33 @@ type LoadBearingDownload struct {
 	client     *http.Client
 }
 
-func (lbc *LoadBearingDownload) Transferred() uint64 {
-	return lbc.downloaded
+func (lbd *LoadBearingDownload) Transferred() uint64 {
+	return lbd.downloaded
 }
 
-func (lbc *LoadBearingDownload) Start(ctx context.Context) bool {
-	lbc.downloaded = 0
-	lbc.client = &http.Client{}
-	get, err := lbc.client.Get(lbc.Path)
+func (lbd *LoadBearingDownload) Start(ctx context.Context) bool {
+	lbd.downloaded = 0
+	lbd.client = &http.Client{}
 
-	if err != nil {
-		return false
-	}
-	go doDownload(get, &lbc.downloaded, ctx)
+	fmt.Printf("Started a load bearing download.\n")
+	go doDownload(lbd.client, lbd.Path, &lbd.downloaded, ctx)
 	return true
 }
 
-func doDownload(get *http.Response, count *uint64, ctx context.Context) {
+func doDownload(client *http.Client, path string, count *uint64, ctx context.Context) {
+	get, err := client.Get(path)
+	if err != nil {
+		return
+	}
 	for ctx.Err() == nil {
-		n, err := io.CopyN(ioutil.Discard, get.Body, 100)
+		n, err := io.CopyN(ioutil.Discard, get.Body, int64(chunkSize))
 		if err != nil {
 			break
 		}
 		*count += uint64(n)
 	}
 	get.Body.Close()
+	fmt.Printf("Ending a load-bearing download.\n");
 }
 
 type LoadBearingUpload struct {
@@ -66,16 +71,24 @@ func (s *syntheticCountingReader) Read(p []byte) (n int, err error) {
 	}
 	err = nil
 	n = len(p)
+	n = chunkSize
 	*s.n += uint64(n)
 	return
 }
+
+func doUpload(client *http.Client, path string, count *uint64, ctx context.Context) bool {
+	*count = 0
+	s := &syntheticCountingReader{n: count, ctx: ctx}
+	resp, _ := client.Post(path, "application/octet-stream", s)
+	resp.Body.Close()
+	fmt.Printf("Ending a load-bearing upload.\n")
+	return true
+}
+
 func (lbu *LoadBearingUpload) Start(ctx context.Context) bool {
 	lbu.uploaded = 0
 	lbu.client = &http.Client{}
-	s := &syntheticCountingReader{n: &lbu.uploaded, ctx: ctx}
-	go func() {
-		resp, _ := lbu.client.Post(lbu.Path, "application/octet-stream", s)
-		resp.Body.Close()
-	}()
+	fmt.Printf("Started a load bearing upload.\n")
+	go doUpload(lbu.client, lbu.Path, &lbu.uploaded, ctx)
 	return true
 }
