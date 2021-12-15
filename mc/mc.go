@@ -13,6 +13,7 @@ var chunkSize int = 5000
 type MeasurableConnection interface {
 	Start(context.Context, bool) bool
 	Transferred() uint64
+	Client() *http.Client
 }
 
 type LoadBearingDownload struct {
@@ -25,9 +26,29 @@ func (lbd *LoadBearingDownload) Transferred() uint64 {
 	return lbd.downloaded
 }
 
+func (lbd *LoadBearingDownload) Client() *http.Client {
+	return lbd.client
+}
+
 func (lbd *LoadBearingDownload) Start(ctx context.Context, debug bool) bool {
 	lbd.downloaded = 0
 	lbd.client = &http.Client{}
+
+	// At some point this might be useful: It is a snippet of code that will enable
+	// logging of per-session TLS key material in order to make debugging easier in
+	// Wireshark.
+	/*
+		lbd.client = &http.Client{
+			Transport: &http2.Transport{
+				TLSClientConfig: &tls.Config{
+					KeyLogWriter: w,
+
+					Rand:               utilities.RandZeroSource{}, // for reproducible output; don't do this.
+					InsecureSkipVerify: true,                       // test server certificate is not trusted.
+				},
+			},
+		}
+	*/
 
 	if debug {
 		fmt.Printf("Started a load bearing download.\n")
@@ -62,6 +83,10 @@ type LoadBearingUpload struct {
 
 func (lbu *LoadBearingUpload) Transferred() uint64 {
 	return lbu.uploaded
+}
+
+func (lbd *LoadBearingUpload) Client() *http.Client {
+	return lbd.client
 }
 
 type syntheticCountingReader struct {
