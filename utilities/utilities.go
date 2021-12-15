@@ -27,7 +27,7 @@ type GetLatency struct {
 	Err   error
 }
 
-func TimedSequentialGets(ctx context.Context, client_a *http.Client, client_b *http.Client, url string) chan GetLatency {
+func TimedSequentialRTTs(ctx context.Context, client_a *http.Client, client_b *http.Client, url string) chan GetLatency {
 	responseChannel := make(chan GetLatency)
 	go func() {
 		before := time.Now()
