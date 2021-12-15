@@ -15,8 +15,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hawkinsw/goresponsiveness/lbc"
 	"github.com/hawkinsw/goresponsiveness/ma"
-	"github.com/hawkinsw/goresponsiveness/mc"
 	"github.com/hawkinsw/goresponsiveness/timeoutat"
 	"github.com/hawkinsw/goresponsiveness/utilities"
 )
@@ -90,13 +90,13 @@ var (
 	storeSslKeys = flag.Bool("store-ssl-keys", false, "Store SSL keys from connections for debugging. (currently unused)")
 )
 
-func addFlows(ctx context.Context, toAdd uint64, mcs *[]mc.MeasurableConnection, mcsPreviousTransferred *[]uint64, lbcGenerator func() mc.MeasurableConnection, debug bool) {
+func addFlows(ctx context.Context, toAdd uint64, lbcs *[]lbc.LoadBearingConnection, lbcsPreviousTransferred *[]uint64, lbcGenerator func() lbc.LoadBearingConnection, debug bool) {
 	for i := uint64(0); i < toAdd; i++ {
 		//mcs[i] = &mc.LoadBearingUpload{Path: config.Urls.UploadUrl}
-		*mcs = append(*mcs, lbcGenerator())
-		*mcsPreviousTransferred = append(*mcsPreviousTransferred, 0)
-		if !(*mcs)[len(*mcs)-1].Start(ctx, debug) {
-			fmt.Printf("Error starting %dth MC!\n", i)
+		*lbcs = append(*lbcs, lbcGenerator())
+		*lbcsPreviousTransferred = append(*lbcsPreviousTransferred, 0)
+		if !(*lbcs)[len(*lbcs)-1].Start(ctx, debug) {
+			fmt.Printf("Error starting %dth LBC!\n", i)
 			return
 		}
 	}
@@ -104,18 +104,18 @@ func addFlows(ctx context.Context, toAdd uint64, mcs *[]mc.MeasurableConnection,
 
 type SaturationResult struct {
 	RateBps float64
-	Mcs     []mc.MeasurableConnection
+	Lbcs    []lbc.LoadBearingConnection
 }
 
-func saturate(ctx context.Context, lbcGenerator func() mc.MeasurableConnection, debug bool) (saturated chan SaturationResult) {
+func saturate(ctx context.Context, lbcGenerator func() lbc.LoadBearingConnection, debug bool) (saturated chan SaturationResult) {
 	saturated = make(chan SaturationResult)
 	go func() {
 
-		mcs := make([]mc.MeasurableConnection, 0)
-		mcsPreviousTransferred := make([]uint64, 0)
+		lbcs := make([]lbc.LoadBearingConnection, 0)
+		lbcsPreviousTransferred := make([]uint64, 0)
 
 		// Create 4 load bearing connections
-		addFlows(ctx, 4, &mcs, &mcsPreviousTransferred, lbcGenerator, debug)
+		addFlows(ctx, 4, &lbcs, &lbcsPreviousTransferred, lbcGenerator, debug)
 
 		previousFlowIncreaseIteration := uint64(0)
 		previousMovingAverage := float64(0)
@@ -145,11 +145,11 @@ func saturate(ctx context.Context, lbcGenerator func() mc.MeasurableConnection, 
 
 			// Compute "instantaneous aggregate" goodput which is the number of bytes transferred within the last second.
 			totalTransfer := uint64(0)
-			for i := range mcs {
-				previousTransferred := mcsPreviousTransferred[i]
-				currentTransferred := mcs[i].Transferred()
+			for i := range lbcs {
+				previousTransferred := lbcsPreviousTransferred[i]
+				currentTransferred := lbcs[i].Transferred()
 				totalTransfer += (currentTransferred - previousTransferred)
-				mcsPreviousTransferred[i] = currentTransferred
+				lbcsPreviousTransferred[i] = currentTransferred
 			}
 
 			// Compute a moving average of the last 4 "instantaneous aggregate goodput" measurements
@@ -172,7 +172,7 @@ func saturate(ctx context.Context, lbcGenerator func() mc.MeasurableConnection, 
 					if debug {
 						fmt.Printf("Adding flows because we are unsaturated and waited a while.\n")
 					}
-					addFlows(ctx, 4, &mcs, &mcsPreviousTransferred, lbcGenerator, debug)
+					addFlows(ctx, 4, &lbcs, &lbcsPreviousTransferred, lbcGenerator, debug)
 					previousFlowIncreaseIteration = currentIteration
 				} else {
 					if debug {
@@ -191,13 +191,13 @@ func saturate(ctx context.Context, lbcGenerator func() mc.MeasurableConnection, 
 					if debug {
 						fmt.Printf("New flows to add to try to increase our saturation!\n")
 					}
-					addFlows(ctx, 4, &mcs, &mcsPreviousTransferred, lbcGenerator, debug)
+					addFlows(ctx, 4, &lbcs, &lbcsPreviousTransferred, lbcGenerator, debug)
 					previousFlowIncreaseIteration = currentIteration
 				}
 			}
 
 		}
-		saturated <- SaturationResult{RateBps: movingAverage.CalculateAverage(), Mcs: mcs}
+		saturated <- SaturationResult{RateBps: movingAverage.CalculateAverage(), Lbcs: lbcs}
 	}()
 	return
 }
@@ -224,11 +224,11 @@ func main() {
 
 	timeoutChannel := timeoutat.TimeoutAt(operatingCtx, time.Now().Add(timeoutDuration), *debug)
 
-	generate_lbd := func() mc.MeasurableConnection {
-		return &mc.LoadBearingDownload{Path: config.Urls.LargeUrl}
+	generate_lbd := func() lbc.LoadBearingConnection {
+		return &lbc.LoadBearingConnectionDownload{Path: config.Urls.LargeUrl}
 	}
-	generate_lbu := func() mc.MeasurableConnection {
-		return &mc.LoadBearingUpload{Path: config.Urls.UploadUrl}
+	generate_lbu := func() lbc.LoadBearingConnection {
+		return &lbc.LoadBearingConnectionUpload{Path: config.Urls.UploadUrl}
 	}
 	downloadSaturationChannel := saturate(operatingCtx, generate_lbd, *debug)
 	uploadSaturationChannel := saturate(operatingCtx, generate_lbu, *debug)
@@ -245,14 +245,14 @@ func main() {
 			{
 				download_saturated = true
 				if *debug {
-					fmt.Printf("################# download is saturated (%fMBps, %d flows)!\n", toMBs(downloadSaturation.RateBps), len(downloadSaturation.Mcs))
+					fmt.Printf("################# download is saturated (%fMBps, %d flows)!\n", toMBs(downloadSaturation.RateBps), len(downloadSaturation.Lbcs))
 				}
 			}
 		case uploadSaturation = <-uploadSaturationChannel:
 			{
 				upload_saturated = true
 				if *debug {
-					fmt.Printf("################# upload is saturated (%fMBps, %d flows)!\n", toMBs(uploadSaturation.RateBps), len(uploadSaturation.Mcs))
+					fmt.Printf("################# upload is saturated (%fMBps, %d flows)!\n", toMBs(uploadSaturation.RateBps), len(uploadSaturation.Lbcs))
 				}
 			}
 		case <-timeoutChannel:
@@ -276,13 +276,13 @@ func main() {
 	totalRTTTime := float64(0)
 
 	for i := 0; i < robustnessProbeIterationCount && !test_timeout; i++ {
-		randomMcsIndex := rand.New(rand.NewSource(int64(time.Now().Nanosecond()))).Int() % len(downloadSaturation.Mcs)
+		randomLbcsIndex := rand.New(rand.NewSource(int64(time.Now().Nanosecond()))).Int() % len(downloadSaturation.Lbcs)
 		select {
 		case <-timeoutChannel:
 			{
 				test_timeout = true
 			}
-		case fiveRTTsTime := <-utilities.TimedSequentialRTTs(operatingCtx, downloadSaturation.Mcs[randomMcsIndex].Client(), &http.Client{}, config.Urls.SmallUrl):
+		case fiveRTTsTime := <-utilities.TimedSequentialRTTs(operatingCtx, downloadSaturation.Lbcs[randomLbcsIndex].Client(), &http.Client{}, config.Urls.SmallUrl):
 			{
 				actualRTTCount += 5
 				totalRTTTime += fiveRTTsTime.Delay.Seconds()

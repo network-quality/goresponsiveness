@@ -1,4 +1,4 @@
-package mc
+package lbc
 
 import (
 	"context"
@@ -10,27 +10,27 @@ import (
 
 var chunkSize int = 5000
 
-type MeasurableConnection interface {
+type LoadBearingConnection interface {
 	Start(context.Context, bool) bool
 	Transferred() uint64
 	Client() *http.Client
 }
 
-type LoadBearingDownload struct {
+type LoadBearingConnectionDownload struct {
 	Path       string
 	downloaded uint64
 	client     *http.Client
 }
 
-func (lbd *LoadBearingDownload) Transferred() uint64 {
+func (lbd *LoadBearingConnectionDownload) Transferred() uint64 {
 	return lbd.downloaded
 }
 
-func (lbd *LoadBearingDownload) Client() *http.Client {
+func (lbd *LoadBearingConnectionDownload) Client() *http.Client {
 	return lbd.client
 }
 
-func (lbd *LoadBearingDownload) Start(ctx context.Context, debug bool) bool {
+func (lbd *LoadBearingConnectionDownload) Start(ctx context.Context, debug bool) bool {
 	lbd.downloaded = 0
 	lbd.client = &http.Client{}
 
@@ -75,17 +75,17 @@ func doDownload(ctx context.Context, client *http.Client, path string, count *ui
 	}
 }
 
-type LoadBearingUpload struct {
+type LoadBearingConnectionUpload struct {
 	Path     string
 	uploaded uint64
 	client   *http.Client
 }
 
-func (lbu *LoadBearingUpload) Transferred() uint64 {
+func (lbu *LoadBearingConnectionUpload) Transferred() uint64 {
 	return lbu.uploaded
 }
 
-func (lbd *LoadBearingUpload) Client() *http.Client {
+func (lbd *LoadBearingConnectionUpload) Client() *http.Client {
 	return lbd.client
 }
 
@@ -116,7 +116,7 @@ func doUpload(ctx context.Context, client *http.Client, path string, count *uint
 	return true
 }
 
-func (lbu *LoadBearingUpload) Start(ctx context.Context, debug bool) bool {
+func (lbu *LoadBearingConnectionUpload) Start(ctx context.Context, debug bool) bool {
 	lbu.uploaded = 0
 	lbu.client = &http.Client{}
 	fmt.Printf("Started a load bearing upload.\n")
