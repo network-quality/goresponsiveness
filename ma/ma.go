@@ -1,8 +1,6 @@
 package ma
 
 import (
-	"math"
-
 	"github.com/hawkinsw/goresponsiveness/saturating"
 	"github.com/hawkinsw/goresponsiveness/utilities"
 )
@@ -34,13 +32,13 @@ func (ma *MovingAverage) CalculateAverage() float64 {
 	return float64(total) / float64(ma.divisor.Value())
 }
 
-func (ma *MovingAverage) ConsistentWithin(limit float64) bool {
+func (ma *MovingAverage) IncreasesLessThan(limit float64) bool {
 	previous := ma.instants[0]
 	for i := 1; i < ma.intervals; i++ {
 		current := ma.instants[i]
-		percentChange := utilities.AbsPercentDifference(current, previous)
+		percentChange := utilities.SignedPercentDifference(current, previous)
 		previous = current
-		if math.Abs(percentChange) > limit {
+		if percentChange > limit {
 			return false
 		}
 	}

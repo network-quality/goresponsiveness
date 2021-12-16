@@ -6,24 +6,32 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"sync/atomic"
 )
 
-var chunkSize int = 5000
+var chunkSize int = 50
 
 type LoadBearingConnection interface {
 	Start(context.Context, bool) bool
 	Transferred() uint64
 	Client() *http.Client
+	IsValid() bool
 }
 
 type LoadBearingConnectionDownload struct {
 	Path       string
 	downloaded uint64
 	client     *http.Client
+	debug      bool
+	valid      bool
 }
 
 func (lbd *LoadBearingConnectionDownload) Transferred() uint64 {
-	return lbd.downloaded
+	transferred := atomic.LoadUint64(&lbd.downloaded)
+	if lbd.debug {
+		fmt.Printf("download: Transferred: %v\n", transferred)
+	}
+	return transferred
 }
 
 func (lbd *LoadBearingConnectionDownload) Client() *http.Client {
@@ -33,6 +41,8 @@ func (lbd *LoadBearingConnectionDownload) Client() *http.Client {
 func (lbd *LoadBearingConnectionDownload) Start(ctx context.Context, debug bool) bool {
 	lbd.downloaded = 0
 	lbd.client = &http.Client{}
+	lbd.debug = debug
+	lbd.valid = true
 
 	// At some point this might be useful: It is a snippet of code that will enable
 	// logging of per-session TLS key material in order to make debugging easier in
@@ -51,26 +61,31 @@ func (lbd *LoadBearingConnectionDownload) Start(ctx context.Context, debug bool)
 	*/
 
 	if debug {
-		fmt.Printf("Started a load bearing download.\n")
+		fmt.Printf("Started a load-bearing download.\n")
 	}
-	go doDownload(ctx, lbd.client, lbd.Path, &lbd.downloaded, debug)
+	go lbd.doDownload(ctx)
 	return true
 }
+func (lbd *LoadBearingConnectionDownload) IsValid() bool {
+	return lbd.valid
+}
 
-func doDownload(ctx context.Context, client *http.Client, path string, count *uint64, debug bool) {
-	get, err := client.Get(path)
+func (lbd *LoadBearingConnectionDownload) doDownload(ctx context.Context) {
+	get, err := lbd.client.Get(lbd.Path)
 	if err != nil {
+		lbd.valid = false
 		return
 	}
 	for ctx.Err() == nil {
 		n, err := io.CopyN(ioutil.Discard, get.Body, int64(chunkSize))
 		if err != nil {
+			lbd.valid = false
 			break
 		}
-		*count += uint64(n)
+		atomic.AddUint64(&lbd.downloaded, uint64(n))
 	}
 	get.Body.Close()
-	if debug {
+	if lbd.debug {
 		fmt.Printf("Ending a load-bearing download.\n")
 	}
 }
@@ -79,14 +94,24 @@ type LoadBearingConnectionUpload struct {
 	Path     string
 	uploaded uint64
 	client   *http.Client
+	debug    bool
+	valid    bool
 }
 
 func (lbu *LoadBearingConnectionUpload) Transferred() uint64 {
-	return lbu.uploaded
+	transferred := atomic.LoadUint64(&lbu.uploaded)
+	if lbu.debug {
+		fmt.Printf("upload: Transferred: %v\n", transferred)
+	}
+	return transferred
 }
 
-func (lbd *LoadBearingConnectionUpload) Client() *http.Client {
-	return lbd.client
+func (lbu *LoadBearingConnectionUpload) Client() *http.Client {
+	return lbu.client
+}
+
+func (lbu *LoadBearingConnectionUpload) IsValid() bool {
+	return lbu.valid
 }
 
 type syntheticCountingReader struct {
@@ -101,16 +126,17 @@ func (s *syntheticCountingReader) Read(p []byte) (n int, err error) {
 	err = nil
 	n = len(p)
 	n = chunkSize
-	*s.n += uint64(n)
+	atomic.AddUint64(s.n, uint64(n))
 	return
 }
 
-func doUpload(ctx context.Context, client *http.Client, path string, count *uint64, debug bool) bool {
-	*count = 0
-	s := &syntheticCountingReader{n: count, ctx: ctx}
-	resp, _ := client.Post(path, "application/octet-stream", s)
+func (lbu *LoadBearingConnectionUpload) doUpload(ctx context.Context) bool {
+	lbu.uploaded = 0
+	s := &syntheticCountingReader{n: &lbu.uploaded, ctx: ctx}
+	resp, _ := lbu.client.Post(lbu.Path, "application/octet-stream", s)
+	lbu.valid = false
 	resp.Body.Close()
-	if debug {
+	if lbu.debug {
 		fmt.Printf("Ending a load-bearing upload.\n")
 	}
 	return true
@@ -119,7 +145,12 @@ func doUpload(ctx context.Context, client *http.Client, path string, count *uint
 func (lbu *LoadBearingConnectionUpload) Start(ctx context.Context, debug bool) bool {
 	lbu.uploaded = 0
 	lbu.client = &http.Client{}
-	fmt.Printf("Started a load bearing upload.\n")
-	go doUpload(ctx, lbu.client, lbu.Path, &lbu.uploaded, debug)
+	lbu.debug = debug
+	lbu.valid = true
+
+	if debug {
+		fmt.Printf("Started a load-bearing upload.\n")
+	}
+	go lbu.doUpload(ctx)
 	return true
 }
