@@ -32,10 +32,18 @@ func (ma *MovingAverage) CalculateAverage() float64 {
 	return float64(total) / float64(ma.divisor.Value())
 }
 
-func (ma *MovingAverage) IncreasesLessThan(limit float64) bool {
-	previous := ma.instants[0]
+func (ma *MovingAverage) AllSequentialIncreasesLessThan(limit float64) bool {
+
+	// If we have not yet accumulated a complete set of intervals,
+	// this is false.
+	if ma.divisor.Value() != ma.intervals {
+		return false
+	}
+
+	previous := ma.instants[ma.index]
 	for i := 1; i < ma.intervals; i++ {
-		current := ma.instants[i]
+		currentIndex := (ma.index + i) % ma.intervals
+		current := ma.instants[currentIndex]
 		percentChange := utilities.SignedPercentDifference(current, previous)
 		previous = current
 		if percentChange > limit {

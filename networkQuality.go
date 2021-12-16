@@ -242,7 +242,7 @@ func saturate(saturationCtx context.Context, operatingCtx context.Context, lbcGe
 					fmt.Printf("%v: Network reached saturation with current flow count.\n", debug)
 				}
 				// If new flows added and for 4 seconds the moving average throughput did not change: network reached stable saturation
-				if (currentIteration-previousFlowIncreaseIteration) < 4 && movingAverageAverage.IncreasesLessThan(float64(5)) {
+				if (currentIteration-previousFlowIncreaseIteration) < 4 && movingAverageAverage.AllSequentialIncreasesLessThan(float64(5)) {
 					if debug != nil {
 						fmt.Printf("%v: New flows added within the last four seconds and the moving-average average is consistent!\n", debug)
 					}
