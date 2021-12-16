@@ -31,8 +31,8 @@ var (
 	storeSslKeys = flag.Bool("store-ssl-keys", false, "Store SSL keys from connections for debugging. (currently unused)")
 
 	// Global configuration
-	cooldownPeriod                int = 4
-	robustnessProbeIterationCount int = 5
+	cooldownPeriod                time.Duration = 4 * time.Second
+	robustnessProbeIterationCount int           = 5
 )
 
 type ConfigUrls struct {
@@ -341,7 +341,7 @@ func main() {
 					fmt.Fprint(os.Stderr, "Error: Saturation could not be completed in time and no provisional rates could be accessed. Test failed.\n")
 					cancelOperatingCtx()
 					if *debug {
-						time.Sleep(time.Duration(cooldownPeriod) * time.Second)
+						time.Sleep(cooldownPeriod)
 					}
 					return
 				}
@@ -414,6 +414,6 @@ func main() {
 
 	cancelOperatingCtx()
 	if *debug {
-		time.Sleep(time.Duration(cooldownPeriod) * time.Second)
+		time.Sleep(cooldownPeriod)
 	}
 }
