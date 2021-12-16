@@ -21,6 +21,7 @@ func NewMovingAverage(intervals int) *MovingAverage {
 func (ma *MovingAverage) AddMeasurement(measurement float64) {
 	ma.instants[ma.index] = measurement
 	ma.divisor.Add(1)
+	// Invariant: ma.index always points to the oldest measurement
 	ma.index = (ma.index + 1) % ma.intervals
 }
 
@@ -40,9 +41,11 @@ func (ma *MovingAverage) AllSequentialIncreasesLessThan(limit float64) bool {
 		return false
 	}
 
-	previous := ma.instants[ma.index]
+	// Invariant: ma.index always points to the oldest (see AddMeasurement above)
+	oldestIndex := ma.index
+	previous := ma.instants[oldestIndex]
 	for i := 1; i < ma.intervals; i++ {
-		currentIndex := (ma.index + i) % ma.intervals
+		currentIndex := (oldestIndex + i) % ma.intervals
 		current := ma.instants[currentIndex]
 		percentChange := utilities.SignedPercentDifference(current, previous)
 		previous = current

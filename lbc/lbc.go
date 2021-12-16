@@ -133,9 +133,10 @@ func (s *syntheticCountingReader) Read(p []byte) (n int, err error) {
 func (lbu *LoadBearingConnectionUpload) doUpload(ctx context.Context) bool {
 	lbu.uploaded = 0
 	s := &syntheticCountingReader{n: &lbu.uploaded, ctx: ctx}
-	resp, _ := lbu.client.Post(lbu.Path, "application/octet-stream", s)
+	if resp, err := lbu.client.Post(lbu.Path, "application/octet-stream", s); err == nil {
+		resp.Body.Close()
+	}
 	lbu.valid = false
-	resp.Body.Close()
 	if lbu.debug {
 		fmt.Printf("Ending a load-bearing upload.\n")
 	}
