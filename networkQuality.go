@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"runtime/pprof"
 	"strings"
 	"time"
 
@@ -29,6 +30,7 @@ var (
 	debug        = flag.Bool("debug", false, "Enable debugging.")
 	timeout      = flag.Int("timeout", 20, "Maximum time to spend measuring.")
 	storeSslKeys = flag.Bool("store-ssl-keys", false, "Store SSL keys from connections for debugging. (currently unused)")
+	profile      = flag.String("profile", "", "Enable client runtime profiling and specify storage location. Disabled by default.")
 
 	// Global configuration
 	cooldownPeriod                time.Duration = 4 * time.Second
@@ -298,6 +300,16 @@ func main() {
 	timeoutChannel := timeoutat.TimeoutAt(operatingCtx, timeoutAbsoluteTime, *debug)
 	if *debug {
 		fmt.Printf("Test will end earlier than %v\n", timeoutAbsoluteTime)
+	}
+
+	if len(*profile) != 0 {
+		f, err := os.Create(*profile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: Profiling requested with storage in %s but that file could not be opened: %v\n", *profile, err)
+			return
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
 	}
 
 	generate_lbd := func() lbc.LoadBearingConnection {
