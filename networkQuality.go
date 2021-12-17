@@ -412,7 +412,7 @@ func main() {
 	fmt.Printf("Upload: %f MBps (%f Mbps), using %d parallel connections.\n", toMBps(uploadSaturation.RateBps), toMbps(uploadSaturation.RateBps), len(uploadSaturation.Lbcs))
 
 	if totalRTTsCount != 0 {
-		rpm := float64(60) / (totalRTTTime / (float64(totalRTTsCount) * 5))
+		rpm := float64(60) / (totalRTTTime / (float64(totalRTTsCount)))
 		fmt.Printf("Total RTTs measured: %d\n", totalRTTsCount)
 		fmt.Printf("RPM: %v\n", rpm)
 	} else {
