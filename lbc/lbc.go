@@ -4,12 +4,11 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"sync/atomic"
 )
 
-var chunkSize int = 50
+var chunkSize int = 5000
 
 type LoadBearingConnection interface {
 	Start(context.Context, bool) bool
@@ -36,6 +35,21 @@ func (lbd *LoadBearingConnectionDownload) Transferred() uint64 {
 
 func (lbd *LoadBearingConnectionDownload) Client() *http.Client {
 	return lbd.client
+}
+
+type syntheticCountingWriter struct {
+	n   *uint64
+	ctx context.Context
+}
+
+func (s *syntheticCountingWriter) Write(p []byte) (n int, err error) {
+	if s.ctx.Err() != nil {
+		return 0, io.EOF
+	}
+	err = nil
+	n = len(p)
+	atomic.AddUint64(s.n, uint64(n))
+	return
 }
 
 func (lbd *LoadBearingConnectionDownload) Start(ctx context.Context, debug bool) bool {
@@ -76,14 +90,11 @@ func (lbd *LoadBearingConnectionDownload) doDownload(ctx context.Context) {
 		lbd.valid = false
 		return
 	}
-	for ctx.Err() == nil {
-		n, err := io.CopyN(ioutil.Discard, get.Body, int64(chunkSize))
-		if err != nil {
-			lbd.valid = false
-			break
-		}
-		atomic.AddUint64(&lbd.downloaded, uint64(n))
-	}
+	s := &syntheticCountingWriter{n: &lbd.downloaded, ctx: ctx}
+	// Setup a single buffer!
+	buffer := make([]byte, chunkSize)
+	_, err = io.CopyBuffer(s, get.Body, buffer)
+	lbd.valid = false
 	get.Body.Close()
 	if lbd.debug {
 		fmt.Printf("Ending a load-bearing download.\n")
