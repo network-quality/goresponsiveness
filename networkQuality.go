@@ -307,8 +307,15 @@ func main() {
 		return &lbc.LoadBearingConnectionUpload{Path: config.Urls.UploadUrl}
 	}
 
-	downloadSaturationChannel := saturate(saturationCtx, operatingCtx, generate_lbd, NewDebugging("download"))
-	uploadSaturationChannel := saturate(saturationCtx, operatingCtx, generate_lbu, NewDebugging("upload"))
+	var downloadDebugging *Debugging = nil
+	var uploadDebugging *Debugging = nil
+	if *debug {
+		downloadDebugging = &Debugging{Prefix: "download"}
+		uploadDebugging = &Debugging{Prefix: "upload"}
+	}
+
+	downloadSaturationChannel := saturate(saturationCtx, operatingCtx, generate_lbd, downloadDebugging)
+	uploadSaturationChannel := saturate(saturationCtx, operatingCtx, generate_lbu, uploadDebugging)
 
 	saturationTimeout := false
 	uploadSaturated := false
