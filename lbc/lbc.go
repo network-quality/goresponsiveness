@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"sync/atomic"
 )
@@ -90,8 +91,9 @@ func (lbd *LoadBearingConnectionDownload) doDownload(ctx context.Context) {
 		lbd.valid = false
 		return
 	}
+	buff := make([]byte, 500*1024*1024)
 	cr := &countingReader{n: &lbd.downloaded, ctx: ctx, readable: get.Body}
-	_, _ = io.ReadAll(cr)
+	_, _ = io.CopyBuffer(ioutil.Discard, cr, buff)
 	lbd.valid = false
 	get.Body.Close()
 	if lbd.debug {
