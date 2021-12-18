@@ -37,18 +37,18 @@ func (lbd *LoadBearingConnectionDownload) Client() *http.Client {
 	return lbd.client
 }
 
-type syntheticCountingWriter struct {
-	n   *uint64
-	ctx context.Context
+type countingReader struct {
+	n        *uint64
+	ctx      context.Context
+	readable io.Reader
 }
 
-func (s *syntheticCountingWriter) Write(p []byte) (n int, err error) {
-	if s.ctx.Err() != nil {
+func (cr *countingReader) Read(p []byte) (n int, err error) {
+	if cr.ctx.Err() != nil {
 		return 0, io.EOF
 	}
-	err = nil
-	n = len(p)
-	atomic.AddUint64(s.n, uint64(n))
+	n, err = cr.readable.Read(p)
+	*cr.n += uint64(n)
 	return
 }
 
@@ -90,10 +90,8 @@ func (lbd *LoadBearingConnectionDownload) doDownload(ctx context.Context) {
 		lbd.valid = false
 		return
 	}
-	s := &syntheticCountingWriter{n: &lbd.downloaded, ctx: ctx}
-	// Setup a single buffer!
-	buffer := make([]byte, chunkSize)
-	_, err = io.CopyBuffer(s, get.Body, buffer)
+	cr := &countingReader{n: &lbd.downloaded, ctx: ctx, readable: get.Body}
+	_, _ = io.ReadAll(cr)
 	lbd.valid = false
 	get.Body.Close()
 	if lbd.debug {
