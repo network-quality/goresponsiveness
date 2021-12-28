@@ -388,6 +388,9 @@ func main() {
 	rttTimeout := false
 
 	for i := 0; i < robustnessProbeIterationCount && !rttTimeout; i++ {
+		if len(downloadSaturation.Lbcs) == 0 {
+			continue
+		}
 		randomLbcsIndex := rand.New(rand.NewSource(int64(time.Now().Nanosecond()))).Int() % len(downloadSaturation.Lbcs)
 		if !downloadSaturation.Lbcs[randomLbcsIndex].IsValid() {
 			if debug != nil {

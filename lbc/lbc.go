@@ -49,13 +49,14 @@ func (cr *countingReader) Read(p []byte) (n int, err error) {
 		return 0, io.EOF
 	}
 	n, err = cr.readable.Read(p)
-	*cr.n += uint64(n)
+	atomic.AddUint64(cr.n, uint64(n))
 	return
 }
 
 func (lbd *LoadBearingConnectionDownload) Start(ctx context.Context, debug bool) bool {
 	lbd.downloaded = 0
-	lbd.client = &http.Client{}
+	transport := http.Transport{}
+	lbd.client = &http.Client{Transport: &transport}
 	lbd.debug = debug
 	lbd.valid = true
 
@@ -91,9 +92,8 @@ func (lbd *LoadBearingConnectionDownload) doDownload(ctx context.Context) {
 		lbd.valid = false
 		return
 	}
-	buff := make([]byte, 500*1024*1024)
 	cr := &countingReader{n: &lbd.downloaded, ctx: ctx, readable: get.Body}
-	_, _ = io.CopyBuffer(ioutil.Discard, cr, buff)
+	_, _ = io.Copy(ioutil.Discard, cr)
 	lbd.valid = false
 	get.Body.Close()
 	if lbd.debug {
@@ -136,7 +136,7 @@ func (s *syntheticCountingReader) Read(p []byte) (n int, err error) {
 	}
 	err = nil
 	n = len(p)
-	n = chunkSize
+
 	atomic.AddUint64(s.n, uint64(n))
 	return
 }
@@ -156,7 +156,8 @@ func (lbu *LoadBearingConnectionUpload) doUpload(ctx context.Context) bool {
 
 func (lbu *LoadBearingConnectionUpload) Start(ctx context.Context, debug bool) bool {
 	lbu.uploaded = 0
-	lbu.client = &http.Client{}
+	transport := http.Transport{}
+	lbu.client = &http.Client{Transport: &transport}
 	lbu.debug = debug
 	lbu.valid = true
 
