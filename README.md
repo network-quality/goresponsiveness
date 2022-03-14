@@ -4,7 +4,7 @@ In late 2021 and early 2022, researchers at Apple took to heart the internet-wid
 
 > This document specifies the "RPM Test" for measuring responsiveness. It uses common protocols and mechanisms to measure user experience especially when the network is under working conditions. The measurement is expressed as "Round-trips Per Minute" (RPM) and should be included with throughput (up and down) and idle latency as critical indicators of network quality.
 
-Apple wrote and released an implementation of the test in its iOS and macOS operating systems in [versions 15 and Monterrey](https://support.apple.com/en-gb/HT212313), respectively.
+Apple wrote and released an implementation of the test in its iOS and macOS operating systems in [versions 15 and Monterey](https://support.apple.com/en-gb/HT212313), respectively.
 
 The researchers at Apple, in collaboration with others throughout the internet-measurement community, proposed RPM as an [IETF RFC](https://github.com/network-quality/draft-ietf-ippm-responsiveness/blob/master/draft-ietf-ippm-responsiveness.txt).
 
@@ -49,7 +49,7 @@ From `${RSPVNSS_SOURCE_DIR}`, running the client is straightforward. Simply
 $ ./networkQuality
 ```
 
-Without any options, the tool will attempt to contact `networkquality.example.com` on port 4043 to conducat a measurement. That's likely *not* what you intended. To find out all the options for configuring the execution of the tool, specify the `--help` option:
+Without any options, the tool will attempt to contact `networkquality.example.com` on port 4043 to conduct a measurement. That's likely *not* what you intended. To find out all the options for configuring the execution of the tool, specify the `--help` option:
 
 ```
 $./networkQuality --help
