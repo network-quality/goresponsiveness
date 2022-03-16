@@ -19,8 +19,14 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"os"
+	"reflect"
 	"time"
 )
+
+func IsInterfaceNil(ifc interface{}) bool {
+	return ifc == nil || (reflect.ValueOf(ifc).Kind() == reflect.Ptr && reflect.ValueOf(ifc).IsNil())
+}
 
 func SignedPercentDifference(current float64, previous float64) (difference float64) {
 	return ((current - previous) / (float64(current+previous) / 2.0)) * float64(100)
@@ -68,12 +74,7 @@ func TimedSequentialRTTs(ctx context.Context, client_a *http.Client, client_b *h
 	return responseChannel
 }
 
-type RandZeroSource struct{}
-
-func (RandZeroSource) Read(b []byte) (n int, err error) {
-	for i := range b {
-		b[i] = 0
-	}
-
-	return len(b), nil
+func SeekForAppend(file *os.File) (err error) {
+	_, err = file.Seek(0, 2)
+	return
 }
