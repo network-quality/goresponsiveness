@@ -30,6 +30,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hawkinsw/goresponsiveness/ccw"
 	"github.com/hawkinsw/goresponsiveness/lbc"
 	"github.com/hawkinsw/goresponsiveness/ma"
 	"github.com/hawkinsw/goresponsiveness/timeoutat"
@@ -38,13 +39,13 @@ import (
 
 var (
 	// Variables to hold CLI arguments.
-	configHost   = flag.String("config", "networkquality.example.com", "name/IP of responsiveness configuration server.")
-	configPort   = flag.Int("port", 4043, "port number on which to access responsiveness configuration server.")
-	configPath   = flag.String("path", "config", "path on the server to the configuration endpoint.")
-	debug        = flag.Bool("debug", false, "Enable debugging.")
-	timeout      = flag.Int("timeout", 20, "Maximum time to spend measuring.")
-	storeSslKeys = flag.Bool("store-ssl-keys", false, "Store SSL keys from connections for debugging. (currently unused)")
-	profile      = flag.String("profile", "", "Enable client runtime profiling and specify storage location. Disabled by default.")
+	configHost     = flag.String("config", "networkquality.example.com", "name/IP of responsiveness configuration server.")
+	configPort     = flag.Int("port", 4043, "port number on which to access responsiveness configuration server.")
+	configPath     = flag.String("path", "config", "path on the server to the configuration endpoint.")
+	debug          = flag.Bool("debug", false, "Enable debugging.")
+	timeout        = flag.Int("timeout", 20, "Maximum time to spend measuring.")
+	sslKeyFileName = flag.String("ssl-key-file", "", "Store the per-session SSL key files in this file.")
+	profile        = flag.String("profile", "", "Enable client runtime profiling and specify storage location. Disabled by default.")
 
 	// Global configuration
 	cooldownPeriod                time.Duration = 4 * time.Second
@@ -326,11 +327,30 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
+	var sslKeyFileConcurrentWriter *ccw.ConcurrentWriter = nil
+	if *sslKeyFileName != "" {
+		if sslKeyFileHandle, err := os.OpenFile(*sslKeyFileName, os.O_RDWR|os.O_CREATE, os.FileMode(0600)); err != nil {
+			fmt.Printf("Could not open the keyfile for writing: %v!\n", err)
+			sslKeyFileConcurrentWriter = nil
+		} else {
+			if err = utilities.SeekForAppend(sslKeyFileHandle); err != nil {
+				fmt.Printf("Could not seek to the end of the key file: %v!\n", err)
+				sslKeyFileConcurrentWriter = nil
+			} else {
+				if *debug {
+					fmt.Printf("Doing SSL key logging through file %v\n", *sslKeyFileName)
+				}
+				sslKeyFileConcurrentWriter = ccw.NewConcurrentFileWriter(sslKeyFileHandle)
+				defer sslKeyFileHandle.Close()
+			}
+		}
+	}
+
 	generate_lbd := func() lbc.LoadBearingConnection {
-		return &lbc.LoadBearingConnectionDownload{Path: config.Urls.LargeUrl}
+		return &lbc.LoadBearingConnectionDownload{Path: config.Urls.LargeUrl, KeyLogger: sslKeyFileConcurrentWriter}
 	}
 	generate_lbu := func() lbc.LoadBearingConnection {
-		return &lbc.LoadBearingConnectionUpload{Path: config.Urls.UploadUrl}
+		return &lbc.LoadBearingConnectionUpload{Path: config.Urls.UploadUrl, KeyLogger: sslKeyFileConcurrentWriter}
 	}
 
 	var downloadDebugging *Debugging = nil
@@ -390,11 +410,11 @@ func main() {
 	}
 
 	// If there was a timeout achieving saturation then we already added another 5 seconds
-	// to the available time for testing. However, if saturated was achieved before the timeout
+	// to the available time for testing. However, if saturation was achieved before the timeout
 	// then we want to give ourselves another 5 seconds to calculate the RPM.
 	if !saturationTimeout {
 		timeoutAbsoluteTime = time.Now().Add(5 * time.Second)
-		timeoutChannel = timeoutat.TimeoutAt(operatingCtx, time.Now().Add(5*time.Second), *debug)
+		timeoutChannel = timeoutat.TimeoutAt(operatingCtx, timeoutAbsoluteTime, *debug)
 	}
 
 	totalRTTsCount := 0
@@ -413,7 +433,7 @@ func main() {
 
 			// Protect against pathological cases where we continuously select invalid connections and never
 			// do the select below
-			if time.Now().Sub(timeoutAbsoluteTime) > 0 {
+			if time.Since(timeoutAbsoluteTime) > 0 {
 				if *debug {
 					fmt.Printf("Pathologically could not find valid LBCs to use for measurement.\n")
 				}

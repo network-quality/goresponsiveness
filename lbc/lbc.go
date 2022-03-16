@@ -16,11 +16,15 @@ package lbc
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"sync/atomic"
+
+	"github.com/hawkinsw/goresponsiveness/utilities"
+	"golang.org/x/net/http2"
 )
 
 var chunkSize int = 5000
@@ -38,6 +42,7 @@ type LoadBearingConnectionDownload struct {
 	client     *http.Client
 	debug      bool
 	valid      bool
+	KeyLogger  io.Writer
 }
 
 func (lbd *LoadBearingConnectionDownload) Transferred() uint64 {
@@ -69,26 +74,18 @@ func (cr *countingReader) Read(p []byte) (n int, err error) {
 
 func (lbd *LoadBearingConnectionDownload) Start(ctx context.Context, debug bool) bool {
 	lbd.downloaded = 0
-	transport := http.Transport{}
+	transport := http2.Transport{}
+
+	if !utilities.IsInterfaceNil(lbd.KeyLogger) {
+		if debug {
+			fmt.Printf("Using an SSL Key Logger for this load-bearing download.\n")
+		}
+		transport.TLSClientConfig = &tls.Config{KeyLogWriter: lbd.KeyLogger, InsecureSkipVerify: true}
+	}
+
 	lbd.client = &http.Client{Transport: &transport}
 	lbd.debug = debug
 	lbd.valid = true
-
-	// At some point this might be useful: It is a snippet of code that will enable
-	// logging of per-session TLS key material in order to make debugging easier in
-	// Wireshark.
-	/*
-		lbd.client = &http.Client{
-			Transport: &http2.Transport{
-				TLSClientConfig: &tls.Config{
-					KeyLogWriter: w,
-
-					Rand:               utilities.RandZeroSource{}, // for reproducible output; don't do this.
-					InsecureSkipVerify: true,                       // test server certificate is not trusted.
-				},
-			},
-		}
-	*/
 
 	if debug {
 		fmt.Printf("Started a load-bearing download.\n")
@@ -116,11 +113,12 @@ func (lbd *LoadBearingConnectionDownload) doDownload(ctx context.Context) {
 }
 
 type LoadBearingConnectionUpload struct {
-	Path     string
-	uploaded uint64
-	client   *http.Client
-	debug    bool
-	valid    bool
+	Path      string
+	uploaded  uint64
+	client    *http.Client
+	debug     bool
+	valid     bool
+	KeyLogger io.Writer
 }
 
 func (lbu *LoadBearingConnectionUpload) Transferred() uint64 {
@@ -170,7 +168,17 @@ func (lbu *LoadBearingConnectionUpload) doUpload(ctx context.Context) bool {
 
 func (lbu *LoadBearingConnectionUpload) Start(ctx context.Context, debug bool) bool {
 	lbu.uploaded = 0
-	transport := http.Transport{}
+	transport := http2.Transport{}
+
+	if !utilities.IsInterfaceNil(lbu.KeyLogger) {
+		if debug {
+			fmt.Printf("Using an SSL Key Logger for this load-bearing upload.\n")
+		}
+		transport.TLSClientConfig = &tls.Config{KeyLogWriter: lbu.KeyLogger, InsecureSkipVerify: true}
+	}
+
+	lbu.client = &http.Client{Transport: &transport}
+
 	lbu.client = &http.Client{Transport: &transport}
 	lbu.debug = debug
 	lbu.valid = true
