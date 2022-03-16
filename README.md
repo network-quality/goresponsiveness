@@ -58,7 +58,6 @@ $./networkQuality --help
 `networkQuality` with the `--help` option will generate the following output:
 
 ```
-Usage of ./networkQuality:
   -config string
     	name/IP of responsiveness configuration server. (default "networkquality.example.com")
   -debug
@@ -69,13 +68,19 @@ Usage of ./networkQuality:
     	port number on which to access responsiveness configuration server. (default 4043)
   -profile string
     	Enable client runtime profiling and specify storage location. Disabled by default.
-  -store-ssl-keys
-    	Store SSL keys from connections for debugging. (currently unused)
+  -ssl-key-file string
+    	Store the per-session SSL key files in this file.
   -timeout int
     	Maximum time to spend measuring. (default 20)
 ```
 
 To facilitate testing, you may want to use the open-source RPM server available from [Apple on GitHub](https://github.com/network-quality/server/tree/main/go).
+
+You can also test against the Apple infrastructure using:
+
+```
+$ ./networkQuality --config mensura.cdn-apple.com --port 443 --path /api/v1/gm/config
+```
 
 ## References
 
