@@ -418,6 +418,10 @@ func main() {
 		fmt.Printf("Test will end earlier than %v\n", timeoutAbsoluteTime)
 	}
 
+	// print the banner
+	dt := time.Now().UTC()
+	fmt.Printf("%s UTC Go Responsiveness to %s...\n", dt.Format("01-02-2006 15:04:05"),configHostPort)
+
 	if len(*profile) != 0 {
 		f, err := os.Create(*profile)
 		if err != nil {
@@ -612,24 +616,24 @@ func main() {
 			}
 		}
 	}
-
+	
 	fmt.Printf(
-		"Download: %f MBps (%f Mbps), using %d parallel connections.\n",
-		utilities.ToMBps(downloadSaturation.RateBps),
+		"Download: %7.3f Mbps (%7.3f MBps), using %d parallel connections.\n",
 		utilities.ToMbps(downloadSaturation.RateBps),
+		utilities.ToMBps(downloadSaturation.RateBps),
 		len(downloadSaturation.Lbcs),
 	)
 	fmt.Printf(
-		"Upload: %f MBps (%f Mbps), using %d parallel connections.\n",
-		utilities.ToMBps(uploadSaturation.RateBps),
+		"Upload:   %7.3f Mbps (%7.3f MBps), using %d parallel connections.\n",
 		utilities.ToMbps(uploadSaturation.RateBps),
+		utilities.ToMBps(uploadSaturation.RateBps),
 		len(uploadSaturation.Lbcs),
 	)
 
 	if totalRTTsCount != 0 {
 		rpm := float64(time.Minute.Seconds()) / (totalRTTTime / (float64(totalRTTsCount)))
 		fmt.Printf("Total RTTs measured: %d\n", totalRTTsCount)
-		fmt.Printf("RPM: %v\n", rpm)
+		fmt.Printf("RPM: %5.0f\n", rpm)
 	} else {
 		fmt.Printf("Error occurred calculating RPM -- no probe measurements received.\n")
 	}
