@@ -33,13 +33,17 @@ For the remainder of the instructions, we will assume that `${RSPVNSS_SOURCE_DIR
 
 ### Build
 
-From `${RSPVNSS_SOURCE_DIR}`, 
+From `${RSPVNSS_SOURCE_DIR}` grab all the required modules:
+```
+$ go mod download
+```
+
+And then build:
 ```
 $ go build networkQuality.go
 ```
 
 That will create an executable in `${RSPVNSS_SOURCE_DIR}` named `networkQuality`.
-
 
 ### Run
 
@@ -55,7 +59,7 @@ Without any options, the tool will attempt to contact `networkquality.example.co
 $./networkQuality --help
 ```
 
-`networkQuality` with the `--help` option will generate the following output:
+`networkQuality` with the `-help` option will generate the following output:
 
 ```
   -config string
