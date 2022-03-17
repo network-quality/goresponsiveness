@@ -50,6 +50,7 @@ var (
 	// Global configuration
 	cooldownPeriod                time.Duration = 4 * time.Second
 	robustnessProbeIterationCount int           = 5
+	RPMCalculationTime            time.Duration = 10 * time.Second
 )
 
 type ConfigUrls struct {
@@ -399,7 +400,7 @@ func main() {
 					return
 				}
 				saturationTimeout = true
-				timeoutAbsoluteTime = time.Now().Add(5 * time.Second)
+				timeoutAbsoluteTime = time.Now().Add(RPMCalculationTime * time.Second)
 				timeoutChannel = timeoutat.TimeoutAt(operatingCtx, timeoutAbsoluteTime, *debug)
 				cancelSaturationCtx()
 				if *debug {
@@ -413,11 +414,11 @@ func main() {
 	// to the available time for testing. However, if saturation was achieved before the timeout
 	// then we want to give ourselves another 5 seconds to calculate the RPM.
 	if !saturationTimeout {
-		timeoutAbsoluteTime = time.Now().Add(5 * time.Second)
+		timeoutAbsoluteTime = time.Now().Add(RPMCalculationTime * time.Second)
 		timeoutChannel = timeoutat.TimeoutAt(operatingCtx, timeoutAbsoluteTime, *debug)
 	}
 
-	totalRTTsCount := 0
+	totalRTTsCount := uint64(0)
 	totalRTTTime := float64(0)
 	rttTimeout := false
 
@@ -446,12 +447,17 @@ func main() {
 			{
 				rttTimeout = true
 			}
-		case fiveRTTsTime := <-utilities.TimedSequentialRTTs(operatingCtx, downloadSaturation.Lbcs[randomLbcsIndex].Client(), &http.Client{}, config.Urls.SmallUrl):
+		case sequentialRTTsTime := <-utilities.CalculateSequentialRTTsTime(operatingCtx, downloadSaturation.Lbcs[randomLbcsIndex].Client(), &http.Client{}, config.Urls.SmallUrl):
 			{
-				totalRTTsCount += 5
-				totalRTTTime += fiveRTTsTime.Delay.Seconds()
+				if sequentialRTTsTime.Err != nil {
+					fmt.Printf("Failed to calculate a time for sequential RTTs: %v\n", sequentialRTTsTime.Err)
+					continue
+				}
+				// We know that we have a good Sequential RTT.
+				totalRTTsCount += uint64(sequentialRTTsTime.RTTs)
+				totalRTTTime += sequentialRTTsTime.Delay.Seconds()
 				if *debug {
-					fmt.Printf("fiveRTTsTime: %v\n", fiveRTTsTime.Delay.Seconds())
+					fmt.Printf("sequentialRTTsTime: %v\n", sequentialRTTsTime.Delay.Seconds())
 				}
 			}
 		}

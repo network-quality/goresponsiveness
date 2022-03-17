@@ -44,32 +44,40 @@ func Conditional(condition bool, t string, f string) string {
 
 type GetLatency struct {
 	Delay time.Duration
+	RTTs  uint16
 	Err   error
 }
 
-func TimedSequentialRTTs(ctx context.Context, client_a *http.Client, client_b *http.Client, url string) chan GetLatency {
+func CalculateSequentialRTTsTime(ctx context.Context, client_a *http.Client, client_b *http.Client, url string) chan GetLatency {
 	responseChannel := make(chan GetLatency)
 	go func() {
 		before := time.Now()
 		c_a, err := client_a.Get(url)
 		if err != nil {
-			responseChannel <- GetLatency{Delay: 0, Err: err}
+			responseChannel <- GetLatency{Delay: 0, RTTs: 0, Err: err}
+			return
 		}
 		// TODO: Make this interruptable somehow by using _ctx_.
 		_, err = io.ReadAll(c_a.Body)
 		if err != nil {
-			responseChannel <- GetLatency{Delay: 0, Err: err}
+			responseChannel <- GetLatency{Delay: 0, RTTs: 0, Err: err}
+			return
 		}
+		c_a.Body.Close()
+
 		c_b, err := client_b.Get(url)
 		if err != nil {
-			responseChannel <- GetLatency{Delay: 0, Err: err}
+			responseChannel <- GetLatency{Delay: 0, RTTs: 0, Err: err}
+			return
 		}
 		// TODO: Make this interruptable somehow by using _ctx_.
 		_, err = io.ReadAll(c_b.Body)
 		if err != nil {
 			responseChannel <- GetLatency{Delay: 0, Err: err}
+			return
 		}
-		responseChannel <- GetLatency{Delay: time.Now().Sub(before), Err: nil}
+		c_b.Body.Close()
+		responseChannel <- GetLatency{Delay: time.Since(before), RTTs: 10, Err: nil}
 	}()
 	return responseChannel
 }
