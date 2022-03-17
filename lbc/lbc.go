@@ -105,7 +105,6 @@ func (lbd *LoadBearingConnectionDownload) doDownload(ctx context.Context) {
 	}
 	cr := &countingReader{n: &lbd.downloaded, ctx: ctx, readable: get.Body}
 	_, _ = io.Copy(ioutil.Discard, cr)
-	lbd.valid = false
 	get.Body.Close()
 	if lbd.debug {
 		fmt.Printf("Ending a load-bearing download.\n")
@@ -156,10 +155,13 @@ func (s *syntheticCountingReader) Read(p []byte) (n int, err error) {
 func (lbu *LoadBearingConnectionUpload) doUpload(ctx context.Context) bool {
 	lbu.uploaded = 0
 	s := &syntheticCountingReader{n: &lbu.uploaded, ctx: ctx}
-	if resp, err := lbu.client.Post(lbu.Path, "application/octet-stream", s); err == nil {
-		resp.Body.Close()
+	var resp *http.Response = nil
+	var err error
+
+	if resp, err = lbu.client.Post(lbu.Path, "application/octet-stream", s); err != nil {
+		lbu.valid = false
 	}
-	lbu.valid = false
+	resp.Body.Close()
 	if lbu.debug {
 		fmt.Printf("Ending a load-bearing upload.\n")
 	}
