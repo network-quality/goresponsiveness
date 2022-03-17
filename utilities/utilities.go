@@ -25,7 +25,8 @@ import (
 )
 
 func IsInterfaceNil(ifc interface{}) bool {
-	return ifc == nil || (reflect.ValueOf(ifc).Kind() == reflect.Ptr && reflect.ValueOf(ifc).IsNil())
+	return ifc == nil ||
+		(reflect.ValueOf(ifc).Kind() == reflect.Ptr && reflect.ValueOf(ifc).IsNil())
 }
 
 func SignedPercentDifference(current float64, previous float64) (difference float64) {
@@ -56,7 +57,12 @@ type GetLatency struct {
 	Err   error
 }
 
-func CalculateSequentialRTTsTime(ctx context.Context, client_a *http.Client, client_b *http.Client, url string) chan GetLatency {
+func CalculateSequentialRTTsTime(
+	ctx context.Context,
+	client_a *http.Client,
+	client_b *http.Client,
+	url string,
+) chan GetLatency {
 	responseChannel := make(chan GetLatency)
 	go func() {
 		before := time.Now()

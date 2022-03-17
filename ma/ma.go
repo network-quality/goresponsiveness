@@ -29,7 +29,11 @@ type MovingAverage struct {
 }
 
 func NewMovingAverage(intervals int) *MovingAverage {
-	return &MovingAverage{instants: make([]float64, intervals), intervals: intervals, divisor: saturating.NewSaturatingInt(intervals)}
+	return &MovingAverage{
+		instants:  make([]float64, intervals),
+		intervals: intervals,
+		divisor:   saturating.NewSaturatingInt(intervals),
+	}
 }
 
 func (ma *MovingAverage) AddMeasurement(measurement float64) {

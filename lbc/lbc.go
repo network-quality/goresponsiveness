@@ -80,7 +80,10 @@ func (lbd *LoadBearingConnectionDownload) Start(ctx context.Context, debug bool)
 		if debug {
 			fmt.Printf("Using an SSL Key Logger for this load-bearing download.\n")
 		}
-		transport.TLSClientConfig = &tls.Config{KeyLogWriter: lbd.KeyLogger, InsecureSkipVerify: true}
+		transport.TLSClientConfig = &tls.Config{
+			KeyLogWriter:       lbd.KeyLogger,
+			InsecureSkipVerify: true,
+		}
 	}
 
 	lbd.client = &http.Client{Transport: &transport}
@@ -176,7 +179,10 @@ func (lbu *LoadBearingConnectionUpload) Start(ctx context.Context, debug bool) b
 		if debug {
 			fmt.Printf("Using an SSL Key Logger for this load-bearing upload.\n")
 		}
-		transport.TLSClientConfig = &tls.Config{KeyLogWriter: lbu.KeyLogger, InsecureSkipVerify: true}
+		transport.TLSClientConfig = &tls.Config{
+			KeyLogWriter:       lbu.KeyLogger,
+			InsecureSkipVerify: true,
+		}
 	}
 
 	lbu.client = &http.Client{Transport: &transport}
