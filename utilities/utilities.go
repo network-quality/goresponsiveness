@@ -42,6 +42,14 @@ func Conditional(condition bool, t string, f string) string {
 	return f
 }
 
+func ToMbps(bytes float64) float64 {
+	return ToMBps(bytes) * float64(8)
+}
+
+func ToMBps(bytes float64) float64 {
+	return float64(bytes) / float64(1024*1024)
+}
+
 type GetLatency struct {
 	Delay time.Duration
 	RTTs  uint16

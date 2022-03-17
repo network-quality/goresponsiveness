@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"github.com/hawkinsw/goresponsiveness/ccw"
+	"github.com/hawkinsw/goresponsiveness/constants"
 	"github.com/hawkinsw/goresponsiveness/lbc"
 	"github.com/hawkinsw/goresponsiveness/ma"
 	"github.com/hawkinsw/goresponsiveness/timeoutat"
@@ -39,18 +40,13 @@ import (
 
 var (
 	// Variables to hold CLI arguments.
-	configHost     = flag.String("config", "networkquality.example.com", "name/IP of responsiveness configuration server.")
-	configPort     = flag.Int("port", 4043, "port number on which to access responsiveness configuration server.")
+	configHost     = flag.String("config", constants.DefaultConfigHost, "name/IP of responsiveness configuration server.")
+	configPort     = flag.Int("port", constants.DefaultPortNumber, "port number on which to access responsiveness configuration server.")
 	configPath     = flag.String("path", "config", "path on the server to the configuration endpoint.")
-	debug          = flag.Bool("debug", false, "Enable debugging.")
-	timeout        = flag.Int("timeout", 20, "Maximum time to spend measuring.")
+	debug          = flag.Bool("debug", constants.DefaultDebug, "Enable debugging.")
+	timeout        = flag.Int("timeout", constants.DefaultTestTime, "Maximum time to spend measuring.")
 	sslKeyFileName = flag.String("ssl-key-file", "", "Store the per-session SSL key files in this file.")
 	profile        = flag.String("profile", "", "Enable client runtime profiling and specify storage location. Disabled by default.")
-
-	// Global configuration
-	cooldownPeriod                time.Duration = 4 * time.Second
-	robustnessProbeIterationCount int           = 5
-	RPMCalculationTime            time.Duration = 10 * time.Second
 )
 
 type ConfigUrls struct {
@@ -128,14 +124,6 @@ func (c *Config) IsValid() error {
 	return nil
 }
 
-func toMbps(bytes float64) float64 {
-	return toMBps(bytes) * float64(8)
-}
-
-func toMBps(bytes float64) float64 {
-	return float64(bytes) / float64(1024*1024)
-}
-
 func addFlows(ctx context.Context, toAdd uint64, lbcs *[]lbc.LoadBearingConnection, lbcsPreviousTransferred *[]uint64, lbcGenerator func() lbc.LoadBearingConnection, debug bool) {
 	for i := uint64(0); i < toAdd; i++ {
 		*lbcs = append(*lbcs, lbcGenerator())
@@ -171,13 +159,12 @@ func saturate(saturationCtx context.Context, operatingCtx context.Context, lbcGe
 		lbcs := make([]lbc.LoadBearingConnection, 0)
 		lbcsPreviousTransferred := make([]uint64, 0)
 
-		// Create 4 load bearing connections
-		addFlows(saturationCtx, 4, &lbcs, &lbcsPreviousTransferred, lbcGenerator, debug != nil)
+		addFlows(saturationCtx, constants.StartingNumberOfLoadBearingConnections, &lbcs, &lbcsPreviousTransferred, lbcGenerator, debug != nil)
 
 		previousFlowIncreaseIteration := uint64(0)
 		previousMovingAverage := float64(0)
-		movingAverage := ma.NewMovingAverage(4)
-		movingAverageAverage := ma.NewMovingAverage(4)
+		movingAverage := ma.NewMovingAverage(constants.MovingAverageIntervalCount)
+		movingAverageAverage := ma.NewMovingAverage(constants.MovingAverageIntervalCount)
 
 		nextSampleStartTime := time.Now().Add(time.Second)
 
@@ -231,16 +218,16 @@ func saturate(saturationCtx context.Context, operatingCtx context.Context, lbcGe
 				break
 			}
 
-			// Compute a moving average of the last 4 "instantaneous aggregate goodput" measurements
+			// Compute a moving average of the last constants.MovingAverageIntervalCount "instantaneous aggregate goodput" measurements
 			movingAverage.AddMeasurement(float64(totalTransfer))
 			currentMovingAverage := movingAverage.CalculateAverage()
 			movingAverageAverage.AddMeasurement(currentMovingAverage)
 			movingAverageDelta := utilities.SignedPercentDifference(currentMovingAverage, previousMovingAverage)
 
 			if debug != nil {
-				fmt.Printf("%v: Instantaneous goodput: %f MB.\n", debug, toMBps(float64(totalTransfer)))
-				fmt.Printf("%v: Previous moving average: %f MB.\n", debug, toMBps(previousMovingAverage))
-				fmt.Printf("%v: Current moving average: %f MB.\n", debug, toMBps(currentMovingAverage))
+				fmt.Printf("%v: Instantaneous goodput: %f MB.\n", debug, utilities.ToMBps(float64(totalTransfer)))
+				fmt.Printf("%v: Previous moving average: %f MB.\n", debug, utilities.ToMBps(previousMovingAverage))
+				fmt.Printf("%v: Current moving average: %f MB.\n", debug, utilities.ToMBps(currentMovingAverage))
 				fmt.Printf("%v: Moving average delta: %f.\n", debug, movingAverageDelta)
 			}
 
@@ -251,14 +238,14 @@ func saturate(saturationCtx context.Context, operatingCtx context.Context, lbcGe
 				continue
 			}
 
-			// If moving average > "previous" moving average + 5%:
-			if movingAverageDelta > float64(5) {
+			// If moving average > "previous" moving average + InstabilityDelta:
+			if movingAverageDelta > constants.InstabilityDelta {
 				// Network did not yet reach saturation. If no flows added within the last 4 seconds, add 4 more flows
-				if (currentIteration - previousFlowIncreaseIteration) > 4 {
+				if (currentIteration - previousFlowIncreaseIteration) > uint64(constants.MovingAverageStabilitySpan) {
 					if debug != nil {
 						fmt.Printf("%v: Adding flows because we are unsaturated and waited a while.\n", debug)
 					}
-					addFlows(saturationCtx, 4, &lbcs, &lbcsPreviousTransferred, lbcGenerator, debug != nil)
+					addFlows(saturationCtx, constants.AdditiveNumberOfLoadBearingConnections, &lbcs, &lbcsPreviousTransferred, lbcGenerator, debug != nil)
 					previousFlowIncreaseIteration = currentIteration
 				} else {
 					if debug != nil {
@@ -270,7 +257,7 @@ func saturate(saturationCtx context.Context, operatingCtx context.Context, lbcGe
 					fmt.Printf("%v: Network reached saturation with current flow count.\n", debug)
 				}
 				// If new flows added and for 4 seconds the moving average throughput did not change: network reached stable saturation
-				if (currentIteration-previousFlowIncreaseIteration) < 4 && movingAverageAverage.AllSequentialIncreasesLessThan(float64(5)) {
+				if (currentIteration-previousFlowIncreaseIteration) < uint64(constants.MovingAverageStabilitySpan) && movingAverageAverage.AllSequentialIncreasesLessThan(float64(5)) {
 					if debug != nil {
 						fmt.Printf("%v: New flows added within the last four seconds and the moving-average average is consistent!\n", debug)
 					}
@@ -280,7 +267,7 @@ func saturate(saturationCtx context.Context, operatingCtx context.Context, lbcGe
 					if debug != nil {
 						fmt.Printf("%v: New flows to add to try to increase our saturation!\n", debug)
 					}
-					addFlows(saturationCtx, 4, &lbcs, &lbcsPreviousTransferred, lbcGenerator, debug != nil)
+					addFlows(saturationCtx, constants.AdditiveNumberOfLoadBearingConnections, &lbcs, &lbcsPreviousTransferred, lbcGenerator, debug != nil)
 					previousFlowIncreaseIteration = currentIteration
 				}
 			}
@@ -376,14 +363,14 @@ func main() {
 			{
 				downloadSaturated = true
 				if *debug {
-					fmt.Printf("################# download is %s saturated (%fMBps, %d flows)!\n", utilities.Conditional(saturationTimeout, "(provisionally)", ""), toMBps(downloadSaturation.RateBps), len(downloadSaturation.Lbcs))
+					fmt.Printf("################# download is %s saturated (%fMBps, %d flows)!\n", utilities.Conditional(saturationTimeout, "(provisionally)", ""), utilities.ToMBps(downloadSaturation.RateBps), len(downloadSaturation.Lbcs))
 				}
 			}
 		case uploadSaturation = <-uploadSaturationChannel:
 			{
 				uploadSaturated = true
 				if *debug {
-					fmt.Printf("################# upload is %s saturated (%fMBps, %d flows)!\n", utilities.Conditional(saturationTimeout, "(provisionally)", ""), toMBps(uploadSaturation.RateBps), len(uploadSaturation.Lbcs))
+					fmt.Printf("################# upload is %s saturated (%fMBps, %d flows)!\n", utilities.Conditional(saturationTimeout, "(provisionally)", ""), utilities.ToMBps(uploadSaturation.RateBps), len(uploadSaturation.Lbcs))
 				}
 			}
 		case <-timeoutChannel:
@@ -395,7 +382,7 @@ func main() {
 					fmt.Fprint(os.Stderr, "Error: Saturation could not be completed in time and no provisional rates could be accessed. Test failed.\n")
 					cancelOperatingCtx()
 					if *debug {
-						time.Sleep(cooldownPeriod)
+						time.Sleep(constants.CooldownPeriod)
 					}
 					return
 				}
@@ -404,7 +391,7 @@ func main() {
 				// We timed out attempting to saturate the link. So, we will shut down all the saturation xfers
 				cancelSaturationCtx()
 				// and then we will give ourselves some additional time in order to calculate a provisional saturation.
-				timeoutAbsoluteTime = time.Now().Add(RPMCalculationTime)
+				timeoutAbsoluteTime = time.Now().Add(constants.RPMCalculationTime)
 				timeoutChannel = timeoutat.TimeoutAt(operatingCtx, timeoutAbsoluteTime, *debug)
 				if *debug {
 					fmt.Printf("################# timeout reaching saturation!\n")
@@ -424,7 +411,7 @@ func main() {
 	// This is conditional because (above) we may have already added the time. We did it up there so that
 	// we could also limit the amount of time waiting for a conditional saturation calculation.
 	if !saturationTimeout {
-		timeoutAbsoluteTime = time.Now().Add(RPMCalculationTime)
+		timeoutAbsoluteTime = time.Now().Add(constants.RPMCalculationTime)
 		timeoutChannel = timeoutat.TimeoutAt(operatingCtx, timeoutAbsoluteTime, *debug)
 	}
 
@@ -432,7 +419,7 @@ func main() {
 	totalRTTTime := float64(0)
 	rttTimeout := false
 
-	for i := 0; i < robustnessProbeIterationCount && !rttTimeout; i++ {
+	for i := 0; i < constants.RPMProbeCount && !rttTimeout; i++ {
 		if len(downloadSaturation.Lbcs) == 0 {
 			continue
 		}
@@ -473,11 +460,11 @@ func main() {
 		}
 	}
 
-	fmt.Printf("Download: %f MBps (%f Mbps), using %d parallel connections.\n", toMBps(downloadSaturation.RateBps), toMbps(downloadSaturation.RateBps), len(downloadSaturation.Lbcs))
-	fmt.Printf("Upload: %f MBps (%f Mbps), using %d parallel connections.\n", toMBps(uploadSaturation.RateBps), toMbps(uploadSaturation.RateBps), len(uploadSaturation.Lbcs))
+	fmt.Printf("Download: %f MBps (%f Mbps), using %d parallel connections.\n", utilities.ToMBps(downloadSaturation.RateBps), utilities.ToMbps(downloadSaturation.RateBps), len(downloadSaturation.Lbcs))
+	fmt.Printf("Upload: %f MBps (%f Mbps), using %d parallel connections.\n", utilities.ToMBps(uploadSaturation.RateBps), utilities.ToMbps(uploadSaturation.RateBps), len(uploadSaturation.Lbcs))
 
 	if totalRTTsCount != 0 {
-		rpm := float64(60) / (totalRTTTime / (float64(totalRTTsCount)))
+		rpm := float64(time.Minute.Seconds()) / (totalRTTTime / (float64(totalRTTsCount)))
 		fmt.Printf("Total RTTs measured: %d\n", totalRTTsCount)
 		fmt.Printf("RPM: %v\n", rpm)
 	} else {
@@ -487,7 +474,7 @@ func main() {
 	cancelOperatingCtx()
 	if *debug {
 		fmt.Printf("In debugging mode, we will cool down.\n")
-		time.Sleep(cooldownPeriod)
+		time.Sleep(constants.CooldownPeriod)
 		fmt.Printf("Done cooling down.\n")
 	}
 }
