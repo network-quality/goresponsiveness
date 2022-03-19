@@ -86,6 +86,20 @@ You can also test against the Apple infrastructure using:
 $ ./networkQuality --config mensura.cdn-apple.com --port 443 --path /api/v1/gm/config
 ```
 
+## Contributing
+
+We *love* contributions. Before submitting a patch, format your code with `go fmt` *and* `golines`:
+
+```
+$ golines -w -m 80 --shorten-comments .
+```
+
+You can easily install `golines` in to your `${GOPATH}` with
+
+```
+$ go install github.com/segmentio/golines@latest
+```
+
 ## References
 
 [RFC2026] https://datatracker.ietf.org/doc/html/rfc2026

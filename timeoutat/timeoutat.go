@@ -20,7 +20,11 @@ import (
 	"time"
 )
 
-func TimeoutAt(ctx context.Context, when time.Time, debug bool) (response chan interface{}) {
+func TimeoutAt(
+	ctx context.Context,
+	when time.Time,
+	debug bool,
+) (response chan interface{}) {
 	response = make(chan interface{})
 	go func(ctx context.Context) {
 		go func() {

@@ -161,21 +161,33 @@ func (c *Config) IsValid() error {
 		parsedUrl.Scheme != "https" {
 		return fmt.Errorf(
 			"Configuration url large_https_download_url is invalid: %s",
-			utilities.Conditional(len(c.Urls.LargeUrl) != 0, c.Urls.LargeUrl, "Missing"),
+			utilities.Conditional(
+				len(c.Urls.LargeUrl) != 0,
+				c.Urls.LargeUrl,
+				"Missing",
+			),
 		)
 	}
 	if parsedUrl, err := url.ParseRequestURI(c.Urls.SmallUrl); err != nil ||
 		parsedUrl.Scheme != "https" {
 		return fmt.Errorf(
 			"Configuration url small_https_download_url is invalid: %s",
-			utilities.Conditional(len(c.Urls.SmallUrl) != 0, c.Urls.SmallUrl, "Missing"),
+			utilities.Conditional(
+				len(c.Urls.SmallUrl) != 0,
+				c.Urls.SmallUrl,
+				"Missing",
+			),
 		)
 	}
 	if parsedUrl, err := url.ParseRequestURI(c.Urls.UploadUrl); err != nil ||
 		parsedUrl.Scheme != "https" {
 		return fmt.Errorf(
 			"Configuration url https_upload_url is invalid: %s",
-			utilities.Conditional(len(c.Urls.UploadUrl) != 0, c.Urls.UploadUrl, "Missing"),
+			utilities.Conditional(
+				len(c.Urls.UploadUrl) != 0,
+				c.Urls.UploadUrl,
+				"Missing",
+			),
 		)
 	}
 	return nil
@@ -239,8 +251,12 @@ func saturate(
 
 		previousFlowIncreaseIteration := uint64(0)
 		previousMovingAverage := float64(0)
-		movingAverage := ma.NewMovingAverage(constants.MovingAverageIntervalCount)
-		movingAverageAverage := ma.NewMovingAverage(constants.MovingAverageIntervalCount)
+		movingAverage := ma.NewMovingAverage(
+			constants.MovingAverageIntervalCount,
+		)
+		movingAverageAverage := ma.NewMovingAverage(
+			constants.MovingAverageIntervalCount,
+		)
 
 		nextSampleStartTime := time.Now().Add(time.Second)
 
@@ -261,7 +277,11 @@ func saturate(
 			// At each 1-second interval
 			if nextSampleStartTime.Sub(now) > 0 {
 				if debug != nil {
-					fmt.Printf("%v: Sleeping until %v\n", debug, nextSampleStartTime)
+					fmt.Printf(
+						"%v: Sleeping until %v\n",
+						debug,
+						nextSampleStartTime,
+					)
 				}
 				time.Sleep(nextSampleStartTime.Sub(now))
 			} else {
@@ -269,7 +289,8 @@ func saturate(
 			}
 			nextSampleStartTime = time.Now().Add(time.Second)
 
-			// Compute "instantaneous aggregate" goodput which is the number of bytes transferred within the last second.
+			// Compute "instantaneous aggregate" goodput which is the number of
+			// bytes transferred within the last second.
 			totalTransfer := uint64(0)
 			allInvalid := true
 			for i := range lbcs {
@@ -290,7 +311,8 @@ func saturate(
 				lbcsPreviousTransferred[i] = currentTransferred
 			}
 
-			// For some reason, all the LBCs are invalid. This likely means that the network/server went away.
+			// For some reason, all the LBCs are invalid. This likely means that
+			// the network/server went away.
 			if allInvalid {
 				if debug != nil {
 					fmt.Printf(
@@ -301,7 +323,9 @@ func saturate(
 				break
 			}
 
-			// Compute a moving average of the last constants.MovingAverageIntervalCount "instantaneous aggregate goodput" measurements
+			// Compute a moving average of the last
+			// constants.MovingAverageIntervalCount "instantaneous aggregate
+			// goodput" measurements
 			movingAverage.AddMeasurement(float64(totalTransfer))
 			currentMovingAverage := movingAverage.CalculateAverage()
 			movingAverageAverage.AddMeasurement(currentMovingAverage)
@@ -326,19 +350,25 @@ func saturate(
 					debug,
 					utilities.ToMBps(currentMovingAverage),
 				)
-				fmt.Printf("%v: Moving average delta: %f.\n", debug, movingAverageDelta)
+				fmt.Printf(
+					"%v: Moving average delta: %f.\n",
+					debug,
+					movingAverageDelta,
+				)
 			}
 
 			previousMovingAverage = currentMovingAverage
 
-			// Special case: We won't make any adjustments on the first iteration.
+			// Special case: We won't make any adjustments on the first
+			// iteration.
 			if currentIteration == 0 {
 				continue
 			}
 
 			// If moving average > "previous" moving average + InstabilityDelta:
 			if movingAverageDelta > constants.InstabilityDelta {
-				// Network did not yet reach saturation. If no flows added within the last 4 seconds, add 4 more flows
+				// Network did not yet reach saturation. If no flows added
+				// within the last 4 seconds, add 4 more flows
 				if (currentIteration - previousFlowIncreaseIteration) > uint64(
 					constants.MovingAverageStabilitySpan,
 				) {
@@ -366,7 +396,8 @@ func saturate(
 				if debug != nil {
 					fmt.Printf("%v: Network reached saturation with current flow count.\n", debug)
 				}
-				// If new flows added and for 4 seconds the moving average throughput did not change: network reached stable saturation
+				// If new flows added and for 4 seconds the moving average
+				// throughput did not change: network reached stable saturation
 				if (currentIteration-previousFlowIncreaseIteration) < uint64(constants.MovingAverageStabilitySpan) && movingAverageAverage.AllSequentialIncreasesLessThan(float64(5)) {
 					if debug != nil {
 						fmt.Printf("%v: New flows added within the last four seconds and the moving-average average is consistent!\n", debug)
@@ -395,7 +426,9 @@ func main() {
 	timeoutAbsoluteTime := time.Now().Add(timeoutDuration)
 	configHostPort := fmt.Sprintf("%s:%d", *configHost, *configPort)
 	operatingCtx, cancelOperatingCtx := context.WithCancel(context.Background())
-	saturationCtx, cancelSaturationCtx := context.WithCancel(context.Background())
+	saturationCtx, cancelSaturationCtx := context.WithCancel(
+		context.Background(),
+	)
 	config := &Config{}
 
 	if err := config.Get(configHostPort, *configPath); err != nil {
@@ -415,7 +448,11 @@ func main() {
 		fmt.Printf("Configuration: %s\n", config)
 	}
 
-	timeoutChannel := timeoutat.TimeoutAt(operatingCtx, timeoutAbsoluteTime, *debug)
+	timeoutChannel := timeoutat.TimeoutAt(
+		operatingCtx,
+		timeoutAbsoluteTime,
+		*debug,
+	)
 	if *debug {
 		fmt.Printf("Test will end earlier than %v\n", timeoutAbsoluteTime)
 	}
@@ -488,7 +525,12 @@ func main() {
 		generate_lbd,
 		downloadDebugging,
 	)
-	uploadSaturationChannel := saturate(saturationCtx, operatingCtx, generate_lbu, uploadDebugging)
+	uploadSaturationChannel := saturate(
+		saturationCtx,
+		operatingCtx,
+		generate_lbu,
+		uploadDebugging,
+	)
 
 	saturationTimeout := false
 	uploadSaturated := false
@@ -504,7 +546,11 @@ func main() {
 				if *debug {
 					fmt.Printf(
 						"################# download is %s saturated (%fMBps, %d flows)!\n",
-						utilities.Conditional(saturationTimeout, "(provisionally)", ""),
+						utilities.Conditional(
+							saturationTimeout,
+							"(provisionally)",
+							"",
+						),
 						utilities.ToMBps(downloadSaturation.RateBps),
 						len(downloadSaturation.Lbcs),
 					)
@@ -516,7 +562,11 @@ func main() {
 				if *debug {
 					fmt.Printf(
 						"################# upload is %s saturated (%fMBps, %d flows)!\n",
-						utilities.Conditional(saturationTimeout, "(provisionally)", ""),
+						utilities.Conditional(
+							saturationTimeout,
+							"(provisionally)",
+							"",
+						),
 						utilities.ToMBps(uploadSaturation.RateBps),
 						len(uploadSaturation.Lbcs),
 					)
@@ -540,13 +590,22 @@ func main() {
 				}
 				saturationTimeout = true
 
-				// We timed out attempting to saturate the link. So, we will shut down all the saturation xfers
+				// We timed out attempting to saturate the link. So, we will
+				// shut down all the saturation xfers
 				cancelSaturationCtx()
-				// and then we will give ourselves some additional time in order to calculate a provisional saturation.
-				timeoutAbsoluteTime = time.Now().Add(constants.RPMCalculationTime)
-				timeoutChannel = timeoutat.TimeoutAt(operatingCtx, timeoutAbsoluteTime, *debug)
+				// and then we will give ourselves some additional time in order
+				// to calculate a provisional saturation.
+				timeoutAbsoluteTime = time.Now().
+					Add(constants.RPMCalculationTime)
+				timeoutChannel = timeoutat.TimeoutAt(
+					operatingCtx,
+					timeoutAbsoluteTime,
+					*debug,
+				)
 				if *debug {
-					fmt.Printf("################# timeout reaching saturation!\n")
+					fmt.Printf(
+						"################# timeout reaching saturation!\n",
+					)
 				}
 			}
 		}

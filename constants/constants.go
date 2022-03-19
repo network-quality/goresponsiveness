@@ -5,7 +5,8 @@ import "time"
 var (
 	// The initial number of connections on a LBC.
 	StartingNumberOfLoadBearingConnections uint64 = 4
-	// The number of intervals for which to account in a moving-average calculation.
+	// The number of intervals for which to account in a moving-average
+	// calculation.
 	MovingAverageIntervalCount int = 4
 	// The number of intervals across which to consider a moving average stable.
 	MovingAverageStabilitySpan int = 4

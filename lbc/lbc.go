@@ -72,13 +72,18 @@ func (cr *countingReader) Read(p []byte) (n int, err error) {
 	return
 }
 
-func (lbd *LoadBearingConnectionDownload) Start(ctx context.Context, debug bool) bool {
+func (lbd *LoadBearingConnectionDownload) Start(
+	ctx context.Context,
+	debug bool,
+) bool {
 	lbd.downloaded = 0
 	transport := http2.Transport{}
 
 	if !utilities.IsInterfaceNil(lbd.KeyLogger) {
 		if debug {
-			fmt.Printf("Using an SSL Key Logger for this load-bearing download.\n")
+			fmt.Printf(
+				"Using an SSL Key Logger for this load-bearing download.\n",
+			)
 		}
 		transport.TLSClientConfig = &tls.Config{
 			KeyLogWriter:       lbd.KeyLogger,
@@ -171,13 +176,18 @@ func (lbu *LoadBearingConnectionUpload) doUpload(ctx context.Context) bool {
 	return true
 }
 
-func (lbu *LoadBearingConnectionUpload) Start(ctx context.Context, debug bool) bool {
+func (lbu *LoadBearingConnectionUpload) Start(
+	ctx context.Context,
+	debug bool,
+) bool {
 	lbu.uploaded = 0
 	transport := http2.Transport{}
 
 	if !utilities.IsInterfaceNil(lbu.KeyLogger) {
 		if debug {
-			fmt.Printf("Using an SSL Key Logger for this load-bearing upload.\n")
+			fmt.Printf(
+				"Using an SSL Key Logger for this load-bearing upload.\n",
+			)
 		}
 		transport.TLSClientConfig = &tls.Config{
 			KeyLogWriter:       lbu.KeyLogger,

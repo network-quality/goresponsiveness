@@ -29,11 +29,22 @@ func IsInterfaceNil(ifc interface{}) bool {
 		(reflect.ValueOf(ifc).Kind() == reflect.Ptr && reflect.ValueOf(ifc).IsNil())
 }
 
-func SignedPercentDifference(current float64, previous float64) (difference float64) {
-	return ((current - previous) / (float64(current+previous) / 2.0)) * float64(100)
+func SignedPercentDifference(
+	current float64,
+	previous float64,
+) (difference float64) {
+	return ((current - previous) / (float64(current+previous) / 2.0)) * float64(
+		100,
+	)
 }
-func AbsPercentDifference(current float64, previous float64) (difference float64) {
-	return (math.Abs(current-previous) / (float64(current+previous) / 2.0)) * float64(100)
+
+func AbsPercentDifference(
+	current float64,
+	previous float64,
+) (difference float64) {
+	return (math.Abs(current-previous) / (float64(current+previous) / 2.0)) * float64(
+		100,
+	)
 }
 
 func Conditional(condition bool, t string, f string) string {
@@ -52,36 +63,44 @@ func ToMBps(bytes float64) float64 {
 }
 
 type GetLatency struct {
-	Delay time.Duration
-	RTTs  uint16
-	Err   error
+	Delay          time.Duration
+	RoundTripCount uint16
+	Err            error
 }
 
 func CalculateSequentialRTTsTime(
 	ctx context.Context,
-	client_a *http.Client,
-	client_b *http.Client,
+	saturated_client *http.Client,
+	new_client *http.Client,
 	url string,
 ) chan GetLatency {
 	responseChannel := make(chan GetLatency)
 	go func() {
+		roundTripCount := uint16(0)
 		before := time.Now()
-		c_a, err := client_a.Get(url)
-		if err != nil {
-			responseChannel <- GetLatency{Delay: 0, RTTs: 0, Err: err}
-			return
-		}
-		// TODO: Make this interruptable somehow by using _ctx_.
-		_, err = io.ReadAll(c_a.Body)
-		if err != nil {
-			responseChannel <- GetLatency{Delay: 0, RTTs: 0, Err: err}
-			return
-		}
-		c_a.Body.Close()
+		/*
+			  TODO: We are not going to measure round-trip times on the load-bearing connection
+				right now because we are dealing with a massive amount of buffer bloat on the
+				Apple CDN.
 
-		c_b, err := client_b.Get(url)
+				c_a, err := saturated_client.Get(url)
+				if err != nil {
+					responseChannel <- GetLatency{Delay: 0, RTTs: 0, Err: err}
+					return
+				}
+				// TODO: Make this interruptable somehow
+				// by using _ctx_.
+				_, err = io.ReadAll(c_a.Body)
+				if err != nil {
+					responseChannel <- GetLatency{Delay: 0, RTTs: 0, Err: err}
+					return
+				}
+				roundTripCount += 5
+				c_a.Body.Close()
+		*/
+		c_b, err := new_client.Get(url)
 		if err != nil {
-			responseChannel <- GetLatency{Delay: 0, RTTs: 0, Err: err}
+			responseChannel <- GetLatency{Delay: 0, RoundTripCount: 0, Err: err}
 			return
 		}
 		// TODO: Make this interruptable somehow by using _ctx_.
@@ -91,7 +110,9 @@ func CalculateSequentialRTTsTime(
 			return
 		}
 		c_b.Body.Close()
-		responseChannel <- GetLatency{Delay: time.Since(before), RTTs: 10, Err: nil}
+		// We use 1 here according to the wording in 4.2.1.
+		roundTripCount += 1
+		responseChannel <- GetLatency{Delay: time.Since(before), RoundTripCount: roundTripCount, Err: nil}
 	}()
 	return responseChannel
 }

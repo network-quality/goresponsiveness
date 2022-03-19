@@ -59,7 +59,8 @@ func (ma *MovingAverage) AllSequentialIncreasesLessThan(limit float64) bool {
 		return false
 	}
 
-	// Invariant: ma.index always points to the oldest (see AddMeasurement above)
+	// Invariant: ma.index always points to the oldest (see AddMeasurement
+	// above)
 	oldestIndex := ma.index
 	previous := ma.instants[oldestIndex]
 	for i := 1; i < ma.intervals; i++ {
