@@ -30,12 +30,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hawkinsw/goresponsiveness/ccw"
-	"github.com/hawkinsw/goresponsiveness/constants"
-	"github.com/hawkinsw/goresponsiveness/lbc"
-	"github.com/hawkinsw/goresponsiveness/ma"
-	"github.com/hawkinsw/goresponsiveness/timeoutat"
-	"github.com/hawkinsw/goresponsiveness/utilities"
+	"github.com/network-quality/goresponsiveness/ccw"
+	"github.com/network-quality/goresponsiveness/constants"
+	"github.com/network-quality/goresponsiveness/lbc"
+	"github.com/network-quality/goresponsiveness/ma"
+	"github.com/network-quality/goresponsiveness/timeoutat"
+	"github.com/network-quality/goresponsiveness/utilities"
 )
 
 var (
