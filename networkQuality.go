@@ -16,6 +16,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -36,6 +37,7 @@ import (
 	"github.com/network-quality/goresponsiveness/ma"
 	"github.com/network-quality/goresponsiveness/timeoutat"
 	"github.com/network-quality/goresponsiveness/utilities"
+	"golang.org/x/net/http2"
 )
 
 var (
@@ -550,23 +552,21 @@ func main() {
 		}
 	}
 
-	// TODO: Confirm the following ...
-	// We are now going to do some RTT measurement so that we can calculate the RPM. The next operation
-	// might be controversial:
-	cancelSaturationCtx()
-	// We are closing down all the transfers that we used to saturate the link. If we do *not* do this
-	// cancellation then the "calculation" small transfers below will get starved out.
-
 	// Give ourselves no more than 15 seconds to complete the RPM calculation.
-	// This is conditional because (above) we may have already added the time. We did it up there so that
-	// we could also limit the amount of time waiting for a conditional saturation calculation.
+	// This is conditional because (above) we may have already added the time.
+	// We did it up there so that we could also limit the amount of time waiting
+	// for a conditional saturation calculation.
 	if !saturationTimeout {
 		timeoutAbsoluteTime = time.Now().Add(constants.RPMCalculationTime)
-		timeoutChannel = timeoutat.TimeoutAt(operatingCtx, timeoutAbsoluteTime, *debug)
+		timeoutChannel = timeoutat.TimeoutAt(
+			operatingCtx,
+			timeoutAbsoluteTime,
+			*debug,
+		)
 	}
 
-	totalRTTsCount := uint64(0)
-	totalRTTTime := float64(0)
+	totalRTsCount := uint64(0)
+	totalRTTimes := float64(0)
 	rttTimeout := false
 
 	for i := 0; i < constants.RPMProbeCount && !rttTimeout; i++ {
@@ -587,35 +587,49 @@ func main() {
 				)
 			}
 
-			// Protect against pathological cases where we continuously select invalid connections and never
+			// Protect against pathological cases where we continuously select
+			// invalid connections and never
 			// do the select below
 			if time.Since(timeoutAbsoluteTime) > 0 {
 				if *debug {
-					fmt.Printf("Pathologically could not find valid LBCs to use for measurement.\n")
+					fmt.Printf(
+						"Pathologically could not find valid LBCs to use for measurement.\n",
+					)
 				}
 				break
 			}
 			continue
 		}
+
+		newTransport := http2.Transport{}
+		newTransport.TLSClientConfig = &tls.Config{
+			KeyLogWriter:       sslKeyFileConcurrentWriter,
+			InsecureSkipVerify: true,
+		}
+		newClient := http.Client{Transport: &newTransport}
+
 		select {
 		case <-timeoutChannel:
 			{
 				rttTimeout = true
 			}
-		case sequentialRTTsTime := <-utilities.CalculateSequentialRTTsTime(operatingCtx, downloadSaturation.Lbcs[randomLbcsIndex].Client(), &http.Client{}, config.Urls.SmallUrl):
+		case sequentialRTTimes := <-utilities.CalculateSequentialRTTsTime(operatingCtx, downloadSaturation.Lbcs[randomLbcsIndex].Client(), &newClient, config.Urls.SmallUrl):
 			{
-				if sequentialRTTsTime.Err != nil {
+				if sequentialRTTimes.Err != nil {
 					fmt.Printf(
 						"Failed to calculate a time for sequential RTTs: %v\n",
-						sequentialRTTsTime.Err,
+						sequentialRTTimes.Err,
 					)
 					continue
 				}
 				// We know that we have a good Sequential RTT.
-				totalRTTsCount += uint64(sequentialRTTsTime.RTTs)
-				totalRTTTime += sequentialRTTsTime.Delay.Seconds()
+				totalRTsCount += uint64(sequentialRTTimes.RoundTripCount)
+				totalRTTimes += sequentialRTTimes.Delay.Seconds()
 				if *debug {
-					fmt.Printf("sequentialRTTsTime: %v\n", sequentialRTTsTime.Delay.Seconds())
+					fmt.Printf(
+						"sequentialRTTsTime: %v\n",
+						sequentialRTTimes.Delay.Seconds(),
+					)
 				}
 			}
 		}
@@ -634,9 +648,26 @@ func main() {
 		len(uploadSaturation.Lbcs),
 	)
 
-	if totalRTTsCount != 0 {
-		rpm := float64(time.Minute.Seconds()) / (totalRTTTime / (float64(totalRTTsCount)))
-		fmt.Printf("Total RTTs measured: %d\n", totalRTTsCount)
+	if totalRTsCount != 0 {
+		// "... it sums the five time values for each probe, and divides by the
+		// total
+		// number of probes to compute an average probe duration.  The
+		// reciprocal of this, normalized to 60 seconds, gives the Round-trips
+		// Per Minute (RPM)."
+		// "average probe duration" = totalRTTimes / totalRTsCount.
+		// The reciprocol of this = 1 / (totalRTTimes / totalRTsCount) <-
+		// semantically the probes-per-second.
+		// Normalized to 60 seconds: 60 * (1
+		// / (totalRTTimes / totalRTsCount))) <- semantically the number of
+		// probes per minute.
+		// I am concerned because the draft seems to conflate the concept of a
+		// probe
+		// with a roundtrip. In other words, I think that we are missing a
+		// multiplication by 5: DNS, TCP, TLS, HTTP GET, HTTP Download.
+		rpm := float64(
+			time.Minute.Seconds(),
+		) / (totalRTTimes / (float64(totalRTsCount)))
+		fmt.Printf("Total RTTs measured: %d\n", totalRTsCount)
 		fmt.Printf("RPM: %5.0f\n", rpm)
 	} else {
 		fmt.Printf("Error occurred calculating RPM -- no probe measurements received.\n")
