@@ -23,7 +23,7 @@ import (
 	"net/http"
 	"sync/atomic"
 
-	"github.com/hawkinsw/goresponsiveness/utilities"
+	"github.com/network-quality/goresponsiveness/utilities"
 	"golang.org/x/net/http2"
 )
 

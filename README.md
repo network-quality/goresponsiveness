@@ -26,7 +26,7 @@ To install Go, follow the excellent documentation [online](https://go.dev/doc/in
 To get the source code, 
 
 ```
-$ git clone https://github.com/hawkinsw/goresponsiveness.git
+$ git clone https://github.com/network-quality/goresponsiveness.git
 ```
 
 For the remainder of the instructions, we will assume that `${RSPVNSS_SOURCE_DIR}` is the location of the source code.

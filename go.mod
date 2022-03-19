@@ -1,4 +1,4 @@
-module github.com/hawkinsw/goresponsiveness
+module github.com/network-quality/goresponsiveness
 
 go 1.17
 

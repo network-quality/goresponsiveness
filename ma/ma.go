@@ -15,8 +15,8 @@
 package ma
 
 import (
-	"github.com/hawkinsw/goresponsiveness/saturating"
-	"github.com/hawkinsw/goresponsiveness/utilities"
+	"github.com/network-quality/goresponsiveness/saturating"
+	"github.com/network-quality/goresponsiveness/utilities"
 )
 
 // Convert this to a Type Parameterized interface when they are available
