@@ -420,7 +420,11 @@ func main() {
 
 	// print the banner
 	dt := time.Now().UTC()
-	fmt.Printf("%s UTC Go Responsiveness to %s...\n", dt.Format("01-02-2006 15:04:05"),configHostPort)
+	fmt.Printf(
+		"%s UTC Go Responsiveness to %s...\n",
+		dt.Format("01-02-2006 15:04:05"),
+		configHostPort,
+	)
 
 	if len(*profile) != 0 {
 		f, err := os.Create(*profile)
@@ -616,7 +620,7 @@ func main() {
 			}
 		}
 	}
-	
+
 	fmt.Printf(
 		"Download: %7.3f Mbps (%7.3f MBps), using %d parallel connections.\n",
 		utilities.ToMbps(downloadSaturation.RateBps),
