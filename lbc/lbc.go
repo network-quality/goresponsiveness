@@ -85,6 +85,14 @@ func (lbd *LoadBearingConnectionDownload) Start(
 				"Using an SSL Key Logger for this load-bearing download.\n",
 			)
 		}
+
+		// The presence of a custom TLSClientConfig in a *generic* `transport`
+		// means that go will default to HTTP/1.1 and cowardly avoid HTTP/2:
+		// https://github.com/golang/go/blob/7ca6902c171b336d98adbb103d701a013229c806/src/net/http/transport.go#L278
+		// Also, it would appear that the API's choice of HTTP vs HTTP2 can
+		// depend on whether the url contains
+		// https:// or http://:
+		// https://github.com/golang/go/blob/7ca6902c171b336d98adbb103d701a013229c806/src/net/http/transport.go#L74
 		transport.TLSClientConfig = &tls.Config{
 			KeyLogWriter:       lbd.KeyLogger,
 			InsecureSkipVerify: true,
@@ -181,6 +189,9 @@ func (lbu *LoadBearingConnectionUpload) Start(
 	debug bool,
 ) bool {
 	lbu.uploaded = 0
+
+	// See above for the rationale of doing http2.Transport{} here
+	// to ensure that we are using h2.
 	transport := http2.Transport{}
 
 	if !utilities.IsInterfaceNil(lbu.KeyLogger) {
@@ -194,8 +205,6 @@ func (lbu *LoadBearingConnectionUpload) Start(
 			InsecureSkipVerify: true,
 		}
 	}
-
-	lbu.client = &http.Client{Transport: &transport}
 
 	lbu.client = &http.Client{Transport: &transport}
 	lbu.debug = debug
