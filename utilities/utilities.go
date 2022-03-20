@@ -79,7 +79,7 @@ func CalculateSequentialRTTsTime(
 		roundTripCount := uint16(0)
 		before := time.Now()
 		/*
-			  TODO: We are not going to measure round-trip times on the load-bearing connection
+			  TODO: We are not going to measure round-trip times on the load-generating connection
 				right now because we are dealing with a massive amount of buffer bloat on the
 				Apple CDN.
 

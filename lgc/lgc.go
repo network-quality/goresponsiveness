@@ -12,7 +12,7 @@
  * with Foobar. If not, see <https://www.gnu.org/licenses/>.
  */
 
-package lbc
+package lgc
 
 import (
 	"context"
@@ -29,14 +29,14 @@ import (
 
 var chunkSize int = 5000
 
-type LoadBearingConnection interface {
+type LoadGeneratingConnection interface {
 	Start(context.Context, bool) bool
 	Transferred() uint64
 	Client() *http.Client
 	IsValid() bool
 }
 
-type LoadBearingConnectionDownload struct {
+type LoadGeneratingConnectionDownload struct {
 	Path       string
 	downloaded uint64
 	client     *http.Client
@@ -45,7 +45,7 @@ type LoadBearingConnectionDownload struct {
 	KeyLogger  io.Writer
 }
 
-func (lbd *LoadBearingConnectionDownload) Transferred() uint64 {
+func (lbd *LoadGeneratingConnectionDownload) Transferred() uint64 {
 	transferred := atomic.LoadUint64(&lbd.downloaded)
 	if lbd.debug {
 		fmt.Printf("download: Transferred: %v\n", transferred)
@@ -53,7 +53,7 @@ func (lbd *LoadBearingConnectionDownload) Transferred() uint64 {
 	return transferred
 }
 
-func (lbd *LoadBearingConnectionDownload) Client() *http.Client {
+func (lbd *LoadGeneratingConnectionDownload) Client() *http.Client {
 	return lbd.client
 }
 
@@ -72,7 +72,7 @@ func (cr *countingReader) Read(p []byte) (n int, err error) {
 	return
 }
 
-func (lbd *LoadBearingConnectionDownload) Start(
+func (lbd *LoadGeneratingConnectionDownload) Start(
 	ctx context.Context,
 	debug bool,
 ) bool {
@@ -82,7 +82,7 @@ func (lbd *LoadBearingConnectionDownload) Start(
 	if !utilities.IsInterfaceNil(lbd.KeyLogger) {
 		if debug {
 			fmt.Printf(
-				"Using an SSL Key Logger for this load-bearing download.\n",
+				"Using an SSL Key Logger for this load-generating download.\n",
 			)
 		}
 
@@ -104,16 +104,16 @@ func (lbd *LoadBearingConnectionDownload) Start(
 	lbd.valid = true
 
 	if debug {
-		fmt.Printf("Started a load-bearing download.\n")
+		fmt.Printf("Started a load-generating download.\n")
 	}
 	go lbd.doDownload(ctx)
 	return true
 }
-func (lbd *LoadBearingConnectionDownload) IsValid() bool {
+func (lbd *LoadGeneratingConnectionDownload) IsValid() bool {
 	return lbd.valid
 }
 
-func (lbd *LoadBearingConnectionDownload) doDownload(ctx context.Context) {
+func (lbd *LoadGeneratingConnectionDownload) doDownload(ctx context.Context) {
 	get, err := lbd.client.Get(lbd.Path)
 	if err != nil {
 		lbd.valid = false
@@ -123,11 +123,11 @@ func (lbd *LoadBearingConnectionDownload) doDownload(ctx context.Context) {
 	_, _ = io.Copy(ioutil.Discard, cr)
 	get.Body.Close()
 	if lbd.debug {
-		fmt.Printf("Ending a load-bearing download.\n")
+		fmt.Printf("Ending a load-generating download.\n")
 	}
 }
 
-type LoadBearingConnectionUpload struct {
+type LoadGeneratingConnectionUpload struct {
 	Path      string
 	uploaded  uint64
 	client    *http.Client
@@ -136,7 +136,7 @@ type LoadBearingConnectionUpload struct {
 	KeyLogger io.Writer
 }
 
-func (lbu *LoadBearingConnectionUpload) Transferred() uint64 {
+func (lbu *LoadGeneratingConnectionUpload) Transferred() uint64 {
 	transferred := atomic.LoadUint64(&lbu.uploaded)
 	if lbu.debug {
 		fmt.Printf("upload: Transferred: %v\n", transferred)
@@ -144,11 +144,11 @@ func (lbu *LoadBearingConnectionUpload) Transferred() uint64 {
 	return transferred
 }
 
-func (lbu *LoadBearingConnectionUpload) Client() *http.Client {
+func (lbu *LoadGeneratingConnectionUpload) Client() *http.Client {
 	return lbu.client
 }
 
-func (lbu *LoadBearingConnectionUpload) IsValid() bool {
+func (lbu *LoadGeneratingConnectionUpload) IsValid() bool {
 	return lbu.valid
 }
 
@@ -168,7 +168,7 @@ func (s *syntheticCountingReader) Read(p []byte) (n int, err error) {
 	return
 }
 
-func (lbu *LoadBearingConnectionUpload) doUpload(ctx context.Context) bool {
+func (lbu *LoadGeneratingConnectionUpload) doUpload(ctx context.Context) bool {
 	lbu.uploaded = 0
 	s := &syntheticCountingReader{n: &lbu.uploaded, ctx: ctx}
 	var resp *http.Response = nil
@@ -179,12 +179,12 @@ func (lbu *LoadBearingConnectionUpload) doUpload(ctx context.Context) bool {
 	}
 	resp.Body.Close()
 	if lbu.debug {
-		fmt.Printf("Ending a load-bearing upload.\n")
+		fmt.Printf("Ending a load-generating upload.\n")
 	}
 	return true
 }
 
-func (lbu *LoadBearingConnectionUpload) Start(
+func (lbu *LoadGeneratingConnectionUpload) Start(
 	ctx context.Context,
 	debug bool,
 ) bool {
@@ -197,7 +197,7 @@ func (lbu *LoadBearingConnectionUpload) Start(
 	if !utilities.IsInterfaceNil(lbu.KeyLogger) {
 		if debug {
 			fmt.Printf(
-				"Using an SSL Key Logger for this load-bearing upload.\n",
+				"Using an SSL Key Logger for this load-generating upload.\n",
 			)
 		}
 		transport.TLSClientConfig = &tls.Config{
@@ -211,7 +211,7 @@ func (lbu *LoadBearingConnectionUpload) Start(
 	lbu.valid = true
 
 	if debug {
-		fmt.Printf("Started a load-bearing upload.\n")
+		fmt.Printf("Started a load-generating upload.\n")
 	}
 	go lbu.doUpload(ctx)
 	return true

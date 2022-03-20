@@ -4,14 +4,14 @@ import "time"
 
 var (
 	// The initial number of connections on a LBC.
-	StartingNumberOfLoadBearingConnections uint64 = 4
+	StartingNumberOfLoadGeneratingConnections uint64 = 4
 	// The number of intervals for which to account in a moving-average
 	// calculation.
 	MovingAverageIntervalCount int = 4
 	// The number of intervals across which to consider a moving average stable.
 	MovingAverageStabilitySpan int = 4
 	// The number of connections to add to a LBC when unsaturated.
-	AdditiveNumberOfLoadBearingConnections uint64 = 4
+	AdditiveNumberOfLoadGeneratingConnections uint64 = 4
 	// The cutoff of the percent difference that defines instability.
 	InstabilityDelta float64 = 5
 

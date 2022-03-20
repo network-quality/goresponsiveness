@@ -33,7 +33,7 @@ import (
 
 	"github.com/network-quality/goresponsiveness/ccw"
 	"github.com/network-quality/goresponsiveness/constants"
-	"github.com/network-quality/goresponsiveness/lbc"
+	"github.com/network-quality/goresponsiveness/lgc"
 	"github.com/network-quality/goresponsiveness/ma"
 	"github.com/network-quality/goresponsiveness/timeoutat"
 	"github.com/network-quality/goresponsiveness/utilities"
@@ -196,16 +196,16 @@ func (c *Config) IsValid() error {
 func addFlows(
 	ctx context.Context,
 	toAdd uint64,
-	lbcs *[]lbc.LoadBearingConnection,
-	lbcsPreviousTransferred *[]uint64,
-	lbcGenerator func() lbc.LoadBearingConnection,
+	lgcs *[]lgc.LoadGeneratingConnection,
+	lgcsPreviousTransferred *[]uint64,
+	lgcGenerator func() lgc.LoadGeneratingConnection,
 	debug bool,
 ) {
 	for i := uint64(0); i < toAdd; i++ {
-		*lbcs = append(*lbcs, lbcGenerator())
-		*lbcsPreviousTransferred = append(*lbcsPreviousTransferred, 0)
-		if !(*lbcs)[len(*lbcs)-1].Start(ctx, debug) {
-			fmt.Printf("Error starting %dth LBC!\n", i)
+		*lgcs = append(*lgcs, lgcGenerator())
+		*lgcsPreviousTransferred = append(*lgcsPreviousTransferred, 0)
+		if !(*lgcs)[len(*lgcs)-1].Start(ctx, debug) {
+			fmt.Printf("Error starting %dth lgc!\n", i)
 			return
 		}
 	}
@@ -213,7 +213,7 @@ func addFlows(
 
 type SaturationResult struct {
 	RateBps float64
-	Lbcs    []lbc.LoadBearingConnection
+	lgcs    []lgc.LoadGeneratingConnection
 }
 
 type Debugging struct {
@@ -231,21 +231,21 @@ func (d *Debugging) String() string {
 func saturate(
 	saturationCtx context.Context,
 	operatingCtx context.Context,
-	lbcGenerator func() lbc.LoadBearingConnection,
+	lgcGenerator func() lgc.LoadGeneratingConnection,
 	debug *Debugging,
 ) (saturated chan SaturationResult) {
 	saturated = make(chan SaturationResult)
 	go func() {
 
-		lbcs := make([]lbc.LoadBearingConnection, 0)
-		lbcsPreviousTransferred := make([]uint64, 0)
+		lgcs := make([]lgc.LoadGeneratingConnection, 0)
+		lgcsPreviousTransferred := make([]uint64, 0)
 
 		addFlows(
 			saturationCtx,
-			constants.StartingNumberOfLoadBearingConnections,
-			&lbcs,
-			&lbcsPreviousTransferred,
-			lbcGenerator,
+			constants.StartingNumberOfLoadGeneratingConnections,
+			&lgcs,
+			&lgcsPreviousTransferred,
+			lgcGenerator,
 			debug != nil,
 		)
 
@@ -293,11 +293,11 @@ func saturate(
 			// bytes transferred within the last second.
 			totalTransfer := uint64(0)
 			allInvalid := true
-			for i := range lbcs {
-				if !lbcs[i].IsValid() {
+			for i := range lgcs {
+				if !lgcs[i].IsValid() {
 					if debug != nil {
 						fmt.Printf(
-							"%v: Load-bearing connection at index %d is invalid ... skipping.\n",
+							"%v: Load-generating connection at index %d is invalid ... skipping.\n",
 							debug,
 							i,
 						)
@@ -305,18 +305,18 @@ func saturate(
 					continue
 				}
 				allInvalid = false
-				previousTransferred := lbcsPreviousTransferred[i]
-				currentTransferred := lbcs[i].Transferred()
+				previousTransferred := lgcsPreviousTransferred[i]
+				currentTransferred := lgcs[i].Transferred()
 				totalTransfer += (currentTransferred - previousTransferred)
-				lbcsPreviousTransferred[i] = currentTransferred
+				lgcsPreviousTransferred[i] = currentTransferred
 			}
 
-			// For some reason, all the LBCs are invalid. This likely means that
+			// For some reason, all the lgcs are invalid. This likely means that
 			// the network/server went away.
 			if allInvalid {
 				if debug != nil {
 					fmt.Printf(
-						"%v: All LBCs were invalid. Assuming that network/server went away.\n",
+						"%v: All lgcs were invalid. Assuming that network/server went away.\n",
 						debug,
 					)
 				}
@@ -380,10 +380,10 @@ func saturate(
 					}
 					addFlows(
 						saturationCtx,
-						constants.AdditiveNumberOfLoadBearingConnections,
-						&lbcs,
-						&lbcsPreviousTransferred,
-						lbcGenerator,
+						constants.AdditiveNumberOfLoadGeneratingConnections,
+						&lgcs,
+						&lgcsPreviousTransferred,
+						lgcGenerator,
 						debug != nil,
 					)
 					previousFlowIncreaseIteration = currentIteration
@@ -408,13 +408,13 @@ func saturate(
 					if debug != nil {
 						fmt.Printf("%v: New flows to add to try to increase our saturation!\n", debug)
 					}
-					addFlows(saturationCtx, constants.AdditiveNumberOfLoadBearingConnections, &lbcs, &lbcsPreviousTransferred, lbcGenerator, debug != nil)
+					addFlows(saturationCtx, constants.AdditiveNumberOfLoadGeneratingConnections, &lgcs, &lgcsPreviousTransferred, lgcGenerator, debug != nil)
 					previousFlowIncreaseIteration = currentIteration
 				}
 			}
 
 		}
-		saturated <- SaturationResult{RateBps: movingAverage.CalculateAverage(), Lbcs: lbcs}
+		saturated <- SaturationResult{RateBps: movingAverage.CalculateAverage(), lgcs: lgcs}
 	}()
 	return
 }
@@ -499,14 +499,14 @@ func main() {
 		}
 	}
 
-	generate_lbd := func() lbc.LoadBearingConnection {
-		return &lbc.LoadBearingConnectionDownload{
+	generate_lbd := func() lgc.LoadGeneratingConnection {
+		return &lgc.LoadGeneratingConnectionDownload{
 			Path:      config.Urls.LargeUrl,
 			KeyLogger: sslKeyFileConcurrentWriter,
 		}
 	}
-	generate_lbu := func() lbc.LoadBearingConnection {
-		return &lbc.LoadBearingConnectionUpload{
+	generate_lbu := func() lgc.LoadGeneratingConnection {
+		return &lgc.LoadGeneratingConnectionUpload{
 			Path:      config.Urls.UploadUrl,
 			KeyLogger: sslKeyFileConcurrentWriter,
 		}
@@ -552,7 +552,7 @@ func main() {
 							"",
 						),
 						utilities.ToMBps(downloadSaturation.RateBps),
-						len(downloadSaturation.Lbcs),
+						len(downloadSaturation.lgcs),
 					)
 				}
 			}
@@ -568,7 +568,7 @@ func main() {
 							"",
 						),
 						utilities.ToMBps(uploadSaturation.RateBps),
-						len(uploadSaturation.Lbcs),
+						len(uploadSaturation.lgcs),
 					)
 				}
 			}
@@ -629,20 +629,20 @@ func main() {
 	rttTimeout := false
 
 	for i := 0; i < constants.RPMProbeCount && !rttTimeout; i++ {
-		if len(downloadSaturation.Lbcs) == 0 {
+		if len(downloadSaturation.lgcs) == 0 {
 			continue
 		}
-		randomLbcsIndex := rand.New(rand.NewSource(int64(time.Now().Nanosecond()))).
+		randomlgcsIndex := rand.New(rand.NewSource(int64(time.Now().Nanosecond()))).
 			Int() %
 			len(
-				downloadSaturation.Lbcs,
+				downloadSaturation.lgcs,
 			)
-		if !downloadSaturation.Lbcs[randomLbcsIndex].IsValid() {
+		if !downloadSaturation.lgcs[randomlgcsIndex].IsValid() {
 			if *debug {
 				fmt.Printf(
-					"%v: The randomly selected download LBC (at index %d) was invalid. Skipping.\n",
+					"%v: The randomly selected download lgc (at index %d) was invalid. Skipping.\n",
 					debug,
-					randomLbcsIndex,
+					randomlgcsIndex,
 				)
 			}
 
@@ -652,7 +652,7 @@ func main() {
 			if time.Since(timeoutAbsoluteTime) > 0 {
 				if *debug {
 					fmt.Printf(
-						"Pathologically could not find valid LBCs to use for measurement.\n",
+						"Pathologically could not find valid lgcs to use for measurement.\n",
 					)
 				}
 				break
@@ -674,7 +674,7 @@ func main() {
 			{
 				rttTimeout = true
 			}
-		case sequentialRTTimes := <-utilities.CalculateSequentialRTTsTime(operatingCtx, downloadSaturation.Lbcs[randomLbcsIndex].Client(), &newClient, config.Urls.SmallUrl):
+		case sequentialRTTimes := <-utilities.CalculateSequentialRTTsTime(operatingCtx, downloadSaturation.lgcs[randomlgcsIndex].Client(), &newClient, config.Urls.SmallUrl):
 			{
 				if sequentialRTTimes.Err != nil {
 					fmt.Printf(
@@ -700,13 +700,13 @@ func main() {
 		"Download: %7.3f Mbps (%7.3f MBps), using %d parallel connections.\n",
 		utilities.ToMbps(downloadSaturation.RateBps),
 		utilities.ToMBps(downloadSaturation.RateBps),
-		len(downloadSaturation.Lbcs),
+		len(downloadSaturation.lgcs),
 	)
 	fmt.Printf(
 		"Upload:   %7.3f Mbps (%7.3f MBps), using %d parallel connections.\n",
 		utilities.ToMbps(uploadSaturation.RateBps),
 		utilities.ToMBps(uploadSaturation.RateBps),
-		len(uploadSaturation.Lbcs),
+		len(uploadSaturation.lgcs),
 	)
 
 	if totalRTsCount != 0 {
