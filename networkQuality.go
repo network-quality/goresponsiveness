@@ -661,9 +661,11 @@ func main() {
 		}
 
 		newTransport := http2.Transport{}
-		newTransport.TLSClientConfig = &tls.Config{
-			KeyLogWriter:       sslKeyFileConcurrentWriter,
-			InsecureSkipVerify: true,
+		if sslKeyFileConcurrentWriter != nil {
+			newTransport.TLSClientConfig = &tls.Config{
+				KeyLogWriter:       sslKeyFileConcurrentWriter,
+				InsecureSkipVerify: true,
+			}
 		}
 		newClient := http.Client{Transport: &newTransport}
 
