@@ -21,19 +21,43 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/http/httptrace"
 	"sync/atomic"
+	"time"
 
 	"github.com/network-quality/goresponsiveness/utilities"
 	"golang.org/x/net/http2"
 )
 
-var chunkSize int = 5000
+var GenerateConnectionId func() uint64 = func() func() uint64 {
+	var nextConnectionId uint64 = 0
+	return func() uint64 {
+		return atomic.AddUint64(&nextConnectionId, 1)
+	}
+}()
 
 type LoadGeneratingConnection interface {
 	Start(context.Context, bool) bool
 	Transferred() uint64
 	Client() *http.Client
 	IsValid() bool
+	ClientId() uint64
+}
+
+type LoadGeneratingConnectionStats struct {
+	dnsStart                  httptrace.DNSStartInfo
+	dnsDone                   httptrace.DNSDoneInfo
+	connInfo                  httptrace.GotConnInfo
+	httpInfo                  httptrace.WroteRequestInfo
+	tlsConnInfo               tls.ConnectionState
+	dnsStartTime              time.Time
+	dnsCompleteTime           time.Time
+	tlsStartTime              time.Time
+	tlsCompleteTime           time.Time
+	connectStartTime          time.Time
+	connectCompleteTime       time.Time
+	getConnectionStartTime    time.Time
+	getConnectionCompleteTime time.Time
 }
 
 type LoadGeneratingConnectionDownload struct {
@@ -43,6 +67,103 @@ type LoadGeneratingConnectionDownload struct {
 	debug      bool
 	valid      bool
 	KeyLogger  io.Writer
+	clientId   uint64
+	tracer     *httptrace.ClientTrace
+	stats      LoadGeneratingConnectionStats
+}
+
+func generateHttpTimingTracer(
+	lgd *LoadGeneratingConnectionDownload,
+) *httptrace.ClientTrace {
+	newTracer := httptrace.ClientTrace{
+		DNSStart: func(dnsStartInfo httptrace.DNSStartInfo) {
+			lgd.stats.dnsStartTime = time.Now()
+			lgd.stats.dnsStart = dnsStartInfo
+			if lgd.debug {
+				fmt.Printf(
+					"DNS Start for %v: %v\n",
+					lgd.ClientId(),
+					dnsStartInfo,
+				)
+			}
+		},
+		DNSDone: func(dnsDoneInfo httptrace.DNSDoneInfo) {
+			lgd.stats.dnsCompleteTime = time.Now()
+			lgd.stats.dnsDone = dnsDoneInfo
+			if lgd.debug {
+				fmt.Printf("DNS Done for %v: %v\n", lgd.ClientId(), dnsDoneInfo)
+			}
+		},
+		ConnectStart: func(network, address string) {
+			lgd.stats.connectStartTime = time.Now()
+			if lgd.debug {
+				fmt.Printf(
+					"TCP Start of %v: %v: %v\n",
+					lgd.ClientId(),
+					network,
+					address,
+				)
+			}
+		},
+		ConnectDone: func(network, address string, err error) {
+			lgd.stats.connectCompleteTime = time.Now()
+			if lgd.debug {
+				fmt.Printf(
+					"TCP Done for %v: %v: %v (%v)\n",
+					lgd.ClientId(),
+					network,
+					address,
+					err,
+				)
+			}
+		},
+		GetConn: func(hostPort string) {
+			lgd.stats.getConnectionStartTime = time.Now()
+			if lgd.debug {
+				fmt.Printf(
+					"GetConn host port for %v: %v\n",
+					lgd.ClientId(),
+					hostPort,
+				)
+			}
+		},
+		GotConn: func(connInfo httptrace.GotConnInfo) {
+			if connInfo.Reused {
+				panic(!connInfo.Reused)
+			}
+			lgd.stats.connInfo = connInfo
+			lgd.stats.getConnectionCompleteTime = time.Now()
+			if lgd.debug {
+				fmt.Printf(
+					"GetConn host port for %v: %v\n",
+					lgd.ClientId(),
+					connInfo,
+				)
+			}
+		},
+		TLSHandshakeStart: func() {
+			lgd.stats.tlsStartTime = time.Now()
+			if lgd.debug {
+				fmt.Printf("TLSHandshakeStart for %v\n", lgd.ClientId())
+			}
+		},
+		TLSHandshakeDone: func(tlsConnState tls.ConnectionState, err error) {
+			lgd.stats.tlsCompleteTime = time.Now()
+			lgd.stats.tlsConnInfo = tlsConnState
+			if lgd.debug {
+				fmt.Printf(
+					"TLSHandshakeDone for %v: %v\n",
+					lgd.ClientId(),
+					tlsConnState,
+				)
+			}
+		},
+	}
+	return &newTracer
+}
+
+func (lbd *LoadGeneratingConnectionDownload) ClientId() uint64 {
+	return lbd.clientId
 }
 
 func (lbd *LoadGeneratingConnectionDownload) Transferred() uint64 {
@@ -77,6 +198,7 @@ func (lbd *LoadGeneratingConnectionDownload) Start(
 	debug bool,
 ) bool {
 	lbd.downloaded = 0
+	lbd.clientId = GenerateConnectionId()
 	transport := http2.Transport{}
 
 	if !utilities.IsInterfaceNil(lbd.KeyLogger) {
@@ -102,9 +224,13 @@ func (lbd *LoadGeneratingConnectionDownload) Start(
 	lbd.client = &http.Client{Transport: &transport}
 	lbd.debug = debug
 	lbd.valid = true
+	lbd.tracer = generateHttpTimingTracer(lbd)
 
 	if debug {
-		fmt.Printf("Started a load-generating download.\n")
+		fmt.Printf(
+			"Started a load-generating download (id: %v).\n",
+			lbd.clientId,
+		)
 	}
 	go lbd.doDownload(ctx)
 	return true
@@ -114,7 +240,14 @@ func (lbd *LoadGeneratingConnectionDownload) IsValid() bool {
 }
 
 func (lbd *LoadGeneratingConnectionDownload) doDownload(ctx context.Context) {
-	get, err := lbd.client.Get(lbd.Path)
+	newRequest, err := http.NewRequestWithContext(
+		httptrace.WithClientTrace(ctx, lbd.tracer),
+		"GET",
+		lbd.Path,
+		nil,
+	)
+
+	get, err := lbd.client.Do(newRequest)
 	if err != nil {
 		lbd.valid = false
 		return
@@ -134,6 +267,11 @@ type LoadGeneratingConnectionUpload struct {
 	debug     bool
 	valid     bool
 	KeyLogger io.Writer
+	clientId  uint64
+}
+
+func (lbu *LoadGeneratingConnectionUpload) ClientId() uint64 {
+	return lbu.clientId
 }
 
 func (lbu *LoadGeneratingConnectionUpload) Transferred() uint64 {
@@ -189,6 +327,7 @@ func (lbu *LoadGeneratingConnectionUpload) Start(
 	debug bool,
 ) bool {
 	lbu.uploaded = 0
+	lbu.clientId = GenerateConnectionId()
 
 	// See above for the rationale of doing http2.Transport{} here
 	// to ensure that we are using h2.
@@ -211,7 +350,7 @@ func (lbu *LoadGeneratingConnectionUpload) Start(
 	lbu.valid = true
 
 	if debug {
-		fmt.Printf("Started a load-generating upload.\n")
+		fmt.Printf("Started a load-generating upload (id: %v).\n", lbu.clientId)
 	}
 	go lbu.doUpload(ctx)
 	return true

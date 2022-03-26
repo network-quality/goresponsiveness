@@ -205,7 +205,10 @@ func addFlows(
 		*lgcs = append(*lgcs, lgcGenerator())
 		*lgcsPreviousTransferred = append(*lgcsPreviousTransferred, 0)
 		if !(*lgcs)[len(*lgcs)-1].Start(ctx, debug) {
-			fmt.Printf("Error starting %dth lgc!\n", i)
+			fmt.Printf(
+				"Error starting lgc with id %d!\n",
+				(*lgcs)[len(*lgcs)-1].ClientId(),
+			)
 			return
 		}
 	}
@@ -297,9 +300,9 @@ func saturate(
 				if !lgcs[i].IsValid() {
 					if debug != nil {
 						fmt.Printf(
-							"%v: Load-generating connection at index %d is invalid ... skipping.\n",
+							"%v: Load-generating connection with id %d is invalid ... skipping.\n",
 							debug,
-							i,
+							lgcs[i].ClientId(),
 						)
 					}
 					continue
@@ -640,9 +643,9 @@ func main() {
 		if !downloadSaturation.lgcs[randomlgcsIndex].IsValid() {
 			if *debug {
 				fmt.Printf(
-					"%v: The randomly selected download lgc (at index %d) was invalid. Skipping.\n",
+					"%v: The randomly selected download lgc (with id %d) was invalid. Skipping.\n",
 					debug,
-					randomlgcsIndex,
+					downloadSaturation.lgcs[randomlgcsIndex].ClientId(),
 				)
 			}
 
