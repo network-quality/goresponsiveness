@@ -89,7 +89,9 @@ type Config struct {
 }
 
 func (c *Config) Get(configHost string, configPath string) error {
-	configClient := &http.Client{}
+	configTransport := http2.Transport{}
+	configTransport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	configClient := &http.Client{Transport: &configTransport}
 	// Extraneous /s in URLs is normally okay, but the Apple CDN does not
 	// like them. Make sure that we put exactly one (1) / between the host
 	// and the path.
