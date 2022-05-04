@@ -25,6 +25,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/network-quality/goresponsiveness/constants"
 	"github.com/network-quality/goresponsiveness/utilities"
 	"golang.org/x/net/http2"
 )
@@ -37,7 +38,7 @@ var GenerateConnectionId func() uint64 = func() func() uint64 {
 }()
 
 type LoadGeneratingConnection interface {
-	Start(context.Context, bool) bool
+	Start(context.Context, constants.DebugLevel) bool
 	Transferred() uint64
 	Client() *http.Client
 	IsValid() bool
@@ -64,7 +65,7 @@ type LoadGeneratingConnectionDownload struct {
 	Path       string
 	downloaded uint64
 	client     *http.Client
-	debug      bool
+	debug      constants.DebugLevel
 	valid      bool
 	KeyLogger  io.Writer
 	clientId   uint64
@@ -79,7 +80,7 @@ func generateHttpTimingTracer(
 		DNSStart: func(dnsStartInfo httptrace.DNSStartInfo) {
 			lgd.stats.dnsStartTime = time.Now()
 			lgd.stats.dnsStart = dnsStartInfo
-			if lgd.debug {
+			if utilities.IsDebug(lgd.debug) {
 				fmt.Printf(
 					"DNS Start for %v: %v\n",
 					lgd.ClientId(),
@@ -90,13 +91,13 @@ func generateHttpTimingTracer(
 		DNSDone: func(dnsDoneInfo httptrace.DNSDoneInfo) {
 			lgd.stats.dnsCompleteTime = time.Now()
 			lgd.stats.dnsDone = dnsDoneInfo
-			if lgd.debug {
+			if utilities.IsDebug(lgd.debug) {
 				fmt.Printf("DNS Done for %v: %v\n", lgd.ClientId(), dnsDoneInfo)
 			}
 		},
 		ConnectStart: func(network, address string) {
 			lgd.stats.connectStartTime = time.Now()
-			if lgd.debug {
+			if utilities.IsDebug(lgd.debug) {
 				fmt.Printf(
 					"TCP Start of %v: %v: %v\n",
 					lgd.ClientId(),
@@ -107,7 +108,7 @@ func generateHttpTimingTracer(
 		},
 		ConnectDone: func(network, address string, err error) {
 			lgd.stats.connectCompleteTime = time.Now()
-			if lgd.debug {
+			if utilities.IsDebug(lgd.debug) {
 				fmt.Printf(
 					"TCP Done for %v: %v: %v (%v)\n",
 					lgd.ClientId(),
@@ -119,7 +120,7 @@ func generateHttpTimingTracer(
 		},
 		GetConn: func(hostPort string) {
 			lgd.stats.getConnectionStartTime = time.Now()
-			if lgd.debug {
+			if utilities.IsDebug(lgd.debug) {
 				fmt.Printf(
 					"GetConn host port for %v: %v\n",
 					lgd.ClientId(),
@@ -133,7 +134,7 @@ func generateHttpTimingTracer(
 			}
 			lgd.stats.connInfo = connInfo
 			lgd.stats.getConnectionCompleteTime = time.Now()
-			if lgd.debug {
+			if utilities.IsDebug(lgd.debug) {
 				fmt.Printf(
 					"GetConn host port for %v: %v\n",
 					lgd.ClientId(),
@@ -143,14 +144,14 @@ func generateHttpTimingTracer(
 		},
 		TLSHandshakeStart: func() {
 			lgd.stats.tlsStartTime = time.Now()
-			if lgd.debug {
+			if utilities.IsDebug(lgd.debug) {
 				fmt.Printf("TLSHandshakeStart for %v\n", lgd.ClientId())
 			}
 		},
 		TLSHandshakeDone: func(tlsConnState tls.ConnectionState, err error) {
 			lgd.stats.tlsCompleteTime = time.Now()
 			lgd.stats.tlsConnInfo = tlsConnState
-			if lgd.debug {
+			if utilities.IsDebug(lgd.debug) {
 				fmt.Printf(
 					"TLSHandshakeDone for %v: %v\n",
 					lgd.ClientId(),
@@ -168,7 +169,7 @@ func (lbd *LoadGeneratingConnectionDownload) ClientId() uint64 {
 
 func (lbd *LoadGeneratingConnectionDownload) Transferred() uint64 {
 	transferred := atomic.LoadUint64(&lbd.downloaded)
-	if lbd.debug {
+	if utilities.IsDebug(lbd.debug) {
 		fmt.Printf("download: Transferred: %v\n", transferred)
 	}
 	return transferred
@@ -195,14 +196,15 @@ func (cr *countingReader) Read(p []byte) (n int, err error) {
 
 func (lbd *LoadGeneratingConnectionDownload) Start(
 	ctx context.Context,
-	debug bool,
+	debug constants.DebugLevel,
 ) bool {
 	lbd.downloaded = 0
 	lbd.clientId = GenerateConnectionId()
 	transport := http2.Transport{}
+	transport.TLSClientConfig = &tls.Config{}
 
 	if !utilities.IsInterfaceNil(lbd.KeyLogger) {
-		if debug {
+		if utilities.IsDebug(lbd.debug) {
 			fmt.Printf(
 				"Using an SSL Key Logger for this load-generating download.\n",
 			)
@@ -215,18 +217,16 @@ func (lbd *LoadGeneratingConnectionDownload) Start(
 		// depend on whether the url contains
 		// https:// or http://:
 		// https://github.com/golang/go/blob/7ca6902c171b336d98adbb103d701a013229c806/src/net/http/transport.go#L74
-		transport.TLSClientConfig = &tls.Config{
-			KeyLogWriter:       lbd.KeyLogger,
-			InsecureSkipVerify: true,
-		}
+		transport.TLSClientConfig.KeyLogWriter = lbd.KeyLogger
 	}
+	transport.TLSClientConfig.InsecureSkipVerify = true
 
 	lbd.client = &http.Client{Transport: &transport}
 	lbd.debug = debug
 	lbd.valid = true
 	lbd.tracer = generateHttpTimingTracer(lbd)
 
-	if debug {
+	if utilities.IsDebug(debug) {
 		fmt.Printf(
 			"Started a load-generating download (id: %v).\n",
 			lbd.clientId,
@@ -240,22 +240,28 @@ func (lbd *LoadGeneratingConnectionDownload) IsValid() bool {
 }
 
 func (lbd *LoadGeneratingConnectionDownload) doDownload(ctx context.Context) {
-	newRequest, err := http.NewRequestWithContext(
+	var request *http.Request = nil
+	var get *http.Response = nil
+	var err error = nil
+
+	if request, err = http.NewRequestWithContext(
 		httptrace.WithClientTrace(ctx, lbd.tracer),
 		"GET",
 		lbd.Path,
 		nil,
-	)
+	); err != nil {
+		lbd.valid = false
+		return
+	}
 
-	get, err := lbd.client.Do(newRequest)
-	if err != nil {
+	if get, err = lbd.client.Do(request); err != nil {
 		lbd.valid = false
 		return
 	}
 	cr := &countingReader{n: &lbd.downloaded, ctx: ctx, readable: get.Body}
 	_, _ = io.Copy(ioutil.Discard, cr)
 	get.Body.Close()
-	if lbd.debug {
+	if utilities.IsDebug(lbd.debug) {
 		fmt.Printf("Ending a load-generating download.\n")
 	}
 }
@@ -264,7 +270,7 @@ type LoadGeneratingConnectionUpload struct {
 	Path      string
 	uploaded  uint64
 	client    *http.Client
-	debug     bool
+	debug     constants.DebugLevel
 	valid     bool
 	KeyLogger io.Writer
 	clientId  uint64
@@ -276,7 +282,7 @@ func (lbu *LoadGeneratingConnectionUpload) ClientId() uint64 {
 
 func (lbu *LoadGeneratingConnectionUpload) Transferred() uint64 {
 	transferred := atomic.LoadUint64(&lbu.uploaded)
-	if lbu.debug {
+	if utilities.IsDebug(lbu.debug) {
 		fmt.Printf("upload: Transferred: %v\n", transferred)
 	}
 	return transferred
@@ -314,9 +320,10 @@ func (lbu *LoadGeneratingConnectionUpload) doUpload(ctx context.Context) bool {
 
 	if resp, err = lbu.client.Post(lbu.Path, "application/octet-stream", s); err != nil {
 		lbu.valid = false
+		return false
 	}
 	resp.Body.Close()
-	if lbu.debug {
+	if utilities.IsDebug(lbu.debug) {
 		fmt.Printf("Ending a load-generating upload.\n")
 	}
 	return true
@@ -324,7 +331,7 @@ func (lbu *LoadGeneratingConnectionUpload) doUpload(ctx context.Context) bool {
 
 func (lbu *LoadGeneratingConnectionUpload) Start(
 	ctx context.Context,
-	debug bool,
+	debug constants.DebugLevel,
 ) bool {
 	lbu.uploaded = 0
 	lbu.clientId = GenerateConnectionId()
@@ -332,24 +339,23 @@ func (lbu *LoadGeneratingConnectionUpload) Start(
 	// See above for the rationale of doing http2.Transport{} here
 	// to ensure that we are using h2.
 	transport := http2.Transport{}
+	transport.TLSClientConfig = &tls.Config{}
 
 	if !utilities.IsInterfaceNil(lbu.KeyLogger) {
-		if debug {
+		if utilities.IsDebug(lbu.debug) {
 			fmt.Printf(
 				"Using an SSL Key Logger for this load-generating upload.\n",
 			)
 		}
-		transport.TLSClientConfig = &tls.Config{
-			KeyLogWriter:       lbu.KeyLogger,
-			InsecureSkipVerify: true,
-		}
+		transport.TLSClientConfig.KeyLogWriter = lbu.KeyLogger
 	}
+	transport.TLSClientConfig.InsecureSkipVerify = true
 
 	lbu.client = &http.Client{Transport: &transport}
 	lbu.debug = debug
 	lbu.valid = true
 
-	if debug {
+	if utilities.IsDebug(lbu.debug) {
 		fmt.Printf("Started a load-generating upload (id: %v).\n", lbu.clientId)
 	}
 	go lbu.doUpload(ctx)
