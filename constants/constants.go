@@ -31,12 +31,3 @@ var (
 	// The default URL for the config host.
 	DefaultConfigHost string = "networkquality.example.com"
 )
-
-type DebugLevel int8
-
-const (
-	NoDebug DebugLevel = iota
-	Debug
-	Warn
-	Error
-)

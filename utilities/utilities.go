@@ -22,8 +22,6 @@ import (
 	"os"
 	"reflect"
 	"time"
-
-	"github.com/network-quality/goresponsiveness/constants"
 )
 
 func IsInterfaceNil(ifc interface{}) bool {
@@ -122,25 +120,4 @@ func CalculateSequentialRTTsTime(
 func SeekForAppend(file *os.File) (err error) {
 	_, err = file.Seek(0, 2)
 	return
-}
-
-func IsDebug(level constants.DebugLevel) bool {
-	if level <= constants.Debug {
-		return true
-	}
-	return false
-}
-
-func IsWarn(level constants.DebugLevel) bool {
-	if level <= constants.Warn {
-		return true
-	}
-	return false
-}
-
-func IsError(level constants.DebugLevel) bool {
-	if level <= constants.Error {
-		return true
-	}
-	return false
 }

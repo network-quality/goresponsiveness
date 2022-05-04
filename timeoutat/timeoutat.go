@@ -19,19 +19,18 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/network-quality/goresponsiveness/constants"
-	"github.com/network-quality/goresponsiveness/utilities"
+	"github.com/network-quality/goresponsiveness/debug"
 )
 
 func TimeoutAt(
 	ctx context.Context,
 	when time.Time,
-	debug constants.DebugLevel,
+	debugLevel debug.DebugLevel,
 ) (response chan interface{}) {
 	response = make(chan interface{})
 	go func(ctx context.Context) {
 		go func() {
-			if utilities.IsDebug(debug) {
+			if debug.IsDebug(debugLevel) {
 				fmt.Printf("Timeout expected to end at %v\n", when)
 			}
 			select {
@@ -39,7 +38,7 @@ func TimeoutAt(
 			case <-ctx.Done():
 			}
 			response <- struct{}{}
-			if utilities.IsDebug(debug) {
+			if debug.IsDebug(debugLevel) {
 				fmt.Printf("Timeout ended at %v\n", time.Now())
 			}
 		}()
