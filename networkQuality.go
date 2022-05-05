@@ -33,8 +33,10 @@ import (
 
 	"github.com/network-quality/goresponsiveness/ccw"
 	"github.com/network-quality/goresponsiveness/constants"
+	"github.com/network-quality/goresponsiveness/debug"
 	"github.com/network-quality/goresponsiveness/lgc"
 	"github.com/network-quality/goresponsiveness/ma"
+	"github.com/network-quality/goresponsiveness/rpm"
 	"github.com/network-quality/goresponsiveness/timeoutat"
 	"github.com/network-quality/goresponsiveness/utilities"
 	"golang.org/x/net/http2"
@@ -57,7 +59,11 @@ var (
 		"config",
 		"path on the server to the configuration endpoint.",
 	)
-	debug   = flag.Bool("debug", constants.DefaultDebug, "Enable debugging.")
+	debugCliFlag = flag.Bool(
+		"debug",
+		constants.DefaultDebug,
+		"Enable debugging.",
+	)
 	timeout = flag.Int(
 		"timeout",
 		constants.DefaultTestTime,
@@ -201,7 +207,7 @@ func addFlows(
 	lgcs *[]lgc.LoadGeneratingConnection,
 	lgcsPreviousTransferred *[]uint64,
 	lgcGenerator func() lgc.LoadGeneratingConnection,
-	debug bool,
+	debug debug.DebugLevel,
 ) {
 	for i := uint64(0); i < toAdd; i++ {
 		*lgcs = append(*lgcs, lgcGenerator())
@@ -221,23 +227,11 @@ type SaturationResult struct {
 	lgcs    []lgc.LoadGeneratingConnection
 }
 
-type Debugging struct {
-	Prefix string
-}
-
-func NewDebugging(prefix string) *Debugging {
-	return &Debugging{Prefix: prefix}
-}
-
-func (d *Debugging) String() string {
-	return d.Prefix
-}
-
 func saturate(
 	saturationCtx context.Context,
 	operatingCtx context.Context,
 	lgcGenerator func() lgc.LoadGeneratingConnection,
-	debug *Debugging,
+	debugging *debug.DebugWithPrefix,
 ) (saturated chan SaturationResult) {
 	saturated = make(chan SaturationResult)
 	go func() {
@@ -251,7 +245,7 @@ func saturate(
 			&lgcs,
 			&lgcsPreviousTransferred,
 			lgcGenerator,
-			debug != nil,
+			debugging.Level,
 		)
 
 		previousFlowIncreaseIteration := uint64(0)
@@ -281,10 +275,10 @@ func saturate(
 			now := time.Now()
 			// At each 1-second interval
 			if nextSampleStartTime.Sub(now) > 0 {
-				if debug != nil {
+				if debug.IsDebug(debugging.Level) {
 					fmt.Printf(
 						"%v: Sleeping until %v\n",
-						debug,
+						debugging,
 						nextSampleStartTime,
 					)
 				}
@@ -300,10 +294,10 @@ func saturate(
 			allInvalid := true
 			for i := range lgcs {
 				if !lgcs[i].IsValid() {
-					if debug != nil {
+					if debug.IsDebug(debugging.Level) {
 						fmt.Printf(
 							"%v: Load-generating connection with id %d is invalid ... skipping.\n",
-							debug,
+							debugging,
 							lgcs[i].ClientId(),
 						)
 					}
@@ -319,10 +313,10 @@ func saturate(
 			// For some reason, all the lgcs are invalid. This likely means that
 			// the network/server went away.
 			if allInvalid {
-				if debug != nil {
+				if debug.IsDebug(debugging.Level) {
 					fmt.Printf(
 						"%v: All lgcs were invalid. Assuming that network/server went away.\n",
-						debug,
+						debugging,
 					)
 				}
 				break
@@ -339,25 +333,25 @@ func saturate(
 				previousMovingAverage,
 			)
 
-			if debug != nil {
+			if debug.IsDebug(debugging.Level) {
 				fmt.Printf(
 					"%v: Instantaneous goodput: %f MB.\n",
-					debug,
+					debugging,
 					utilities.ToMBps(float64(totalTransfer)),
 				)
 				fmt.Printf(
 					"%v: Previous moving average: %f MB.\n",
-					debug,
+					debugging,
 					utilities.ToMBps(previousMovingAverage),
 				)
 				fmt.Printf(
 					"%v: Current moving average: %f MB.\n",
-					debug,
+					debugging,
 					utilities.ToMBps(currentMovingAverage),
 				)
 				fmt.Printf(
 					"%v: Moving average delta: %f.\n",
-					debug,
+					debugging,
 					movingAverageDelta,
 				)
 			}
@@ -377,10 +371,10 @@ func saturate(
 				if (currentIteration - previousFlowIncreaseIteration) > uint64(
 					constants.MovingAverageStabilitySpan,
 				) {
-					if debug != nil {
+					if debug.IsDebug(debugging.Level) {
 						fmt.Printf(
 							"%v: Adding flows because we are unsaturated and waited a while.\n",
-							debug,
+							debugging,
 						)
 					}
 					addFlows(
@@ -389,31 +383,31 @@ func saturate(
 						&lgcs,
 						&lgcsPreviousTransferred,
 						lgcGenerator,
-						debug != nil,
+						debugging.Level,
 					)
 					previousFlowIncreaseIteration = currentIteration
 				} else {
-					if debug != nil {
-						fmt.Printf("%v: We are unsaturated, but it still too early to add anything.\n", debug)
+					if debug.IsDebug(debugging.Level) {
+						fmt.Printf("%v: We are unsaturated, but it still too early to add anything.\n", debugging)
 					}
 				}
 			} else { // Else, network reached saturation for the current flow count.
-				if debug != nil {
-					fmt.Printf("%v: Network reached saturation with current flow count.\n", debug)
+				if debug.IsDebug(debugging.Level) {
+					fmt.Printf("%v: Network reached saturation with current flow count.\n", debugging)
 				}
 				// If new flows added and for 4 seconds the moving average
 				// throughput did not change: network reached stable saturation
 				if (currentIteration-previousFlowIncreaseIteration) < uint64(constants.MovingAverageStabilitySpan) && movingAverageAverage.AllSequentialIncreasesLessThan(float64(5)) {
-					if debug != nil {
-						fmt.Printf("%v: New flows added within the last four seconds and the moving-average average is consistent!\n", debug)
+					if debug.IsDebug(debugging.Level) {
+						fmt.Printf("%v: New flows added within the last four seconds and the moving-average average is consistent!\n", debugging)
 					}
 					break
 				} else {
 					// Else, add four more flows
-					if debug != nil {
-						fmt.Printf("%v: New flows to add to try to increase our saturation!\n", debug)
+					if debug.IsDebug(debugging.Level) {
+						fmt.Printf("%v: New flows to add to try to increase our saturation!\n", debugging)
 					}
-					addFlows(saturationCtx, constants.AdditiveNumberOfLoadGeneratingConnections, &lgcs, &lgcsPreviousTransferred, lgcGenerator, debug != nil)
+					addFlows(saturationCtx, constants.AdditiveNumberOfLoadGeneratingConnections, &lgcs, &lgcsPreviousTransferred, lgcGenerator, debugging.Level)
 					previousFlowIncreaseIteration = currentIteration
 				}
 			}
@@ -435,6 +429,11 @@ func main() {
 		context.Background(),
 	)
 	config := &Config{}
+	var debugLevel debug.DebugLevel = debug.Error
+
+	if *debugCliFlag {
+		debugLevel = debug.Debug
+	}
 
 	if err := config.Get(configHostPort, *configPath); err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
@@ -449,16 +448,16 @@ func main() {
 		)
 		return
 	}
-	if *debug {
+	if debug.IsDebug(debugLevel) {
 		fmt.Printf("Configuration: %s\n", config)
 	}
 
 	timeoutChannel := timeoutat.TimeoutAt(
 		operatingCtx,
 		timeoutAbsoluteTime,
-		*debug,
+		debugLevel,
 	)
-	if *debug {
+	if debug.IsDebug(debugLevel) {
 		fmt.Printf("Test will end earlier than %v\n", timeoutAbsoluteTime)
 	}
 
@@ -495,7 +494,7 @@ func main() {
 				fmt.Printf("Could not seek to the end of the key file: %v!\n", err)
 				sslKeyFileConcurrentWriter = nil
 			} else {
-				if *debug {
+				if debug.IsDebug(debugLevel) {
 					fmt.Printf("Doing SSL key logging through file %v\n", *sslKeyFileName)
 				}
 				sslKeyFileConcurrentWriter = ccw.NewConcurrentFileWriter(sslKeyFileHandle)
@@ -517,11 +516,11 @@ func main() {
 		}
 	}
 
-	var downloadDebugging *Debugging = nil
-	var uploadDebugging *Debugging = nil
-	if *debug {
-		downloadDebugging = &Debugging{Prefix: "download"}
-		uploadDebugging = &Debugging{Prefix: "upload"}
+	var downloadDebugging *debug.DebugWithPrefix = nil
+	var uploadDebugging *debug.DebugWithPrefix = nil
+	if debug.IsDebug(debugLevel) {
+		downloadDebugging = &debug.DebugWithPrefix{Prefix: "download"}
+		uploadDebugging = &debug.DebugWithPrefix{Prefix: "upload"}
 	}
 
 	downloadSaturationChannel := saturate(
@@ -548,7 +547,7 @@ func main() {
 		case downloadSaturation = <-downloadSaturationChannel:
 			{
 				downloadSaturated = true
-				if *debug {
+				if *debugCliFlag {
 					fmt.Printf(
 						"################# download is %s saturated (%fMBps, %d flows)!\n",
 						utilities.Conditional(
@@ -564,7 +563,7 @@ func main() {
 		case uploadSaturation = <-uploadSaturationChannel:
 			{
 				uploadSaturated = true
-				if *debug {
+				if *debugCliFlag {
 					fmt.Printf(
 						"################# upload is %s saturated (%fMBps, %d flows)!\n",
 						utilities.Conditional(
@@ -588,7 +587,7 @@ func main() {
 						"Error: Saturation could not be completed in time and no provisional rates could be accessed. Test failed.\n",
 					)
 					cancelOperatingCtx()
-					if *debug {
+					if *debugCliFlag {
 						time.Sleep(constants.CooldownPeriod)
 					}
 					return
@@ -605,9 +604,9 @@ func main() {
 				timeoutChannel = timeoutat.TimeoutAt(
 					operatingCtx,
 					timeoutAbsoluteTime,
-					*debug,
+					debugLevel,
 				)
-				if *debug {
+				if *debugCliFlag {
 					fmt.Printf(
 						"################# timeout reaching saturation!\n",
 					)
@@ -625,7 +624,7 @@ func main() {
 		timeoutChannel = timeoutat.TimeoutAt(
 			operatingCtx,
 			timeoutAbsoluteTime,
-			*debug,
+			debugLevel,
 		)
 	}
 
@@ -643,10 +642,10 @@ func main() {
 				downloadSaturation.lgcs,
 			)
 		if !downloadSaturation.lgcs[randomlgcsIndex].IsValid() {
-			if *debug {
+			if *debugCliFlag {
 				fmt.Printf(
 					"%v: The randomly selected download lgc (with id %d) was invalid. Skipping.\n",
-					debug,
+					debugCliFlag,
 					downloadSaturation.lgcs[randomlgcsIndex].ClientId(),
 				)
 			}
@@ -655,7 +654,7 @@ func main() {
 			// invalid connections and never
 			// do the select below
 			if time.Since(timeoutAbsoluteTime) > 0 {
-				if *debug {
+				if *debugCliFlag {
 					fmt.Printf(
 						"Pathologically could not find valid lgcs to use for measurement.\n",
 					)
@@ -666,20 +665,26 @@ func main() {
 		}
 
 		newTransport := http2.Transport{}
+		newTransport.TLSClientConfig = &tls.Config{}
 		if sslKeyFileConcurrentWriter != nil {
-			newTransport.TLSClientConfig = &tls.Config{
-				KeyLogWriter:       sslKeyFileConcurrentWriter,
-				InsecureSkipVerify: true,
-			}
+			newTransport.TLSClientConfig.KeyLogWriter = sslKeyFileConcurrentWriter
 		}
+		newTransport.TLSClientConfig.InsecureSkipVerify = true
 		newClient := http.Client{Transport: &newTransport}
+
+		newRTTProbe := rpm.NewProbe(&newClient, debugLevel)
+
+		saturatedRTTProbe := rpm.NewProbe(
+			downloadSaturation.lgcs[randomlgcsIndex].Client(),
+			debugLevel,
+		)
 
 		select {
 		case <-timeoutChannel:
 			{
 				rttTimeout = true
 			}
-		case sequentialRTTimes := <-utilities.CalculateSequentialRTTsTime(operatingCtx, downloadSaturation.lgcs[randomlgcsIndex].Client(), &newClient, config.Urls.SmallUrl):
+		case sequentialRTTimes := <-rpm.CalculateSequentialRTTsTime(operatingCtx, saturatedRTTProbe, newRTTProbe, config.Urls.SmallUrl, debugLevel):
 			{
 				if sequentialRTTimes.Err != nil {
 					fmt.Printf(
@@ -688,10 +693,14 @@ func main() {
 					)
 					continue
 				}
+
+				if debug.IsDebug(debugLevel) {
+					fmt.Printf("rttProbe: %v\n", newRTTProbe)
+				}
 				// We know that we have a good Sequential RTT.
 				totalRTsCount += uint64(sequentialRTTimes.RoundTripCount)
 				totalRTTimes += sequentialRTTimes.Delay.Seconds()
-				if *debug {
+				if debug.IsDebug(debugLevel) {
 					fmt.Printf(
 						"sequentialRTTsTime: %v\n",
 						sequentialRTTimes.Delay.Seconds(),
@@ -726,10 +735,6 @@ func main() {
 		// Normalized to 60 seconds: 60 * (1
 		// / (totalRTTimes / totalRTsCount))) <- semantically the number of
 		// probes per minute.
-		// I am concerned because the draft seems to conflate the concept of a
-		// probe
-		// with a roundtrip. In other words, I think that we are missing a
-		// multiplication by 5: DNS, TCP, TLS, HTTP GET, HTTP Download.
 		rpm := float64(
 			time.Minute.Seconds(),
 		) / (totalRTTimes / (float64(totalRTsCount)))
@@ -740,7 +745,7 @@ func main() {
 	}
 
 	cancelOperatingCtx()
-	if *debug {
+	if *debugCliFlag {
 		fmt.Printf("In debugging mode, we will cool down.\n")
 		time.Sleep(constants.CooldownPeriod)
 		fmt.Printf("Done cooling down.\n")
