@@ -36,6 +36,7 @@ import (
 	"github.com/network-quality/goresponsiveness/debug"
 	"github.com/network-quality/goresponsiveness/lgc"
 	"github.com/network-quality/goresponsiveness/ma"
+	"github.com/network-quality/goresponsiveness/rpm"
 	"github.com/network-quality/goresponsiveness/timeoutat"
 	"github.com/network-quality/goresponsiveness/utilities"
 	"golang.org/x/net/http2"
@@ -226,24 +227,11 @@ type SaturationResult struct {
 	lgcs    []lgc.LoadGeneratingConnection
 }
 
-type Debugging struct {
-	Level  debug.DebugLevel
-	Prefix string
-}
-
-func NewDebugging(level debug.DebugLevel, prefix string) *Debugging {
-	return &Debugging{Level: level, Prefix: prefix}
-}
-
-func (d *Debugging) String() string {
-	return d.Prefix
-}
-
 func saturate(
 	saturationCtx context.Context,
 	operatingCtx context.Context,
 	lgcGenerator func() lgc.LoadGeneratingConnection,
-	debugging *Debugging,
+	debugging *debug.DebugWithPrefix,
 ) (saturated chan SaturationResult) {
 	saturated = make(chan SaturationResult)
 	go func() {
@@ -528,11 +516,11 @@ func main() {
 		}
 	}
 
-	var downloadDebugging *Debugging = nil
-	var uploadDebugging *Debugging = nil
+	var downloadDebugging *debug.DebugWithPrefix = nil
+	var uploadDebugging *debug.DebugWithPrefix = nil
 	if debug.IsDebug(debugLevel) {
-		downloadDebugging = &Debugging{Prefix: "download"}
-		uploadDebugging = &Debugging{Prefix: "upload"}
+		downloadDebugging = &debug.DebugWithPrefix{Prefix: "download"}
+		uploadDebugging = &debug.DebugWithPrefix{Prefix: "upload"}
 	}
 
 	downloadSaturationChannel := saturate(
@@ -684,12 +672,19 @@ func main() {
 		newTransport.TLSClientConfig.InsecureSkipVerify = true
 		newClient := http.Client{Transport: &newTransport}
 
+		newRTTProbe := rpm.NewProbe(&newClient, debugLevel)
+
+		saturatedRTTProbe := rpm.NewProbe(
+			downloadSaturation.lgcs[randomlgcsIndex].Client(),
+			debugLevel,
+		)
+
 		select {
 		case <-timeoutChannel:
 			{
 				rttTimeout = true
 			}
-		case sequentialRTTimes := <-utilities.CalculateSequentialRTTsTime(operatingCtx, downloadSaturation.lgcs[randomlgcsIndex].Client(), &newClient, config.Urls.SmallUrl):
+		case sequentialRTTimes := <-rpm.CalculateSequentialRTTsTime(operatingCtx, saturatedRTTProbe, newRTTProbe, config.Urls.SmallUrl, debugLevel):
 			{
 				if sequentialRTTimes.Err != nil {
 					fmt.Printf(
@@ -698,10 +693,14 @@ func main() {
 					)
 					continue
 				}
+
+				if debug.IsDebug(debugLevel) {
+					fmt.Printf("rttProbe: %v\n", newRTTProbe)
+				}
 				// We know that we have a good Sequential RTT.
 				totalRTsCount += uint64(sequentialRTTimes.RoundTripCount)
 				totalRTTimes += sequentialRTTimes.Delay.Seconds()
-				if *debugCliFlag {
+				if debug.IsDebug(debugLevel) {
 					fmt.Printf(
 						"sequentialRTTsTime: %v\n",
 						sequentialRTTimes.Delay.Seconds(),
@@ -736,10 +735,6 @@ func main() {
 		// Normalized to 60 seconds: 60 * (1
 		// / (totalRTTimes / totalRTsCount))) <- semantically the number of
 		// probes per minute.
-		// I am concerned because the draft seems to conflate the concept of a
-		// probe
-		// with a roundtrip. In other words, I think that we are missing a
-		// multiplication by 5: DNS, TCP, TLS, HTTP GET, HTTP Download.
 		rpm := float64(
 			time.Minute.Seconds(),
 		) / (totalRTTimes / (float64(totalRTsCount)))

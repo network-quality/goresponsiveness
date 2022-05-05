@@ -17,6 +17,8 @@ type Traceable interface {
 	SetGotConnTimeInfo(time.Time, httptrace.GotConnInfo)
 	SetTLSHandshakeStartTime(time.Time)
 	SetTLSHandshakeDoneTimeState(time.Time, tls.ConnectionState)
+	SetHttpWroteRequestTimeInfo(time.Time, httptrace.WroteRequestInfo)
+	SetHttpResponseReadyTime(time.Time)
 }
 
 func GenerateHttpTimingTracer(
@@ -50,6 +52,12 @@ func GenerateHttpTimingTracer(
 		},
 		TLSHandshakeDone: func(tlsConnState tls.ConnectionState, err error) {
 			traceable.SetTLSHandshakeDoneTimeState(time.Now(), tlsConnState)
+		},
+		WroteRequest: func(wroteRequest httptrace.WroteRequestInfo) {
+			traceable.SetHttpWroteRequestTimeInfo(time.Now(), wroteRequest)
+		},
+		GotFirstResponseByte: func() {
+			traceable.SetHttpResponseReadyTime(time.Now())
 		},
 	}
 	return &tracer

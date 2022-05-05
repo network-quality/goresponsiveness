@@ -88,11 +88,11 @@ $ ./networkQuality --config mensura.cdn-apple.com --port 443 --path /api/v1/gm/c
 
 ## Contributing
 
-We *love* contributions. Before submitting a patch, format your code with `go fmt` *and* `golines`:
+We *love* contributions. Before submitting a patch, format your code with `go fmt`.
 
-```
-$ golines -w -m 80 --shorten-comments .
-```
+Normally we would recommend that you format your code using `golines` before submitting, but `golines` does not appear to be compatible with Go's new generic types.
+
+This README.md will be updated when `golines` is patched to support Go's new generic types.
 
 You can easily install `golines` in to your `${GOPATH}` with
 

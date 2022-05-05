@@ -15,12 +15,11 @@
 package utilities
 
 import (
-	"context"
-	"io"
+	"fmt"
 	"math"
-	"net/http"
 	"os"
 	"reflect"
+	"sync/atomic"
 	"time"
 )
 
@@ -68,56 +67,50 @@ type GetLatency struct {
 	Err            error
 }
 
-func CalculateSequentialRTTsTime(
-	ctx context.Context,
-	saturated_client *http.Client,
-	new_client *http.Client,
-	url string,
-) chan GetLatency {
-	responseChannel := make(chan GetLatency)
-	go func() {
-		roundTripCount := uint16(0)
-		before := time.Now()
-		/*
-			  TODO: We are not going to measure round-trip times on the load-generating connection
-				right now because we are dealing with a massive amount of buffer bloat on the
-				Apple CDN.
-
-				c_a, err := saturated_client.Get(url)
-				if err != nil {
-					responseChannel <- GetLatency{Delay: 0, RTTs: 0, Err: err}
-					return
-				}
-				// TODO: Make this interruptable somehow
-				// by using _ctx_.
-				_, err = io.ReadAll(c_a.Body)
-				if err != nil {
-					responseChannel <- GetLatency{Delay: 0, RTTs: 0, Err: err}
-					return
-				}
-				roundTripCount += 5
-				c_a.Body.Close()
-		*/
-		c_b, err := new_client.Get(url)
-		if err != nil {
-			responseChannel <- GetLatency{Delay: 0, RoundTripCount: 0, Err: err}
-			return
-		}
-		// TODO: Make this interruptable somehow by using _ctx_.
-		_, err = io.ReadAll(c_b.Body)
-		if err != nil {
-			responseChannel <- GetLatency{Delay: 0, Err: err}
-			return
-		}
-		c_b.Body.Close()
-		// We use 1 here according to the wording in 4.2.1.
-		roundTripCount += 1
-		responseChannel <- GetLatency{Delay: time.Since(before), RoundTripCount: roundTripCount, Err: nil}
-	}()
-	return responseChannel
-}
-
 func SeekForAppend(file *os.File) (err error) {
 	_, err = file.Seek(0, 2)
 	return
+}
+
+var GenerateConnectionId func() uint64 = func() func() uint64 {
+	var nextConnectionId uint64 = 0
+	return func() uint64 {
+		return atomic.AddUint64(&nextConnectionId, 1)
+	}
+}()
+
+type Optional[S any] struct {
+	value S
+	some  bool
+}
+
+func Some[S any](value S) Optional[S] {
+	return Optional[S]{value: value, some: true}
+}
+
+func None[S any]() Optional[S] {
+	return Optional[S]{some: false}
+}
+
+func IsNone[S any](optional Optional[S]) bool {
+	return !optional.some
+}
+
+func IsSome[S any](optional Optional[S]) bool {
+	return optional.some
+}
+
+func GetSome[S any](optional Optional[S]) S {
+	if !optional.some {
+		panic("Attempting to access Some of a None.")
+	}
+	return optional.value
+}
+
+func (optional Optional[S]) String() string {
+	if IsSome(optional) {
+		return fmt.Sprintf("Some: %v", optional.some)
+	} else {
+		return "None"
+	}
 }
