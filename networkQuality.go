@@ -516,12 +516,8 @@ func main() {
 		}
 	}
 
-	var downloadDebugging *debug.DebugWithPrefix = nil
-	var uploadDebugging *debug.DebugWithPrefix = nil
-	if debug.IsDebug(debugLevel) {
-		downloadDebugging = &debug.DebugWithPrefix{Prefix: "download"}
-		uploadDebugging = &debug.DebugWithPrefix{Prefix: "upload"}
-	}
+	var downloadDebugging *debug.DebugWithPrefix = debug.NewDebugWithPrefix(debugLevel, "download")
+	var uploadDebugging *debug.DebugWithPrefix = debug.NewDebugWithPrefix(debugLevel, "upload")
 
 	downloadSaturationChannel := saturate(
 		saturationCtx,
