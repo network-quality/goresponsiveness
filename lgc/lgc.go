@@ -126,6 +126,10 @@ func (lgd *LoadGeneratingConnectionDownload) SetGotConnTimeInfo(
 	now time.Time,
 	gotConnInfo httptrace.GotConnInfo,
 ) {
+	if gotConnInfo.Reused {
+		fmt.Printf("Unexpectedly reusing a connection!\n")
+		panic(!gotConnInfo.Reused)
+	}
 	lgd.stats.GetConnectionDoneTime = now
 	lgd.stats.ConnInfo = gotConnInfo
 	if debug.IsDebug(lgd.debug) {

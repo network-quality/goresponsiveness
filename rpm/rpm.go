@@ -252,6 +252,55 @@ func (probe *Probe) SetHttpResponseReadyTime(
 	}
 }
 
+func getLatency(ctx context.Context, probe *Probe, url string, debugLevel debug.DebugLevel) utilities.GetLatency {
+	before := time.Now()
+	c_b_req, err := http.NewRequestWithContext(
+		httptrace.WithClientTrace(ctx, probe.GetTrace()),
+		"GET",
+		url,
+		nil,
+	)
+	if err != nil {
+		return utilities.GetLatency{Delay: 0, RoundTripCount: 0, Err: err}
+	}
+
+	c_b, err := probe.client.Do(c_b_req)
+	if err != nil {
+		return utilities.GetLatency{Delay: 0, RoundTripCount: 0, Err: err}
+	}
+
+	// TODO: Make this interruptable somehow by using _ctx_.
+	_, err = io.ReadAll(c_b.Body)
+	if err != nil {
+		return utilities.GetLatency{Delay: 0, Err: err}
+	}
+	after := time.Now()
+
+	// Depending on whether we think that Close() requires another RTT (via TCP), we
+	// may need to move this before/after capturing the after time.
+	c_b.Body.Close()
+
+	sanity := after.Sub(before)
+
+	tlsAndHttpHeaderDelta := probe.GetTLSAndHttpHeaderDelta() // Constitutes 2 RTT, per the Spec.
+	httpDownloadDelta := probe.GetHttpDownloadDelta(after)    // Constitutes 1 RTT, per the Spec.
+	dnsDelta := probe.GetDnsDelta()                           // Constitutes 1 RTT, per the Spec.
+	tcpDelta := probe.GetTCPDelta()                           // Constitutes 1 RTT, per the Spec.
+	totalDelay := tlsAndHttpHeaderDelta + httpDownloadDelta + dnsDelta + tcpDelta
+
+	if debug.IsDebug(debugLevel) {
+		fmt.Printf(
+			"(Probe %v) sanity vs total: %v vs %v\n",
+			probe.ProbeId(),
+			sanity,
+			totalDelay,
+		)
+	}
+
+	roundTripCount := uint16(5) // According to addition, there are 5 RTTs that we measured.
+	return utilities.GetLatency{Delay: totalDelay, RoundTripCount: roundTripCount, Err: nil}
+}
+
 func CalculateSequentialRTTsTime(
 	ctx context.Context,
 	saturated_rtt_probe *Probe,
@@ -261,8 +310,17 @@ func CalculateSequentialRTTsTime(
 ) chan utilities.GetLatency {
 	responseChannel := make(chan utilities.GetLatency)
 	go func() {
-		before := time.Now()
-		roundTripCount := uint16(0)
+
+		if debug.IsDebug(debugLevel) {
+			fmt.Printf("Beginning saturated RTT probe.\n")
+		}
+		saturated_latency := getLatency(ctx, saturated_rtt_probe, url, debugLevel)
+
+		if saturated_latency.Err != nil {
+			fmt.Printf("Error occurred getting the saturated RTT.\n")
+			responseChannel <- saturated_latency
+			return
+		}
 		/*
 			  TODO: We are not going to measure round-trip times on the load-generating connection
 				right now because we are dealing with a massive amount of buffer bloat on the
@@ -289,54 +347,19 @@ func CalculateSequentialRTTsTime(
 				roundTripCount += 5
 				c_a.Body.Close()
 		*/
-		c_b_req, err := http.NewRequestWithContext(
-			httptrace.WithClientTrace(ctx, new_rtt_probe.GetTrace()),
-			"GET",
-			url,
-			nil,
-		)
-		if err != nil {
-			responseChannel <- utilities.GetLatency{Delay: 0, RoundTripCount: 0, Err: err}
-			return
-		}
-
-		c_b, err := new_rtt_probe.client.Do(c_b_req)
-		if err != nil {
-			responseChannel <- utilities.GetLatency{Delay: 0, RoundTripCount: 0, Err: err}
-			return
-		}
-
-		// TODO: Make this interruptable somehow by using _ctx_.
-		_, err = io.ReadAll(c_b.Body)
-		if err != nil {
-			responseChannel <- utilities.GetLatency{Delay: 0, Err: err}
-			return
-		}
-		after := time.Now()
-
-		// Depending on whether we think that Close() requires another RTT (via TCP), we
-		// may need to move this before/after capturing the after time.
-		c_b.Body.Close()
-
-		sanity := after.Sub(before)
-
-		tlsAndHttpHeaderDelta := new_rtt_probe.GetTLSAndHttpHeaderDelta() // Constitutes 2 RTT, per the Spec.
-		httpDownloadDelta := new_rtt_probe.GetHttpDownloadDelta(after)    // Constitutes 1 RTT, per the Spec.
-		dnsDelta := new_rtt_probe.GetDnsDelta()                           // Constitutes 1 RTT, per the Spec.
-		tcpDelta := new_rtt_probe.GetTCPDelta()                           // Constitutes 1 RTT, per the Spec.
-		totalDelay := tlsAndHttpHeaderDelta + httpDownloadDelta + dnsDelta + tcpDelta
-
 		if debug.IsDebug(debugLevel) {
-			fmt.Printf(
-				"(Probe %v) sanity vs total: %v vs %v\n",
-				new_rtt_probe.ProbeId(),
-				sanity,
-				totalDelay,
-			)
+			fmt.Printf("Beginning unsaturated RTT probe.\n")
+		}
+		new_rtt_latency := getLatency(ctx, new_rtt_probe, url, debugLevel)
+
+		if new_rtt_latency.Err != nil {
+			fmt.Printf("Error occurred getting the unsaturated RTT.\n")
+			responseChannel <- new_rtt_latency
+			return
 		}
 
-		roundTripCount += 5 // According to addition, there are 5 RTTs that we measured.
-		responseChannel <- utilities.GetLatency{Delay: totalDelay, RoundTripCount: roundTripCount, Err: nil}
+		responseChannel <- utilities.GetLatency{Delay: saturated_latency.Delay + new_rtt_latency.Delay, RoundTripCount: uint16(10), Err: nil}
+		return
 	}()
 	return responseChannel
 }
