@@ -36,6 +36,9 @@ func (p *Probe) GetTrace() *httptrace.ClientTrace {
 }
 
 func (p *Probe) GetDnsDelta() time.Duration {
+	if p.stats.ConnectionReused {
+		return time.Duration(0)
+	}
 	delta := p.stats.DnsDoneTime.Sub(p.stats.DnsStartTime)
 	if debug.IsDebug(p.debug) {
 		fmt.Printf("(Probe %v): DNS Time: %v\n", p.probeid, delta)
@@ -44,6 +47,9 @@ func (p *Probe) GetDnsDelta() time.Duration {
 }
 
 func (p *Probe) GetTCPDelta() time.Duration {
+	if p.stats.ConnectionReused {
+		return time.Duration(0)
+	}
 	delta := p.stats.ConnectDoneTime.Sub(p.stats.ConnectStartTime)
 	if debug.IsDebug(p.debug) {
 		fmt.Printf("(Probe %v): TCP Connection Time: %v\n", p.probeid, delta)
@@ -70,7 +76,14 @@ func (p *Probe) GetTLSAndHttpHeaderDelta() time.Duration {
 	// *and* the TLS handshake RTT, whether we can specifically measure the latter
 	// or not. Eventually when TLS handshake tracing is fixed, we can break these
 	// into separate buckets, but for now this workaround is reasonable.
-	delta := p.stats.HttpResponseReadyTime.Sub(p.stats.ConnectDoneTime)
+	before := p.stats.ConnectDoneTime
+	if p.stats.ConnectionReused {
+		// When we reuse a connection there will be no time logged for when the
+		// TCP connection was established (obviously). So, fall back to the time
+		// when were notified about reusing a connection (as a close approximation!).
+		before = p.stats.GetConnectionDoneTime
+	}
+	delta := p.stats.HttpResponseReadyTime.Sub(before)
 	if debug.IsDebug(p.debug) {
 		fmt.Printf("(Probe %v): Http TLS and Header Time: %v\n", p.probeid, delta)
 	}
@@ -184,9 +197,15 @@ func (probe *Probe) SetGotConnTimeInfo(
 ) {
 	probe.stats.GetConnectionDoneTime = now
 	probe.stats.ConnInfo = gotConnInfo
+	probe.stats.ConnectionReused = gotConnInfo.Reused
 	if debug.IsDebug(probe.debug) {
+		reusedString := "(new)"
+		if probe.stats.ConnectionReused {
+			reusedString = "(reused)"
+		}
 		fmt.Printf(
-			"(Probe) Got connection for %v at %v with info %v\n",
+			"(Probe) Got %v connection for %v at %v with info %v\n",
+			reusedString,
 			probe.ProbeId(),
 			probe.stats.GetConnectionDoneTime,
 			probe.stats.ConnInfo,
@@ -288,6 +307,15 @@ func getLatency(ctx context.Context, probe *Probe, url string, debugLevel debug.
 	tcpDelta := probe.GetTCPDelta()                           // Constitutes 1 RTT, per the Spec.
 	totalDelay := tlsAndHttpHeaderDelta + httpDownloadDelta + dnsDelta + tcpDelta
 
+	// By default, assume that there was a reused connection which
+	// means that we only made 2 round trips.
+	roundTripCount := uint16(2)
+	if !probe.stats.ConnectionReused {
+		// If we did not reuse the connection, then we made three additional RTTs -- one for the DNS,
+		// one for the TCP, one for the TLS.
+		roundTripCount = 5
+	}
+
 	if debug.IsDebug(debugLevel) {
 		fmt.Printf(
 			"(Probe %v) sanity vs total: %v vs %v\n",
@@ -296,8 +324,6 @@ func getLatency(ctx context.Context, probe *Probe, url string, debugLevel debug.
 			totalDelay,
 		)
 	}
-
-	roundTripCount := uint16(5) // According to addition, there are 5 RTTs that we measured.
 	return utilities.GetLatency{Delay: totalDelay, RoundTripCount: roundTripCount, Err: nil}
 }
 
@@ -310,7 +336,11 @@ func CalculateSequentialRTTsTime(
 ) chan utilities.GetLatency {
 	responseChannel := make(chan utilities.GetLatency)
 	go func() {
-
+		/*
+			  TODO: We *are* measuring round-trip times on the load-generating connection
+				right now. However, it is not clear if Apple is doing the same in their native
+				client. We will have to adjust based on that.
+		*/
 		if debug.IsDebug(debugLevel) {
 			fmt.Printf("Beginning saturated RTT probe.\n")
 		}
@@ -321,32 +351,6 @@ func CalculateSequentialRTTsTime(
 			responseChannel <- saturated_latency
 			return
 		}
-		/*
-			  TODO: We are not going to measure round-trip times on the load-generating connection
-				right now because we are dealing with a massive amount of buffer bloat on the
-				Apple CDN.
-
-				TODO: When this functionality is enabled, we may need to change the assertion in
-				the GotConn callback in the Traceable interface in traceable.go because a connection
-				will be reused in that case. If such a situation does come to pass, we will want to
-				move that assertion in to the various Traceable interface implementations that continue
-				to rely on this assertion.
-
-				c_a, err := saturated_client.Get(url)
-				if err != nil {
-					responseChannel <- GetLatency{Delay: 0, RTTs: 0, Err: err}
-					return
-				}
-				// TODO: Make this interruptable somehow
-				// by using _ctx_.
-				_, err = io.ReadAll(c_a.Body)
-				if err != nil {
-					responseChannel <- GetLatency{Delay: 0, RTTs: 0, Err: err}
-					return
-				}
-				roundTripCount += 5
-				c_a.Body.Close()
-		*/
 		if debug.IsDebug(debugLevel) {
 			fmt.Printf("Beginning unsaturated RTT probe.\n")
 		}
@@ -357,8 +361,7 @@ func CalculateSequentialRTTsTime(
 			responseChannel <- new_rtt_latency
 			return
 		}
-
-		responseChannel <- utilities.GetLatency{Delay: saturated_latency.Delay + new_rtt_latency.Delay, RoundTripCount: uint16(10), Err: nil}
+		responseChannel <- utilities.GetLatency{Delay: saturated_latency.Delay + new_rtt_latency.Delay, RoundTripCount: saturated_latency.RoundTripCount + new_rtt_latency.RoundTripCount, Err: nil}
 		return
 	}()
 	return responseChannel
