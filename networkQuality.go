@@ -64,6 +64,11 @@ var (
 		constants.DefaultDebug,
 		"Enable debugging.",
 	)
+	strictFlag = flag.Bool(
+		"strict",
+		constants.DefaultStrict,
+		"Whether to run the test in strict mode (measure HTTP get time on load-generating connection)",
+	)
 	timeout = flag.Int(
 		"timeout",
 		constants.DefaultTestTime,
@@ -680,7 +685,7 @@ func main() {
 			{
 				rttTimeout = true
 			}
-		case sequentialRTTimes := <-rpm.CalculateSequentialRTTsTime(operatingCtx, saturatedRTTProbe, newRTTProbe, config.Urls.SmallUrl, debugLevel):
+		case sequentialRTTimes := <-rpm.CalculateProbeMeasurements(operatingCtx, *strictFlag, saturatedRTTProbe, newRTTProbe, config.Urls.SmallUrl, debugLevel):
 			{
 				if sequentialRTTimes.Err != nil {
 					fmt.Printf(
@@ -694,7 +699,7 @@ func main() {
 					fmt.Printf("rttProbe: %v\n", newRTTProbe)
 				}
 				// We know that we have a good Sequential RTT.
-				totalRTsCount += uint64(sequentialRTTimes.RoundTripCount)
+				totalRTsCount += uint64(sequentialRTTimes.MeasurementCount)
 				totalRTTimes += sequentialRTTimes.Delay.Seconds()
 				if debug.IsDebug(debugLevel) {
 					fmt.Printf(

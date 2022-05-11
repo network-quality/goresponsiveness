@@ -61,10 +61,10 @@ func ToMBps(bytes float64) float64 {
 	return float64(bytes) / float64(1024*1024)
 }
 
-type GetLatency struct {
-	Delay          time.Duration
-	RoundTripCount uint16
-	Err            error
+type MeasurementResult struct {
+	Delay            time.Duration
+	MeasurementCount uint16
+	Err              error
 }
 
 func SeekForAppend(file *os.File) (err error) {

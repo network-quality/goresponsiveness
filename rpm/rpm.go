@@ -271,49 +271,49 @@ func (probe *Probe) SetHttpResponseReadyTime(
 	}
 }
 
-func getLatency(ctx context.Context, probe *Probe, url string, debugLevel debug.DebugLevel) utilities.GetLatency {
-	before := time.Now()
-	c_b_req, err := http.NewRequestWithContext(
+func getLatency(ctx context.Context, probe *Probe, url string, debugLevel debug.DebugLevel) utilities.MeasurementResult {
+	time_before_probe := time.Now()
+	probe_req, err := http.NewRequestWithContext(
 		httptrace.WithClientTrace(ctx, probe.GetTrace()),
 		"GET",
 		url,
 		nil,
 	)
 	if err != nil {
-		return utilities.GetLatency{Delay: 0, RoundTripCount: 0, Err: err}
+		return utilities.MeasurementResult{Delay: 0, MeasurementCount: 0, Err: err}
 	}
 
-	c_b, err := probe.client.Do(c_b_req)
+	probe_resp, err := probe.client.Do(probe_req)
 	if err != nil {
-		return utilities.GetLatency{Delay: 0, RoundTripCount: 0, Err: err}
+		return utilities.MeasurementResult{Delay: 0, MeasurementCount: 0, Err: err}
 	}
 
 	// TODO: Make this interruptable somehow by using _ctx_.
-	_, err = io.ReadAll(c_b.Body)
+	_, err = io.ReadAll(probe_resp.Body)
 	if err != nil {
-		return utilities.GetLatency{Delay: 0, Err: err}
+		return utilities.MeasurementResult{Delay: 0, Err: err}
 	}
-	after := time.Now()
+	time_after_probe := time.Now()
 
 	// Depending on whether we think that Close() requires another RTT (via TCP), we
 	// may need to move this before/after capturing the after time.
-	c_b.Body.Close()
+	probe_resp.Body.Close()
 
-	sanity := after.Sub(before)
+	sanity := time_after_probe.Sub(time_before_probe)
 
-	tlsAndHttpHeaderDelta := probe.GetTLSAndHttpHeaderDelta() // Constitutes 2 RTT, per the Spec.
-	httpDownloadDelta := probe.GetHttpDownloadDelta(after)    // Constitutes 1 RTT, per the Spec.
-	dnsDelta := probe.GetDnsDelta()                           // Constitutes 1 RTT, per the Spec.
-	tcpDelta := probe.GetTCPDelta()                           // Constitutes 1 RTT, per the Spec.
+	tlsAndHttpHeaderDelta := probe.GetTLSAndHttpHeaderDelta()
+	httpDownloadDelta := probe.GetHttpDownloadDelta(time_after_probe) // Combined with above, constitutes 2 time measurements, per the Spec.
+	dnsDelta := probe.GetDnsDelta()                                   // Constitutes 1 time measurement, per the Spec.
+	tcpDelta := probe.GetTCPDelta()                                   // Constitutes 1 time measurement, per the Spec.
 	totalDelay := tlsAndHttpHeaderDelta + httpDownloadDelta + dnsDelta + tcpDelta
 
 	// By default, assume that there was a reused connection which
-	// means that we only made 2 round trips.
-	roundTripCount := uint16(2)
+	// means that we only made 1 time measurement.
+	var measurementCount uint16 = 1
 	if !probe.stats.ConnectionReused {
-		// If we did not reuse the connection, then we made three additional RTTs -- one for the DNS,
-		// one for the TCP, one for the TLS.
-		roundTripCount = 5
+		// If we did not reuse the connection, then we made three additional time measurements.
+		// See above for details on that calculation.
+		measurementCount = 4
 	}
 
 	if debug.IsDebug(debugLevel) {
@@ -324,44 +324,58 @@ func getLatency(ctx context.Context, probe *Probe, url string, debugLevel debug.
 			totalDelay,
 		)
 	}
-	return utilities.GetLatency{Delay: totalDelay, RoundTripCount: roundTripCount, Err: nil}
+	return utilities.MeasurementResult{Delay: totalDelay, MeasurementCount: measurementCount, Err: nil}
 }
 
-func CalculateSequentialRTTsTime(
+func CalculateProbeMeasurements(
 	ctx context.Context,
-	saturated_rtt_probe *Probe,
-	new_rtt_probe *Probe,
+	strict bool,
+	saturated_measurement_probe *Probe,
+	new_measurement_probe *Probe,
 	url string,
 	debugLevel debug.DebugLevel,
-) chan utilities.GetLatency {
-	responseChannel := make(chan utilities.GetLatency)
+) chan utilities.MeasurementResult {
+	responseChannel := make(chan utilities.MeasurementResult)
 	go func() {
 		/*
 			  TODO: We *are* measuring round-trip times on the load-generating connection
 				right now. However, it is not clear if Apple is doing the same in their native
 				client. We will have to adjust based on that.
 		*/
-		if debug.IsDebug(debugLevel) {
-			fmt.Printf("Beginning saturated RTT probe.\n")
-		}
-		saturated_latency := getLatency(ctx, saturated_rtt_probe, url, debugLevel)
+		var saturated_latency utilities.MeasurementResult
+		if strict {
 
-		if saturated_latency.Err != nil {
-			fmt.Printf("Error occurred getting the saturated RTT.\n")
-			responseChannel <- saturated_latency
-			return
+			if debug.IsDebug(debugLevel) {
+				fmt.Printf("Beginning saturated RTT probe.\n")
+			}
+			saturated_latency := getLatency(ctx, saturated_measurement_probe, url, debugLevel)
+
+			if saturated_latency.Err != nil {
+				fmt.Printf("Error occurred getting the saturated RTT.\n")
+				responseChannel <- saturated_latency
+				return
+			}
 		}
+
 		if debug.IsDebug(debugLevel) {
 			fmt.Printf("Beginning unsaturated RTT probe.\n")
 		}
-		new_rtt_latency := getLatency(ctx, new_rtt_probe, url, debugLevel)
+		new_rtt_latency := getLatency(ctx, new_measurement_probe, url, debugLevel)
 
 		if new_rtt_latency.Err != nil {
 			fmt.Printf("Error occurred getting the unsaturated RTT.\n")
 			responseChannel <- new_rtt_latency
 			return
 		}
-		responseChannel <- utilities.GetLatency{Delay: saturated_latency.Delay + new_rtt_latency.Delay, RoundTripCount: saturated_latency.RoundTripCount + new_rtt_latency.RoundTripCount, Err: nil}
+
+		total_delay := new_rtt_latency.Delay
+		total_measurement_count := new_rtt_latency.MeasurementCount
+
+		if strict {
+			total_delay += saturated_latency.Delay
+			total_measurement_count += saturated_latency.MeasurementCount
+		}
+		responseChannel <- utilities.MeasurementResult{Delay: total_delay, MeasurementCount: total_measurement_count, Err: nil}
 		return
 	}()
 	return responseChannel
