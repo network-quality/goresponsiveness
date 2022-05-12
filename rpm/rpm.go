@@ -303,9 +303,8 @@ func getLatency(ctx context.Context, probe *Probe, url string, debugLevel debug.
 
 	tlsAndHttpHeaderDelta := probe.GetTLSAndHttpHeaderDelta()
 	httpDownloadDelta := probe.GetHttpDownloadDelta(time_after_probe) // Combined with above, constitutes 2 time measurements, per the Spec.
-	dnsDelta := probe.GetDnsDelta()                                   // Constitutes 1 time measurement, per the Spec.
 	tcpDelta := probe.GetTCPDelta()                                   // Constitutes 1 time measurement, per the Spec.
-	totalDelay := tlsAndHttpHeaderDelta + httpDownloadDelta + dnsDelta + tcpDelta
+	totalDelay := tlsAndHttpHeaderDelta + httpDownloadDelta + tcpDelta
 
 	// By default, assume that there was a reused connection which
 	// means that we only made 1 time measurement.
@@ -313,7 +312,7 @@ func getLatency(ctx context.Context, probe *Probe, url string, debugLevel debug.
 	if !probe.stats.ConnectionReused {
 		// If we did not reuse the connection, then we made three additional time measurements.
 		// See above for details on that calculation.
-		measurementCount = 4
+		measurementCount = 3
 	}
 
 	if debug.IsDebug(debugLevel) {
