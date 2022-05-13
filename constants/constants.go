@@ -9,7 +9,7 @@ var (
 	// calculation.
 	MovingAverageIntervalCount int = 4
 	// The number of intervals across which to consider a moving average stable.
-	MovingAverageStabilitySpan int = 4
+	MovingAverageStabilitySpan uint64 = 4
 	// The number of connections to add to a LBC when unsaturated.
 	AdditiveNumberOfLoadGeneratingConnections uint64 = 4
 	// The cutoff of the percent difference that defines instability.
