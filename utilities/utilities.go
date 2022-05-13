@@ -17,6 +17,7 @@ package utilities
 import (
 	"fmt"
 	"math"
+	"math/rand"
 	"os"
 	"reflect"
 	"sync/atomic"
@@ -116,4 +117,8 @@ func (optional Optional[S]) String() string {
 	} else {
 		return "None"
 	}
+}
+
+func RandBetween(max int) int {
+	return rand.New(rand.NewSource(int64(time.Now().Nanosecond()))).Int() % max
 }

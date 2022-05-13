@@ -18,7 +18,7 @@ var (
 	// The amount of time that the client will cooldown if it is in debug mode.
 	CooldownPeriod time.Duration = 4 * time.Second
 	// The number of probes to send when calculating RTT.
-	RPMProbeCount int = 5
+	MeasurementProbeCount int = 5
 	// The amount of time that we give ourselves to calculate the RPM.
 	RPMCalculationTime time.Duration = 10 * time.Second
 
