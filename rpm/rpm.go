@@ -23,13 +23,11 @@ func addFlows(
 	ctx context.Context,
 	toAdd uint64,
 	lgcs *[]lgc.LoadGeneratingConnection,
-	lgcsPreviousTransferred *[]uint64,
 	lgcGenerator func() lgc.LoadGeneratingConnection,
 	debug debug.DebugLevel,
 ) {
 	for i := uint64(0); i < toAdd; i++ {
 		*lgcs = append(*lgcs, lgcGenerator())
-		*lgcsPreviousTransferred = append(*lgcsPreviousTransferred, 0)
 		if !(*lgcs)[len(*lgcs)-1].Start(ctx, debug) {
 			fmt.Printf(
 				"Error starting lgc with id %d!\n",
@@ -55,13 +53,11 @@ func Saturate(
 	go func() {
 
 		lgcs := make([]lgc.LoadGeneratingConnection, 0)
-		lgcsPreviousTransferred := make([]uint64, 0)
 
 		addFlows(
 			saturationCtx,
 			constants.StartingNumberOfLoadGeneratingConnections,
 			&lgcs,
-			&lgcsPreviousTransferred,
 			lgcGenerator,
 			debugging.Level,
 		)
@@ -116,7 +112,7 @@ func Saturate(
 
 			// Compute "instantaneous aggregate" goodput which is the number of
 			// bytes transferred within the last second.
-			totalTransfer := uint64(0)
+			var totalTransfer float64 = 0
 			allInvalid := true
 			for i := range lgcs {
 				if !lgcs[i].IsValid() {
@@ -130,11 +126,10 @@ func Saturate(
 					continue
 				}
 				allInvalid = false
-				previousTransferred := lgcsPreviousTransferred[i]
-				currentTransferred := lgcs[i].Transferred()
-				instantaneousTransferred := currentTransferred - previousTransferred
+				currentTransferred, currentInterval := lgcs[i].TransferredInInterval()
+				// normalize to a second-long interval!
+				instantaneousTransferred := float64(currentTransferred) / float64(currentInterval.Seconds())
 				totalTransfer += instantaneousTransferred
-				lgcsPreviousTransferred[i] = currentTransferred
 			}
 
 			// For some reason, all the lgcs are invalid. This likely means that
@@ -208,7 +203,6 @@ func Saturate(
 						saturationCtx,
 						constants.AdditiveNumberOfLoadGeneratingConnections,
 						&lgcs,
-						&lgcsPreviousTransferred,
 						lgcGenerator,
 						debugging.Level,
 					)
@@ -234,7 +228,7 @@ func Saturate(
 					if debug.IsDebug(debugging.Level) {
 						fmt.Printf("%v: New flows to add to try to increase our saturation!\n", debugging)
 					}
-					addFlows(saturationCtx, constants.AdditiveNumberOfLoadGeneratingConnections, &lgcs, &lgcsPreviousTransferred, lgcGenerator, debugging.Level)
+					addFlows(saturationCtx, constants.AdditiveNumberOfLoadGeneratingConnections, &lgcs, lgcGenerator, debugging.Level)
 					previousFlowIncreaseInterval = currentInterval
 				}
 			}

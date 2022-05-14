@@ -34,22 +34,25 @@ import (
 
 type LoadGeneratingConnection interface {
 	Start(context.Context, debug.DebugLevel) bool
-	Transferred() uint64
+	TransferredInInterval() (uint64, time.Duration)
 	Client() *http.Client
 	IsValid() bool
 	ClientId() uint64
 }
 
 type LoadGeneratingConnectionDownload struct {
-	Path       string
-	downloaded uint64
-	client     *http.Client
-	debug      debug.DebugLevel
-	valid      bool
-	KeyLogger  io.Writer
-	clientId   uint64
-	tracer     *httptrace.ClientTrace
-	stats      stats.TraceStats
+	Path              string
+	downloaded        uint64
+	downloadStartTime time.Time
+	lastDownloaded    uint64
+	lastIntervalEnd   int64
+	client            *http.Client
+	debug             debug.DebugLevel
+	valid             bool
+	KeyLogger         io.Writer
+	clientId          uint64
+	tracer            *httptrace.ClientTrace
+	stats             stats.TraceStats
 }
 
 func (lgd *LoadGeneratingConnectionDownload) SetDnsStartTimeInfo(
@@ -204,12 +207,15 @@ func (lgd *LoadGeneratingConnectionDownload) ClientId() uint64 {
 	return lgd.clientId
 }
 
-func (lgd *LoadGeneratingConnectionDownload) Transferred() uint64 {
-	transferred := atomic.LoadUint64(&lgd.downloaded)
+func (lgd *LoadGeneratingConnectionDownload) TransferredInInterval() (uint64, time.Duration) {
+	transferred := atomic.SwapUint64(&lgd.downloaded, 0)
+	newIntervalEnd := (time.Now().Sub(lgd.downloadStartTime)).Nanoseconds()
+	previousIntervalEnd := atomic.SwapInt64(&lgd.lastIntervalEnd, newIntervalEnd)
+	intervalLength := time.Duration(newIntervalEnd - previousIntervalEnd)
 	if debug.IsDebug(lgd.debug) {
-		fmt.Printf("download: Transferred: %v\n", transferred)
+		fmt.Printf("download: Transferred: %v bytes in %v.\n", transferred, intervalLength)
 	}
-	return transferred
+	return transferred, intervalLength
 }
 
 func (lgd *LoadGeneratingConnectionDownload) Client() *http.Client {
@@ -291,6 +297,9 @@ func (lbd *LoadGeneratingConnectionDownload) doDownload(ctx context.Context) {
 		return
 	}
 
+	lbd.downloadStartTime = time.Now()
+	lbd.lastIntervalEnd = 0
+
 	if get, err = lbd.client.Do(request); err != nil {
 		lbd.valid = false
 		return
@@ -304,25 +313,31 @@ func (lbd *LoadGeneratingConnectionDownload) doDownload(ctx context.Context) {
 }
 
 type LoadGeneratingConnectionUpload struct {
-	Path      string
-	uploaded  uint64
-	client    *http.Client
-	debug     debug.DebugLevel
-	valid     bool
-	KeyLogger io.Writer
-	clientId  uint64
+	Path            string
+	uploaded        uint64
+	uploadStartTime time.Time
+	lastUploaded    uint64
+	lastIntervalEnd int64
+	client          *http.Client
+	debug           debug.DebugLevel
+	valid           bool
+	KeyLogger       io.Writer
+	clientId        uint64
 }
 
 func (lgu *LoadGeneratingConnectionUpload) ClientId() uint64 {
 	return lgu.clientId
 }
 
-func (lgu *LoadGeneratingConnectionUpload) Transferred() uint64 {
-	transferred := atomic.LoadUint64(&lgu.uploaded)
-	if debug.IsDebug(lgu.debug) {
-		fmt.Printf("upload: Transferred: %v\n", transferred)
+func (lgd *LoadGeneratingConnectionUpload) TransferredInInterval() (uint64, time.Duration) {
+	transferred := atomic.SwapUint64(&lgd.uploaded, 0)
+	newIntervalEnd := (time.Now().Sub(lgd.uploadStartTime)).Nanoseconds()
+	previousIntervalEnd := atomic.SwapInt64(&lgd.lastIntervalEnd, newIntervalEnd)
+	intervalLength := time.Duration(newIntervalEnd - previousIntervalEnd)
+	if debug.IsDebug(lgd.debug) {
+		fmt.Printf("upload: Transferred: %v bytes in %v.\n", transferred, intervalLength)
 	}
-	return transferred
+	return transferred, intervalLength
 }
 
 func (lgu *LoadGeneratingConnectionUpload) Client() *http.Client {
@@ -354,6 +369,9 @@ func (lgu *LoadGeneratingConnectionUpload) doUpload(ctx context.Context) bool {
 	s := &syntheticCountingReader{n: &lgu.uploaded, ctx: ctx}
 	var resp *http.Response = nil
 	var err error
+
+	lgu.uploadStartTime = time.Now()
+	lgu.lastIntervalEnd = 0
 
 	if resp, err = lgu.client.Post(lgu.Path, "application/octet-stream", s); err != nil {
 		lgu.valid = false
