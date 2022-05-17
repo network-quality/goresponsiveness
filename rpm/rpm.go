@@ -304,7 +304,7 @@ func (p *Probe) GetTLSAndHttpHeaderDelta() time.Duration {
 	if p.stats.ConnectionReused {
 		// When we reuse a connection there will be no time logged for when the
 		// TCP connection was established (obviously). So, fall back to the time
-		// when were notified about reusing a connection (as a close approximation!).
+		// when we were notified about reusing a connection (as a close approximation!).
 		before = p.stats.GetConnectionDoneTime
 	}
 	delta := p.stats.HttpResponseReadyTime.Sub(before)
@@ -561,10 +561,9 @@ func CalculateProbeMeasurements(
 	responseChannel := make(chan utilities.MeasurementResult)
 	go func() {
 		/*
-			  TODO: We *are* measuring round-trip times on the load-generating connection
-				right now. However, it is not clear if Apple is doing the same in their native
-				client. We will have to adjust based on that.
-		*/
+		 * Depending on whether the user wants their measurements to be strict, we will
+		 * measure on the LGC.
+		 */
 		var saturated_probe_latency utilities.MeasurementResult
 		if strict {
 
