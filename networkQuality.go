@@ -21,6 +21,7 @@ import (
 	"fmt"
 	_ "io"
 	_ "log"
+	"net"
 	"net/http"
 	"os"
 	"runtime/pprof"
@@ -321,6 +322,24 @@ func main() {
 				break
 			}
 			continue
+		}
+
+		if *debugCliFlag {
+			// Note: This code is just an example of how to use utilities.GetTCPInfo.
+			rawConn := downloadSaturation.LGCs[randomLGCsIndex].Stats().ConnInfo.Conn
+			tlsConn, ok := rawConn.(*tls.Conn)
+			if !ok {
+				fmt.Printf("OOPS: Could not get the TCP info for the connection (not a TLS connection)!\n")
+			}
+			tcpConn, ok := tlsConn.NetConn().(*net.TCPConn)
+			if !ok {
+				fmt.Printf("OOPS: Could not get the TCP info for the connection (not a TCP connection)!\n")
+			}
+			if info, err := utilities.GetTCPInfo(tcpConn); err != nil {
+				fmt.Printf("OOPS: Could not get the TCP info for the connection: %v!\n", err)
+			} else {
+				utilities.PrintTCPInfo(info)
+			}
 		}
 
 		unsaturatedMeasurementTransport := http2.Transport{}

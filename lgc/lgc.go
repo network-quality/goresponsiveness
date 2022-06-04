@@ -38,6 +38,7 @@ type LoadGeneratingConnection interface {
 	Client() *http.Client
 	IsValid() bool
 	ClientId() uint64
+	Stats() *stats.TraceStats
 }
 
 // TODO: All 64-bit fields that are accessed atomically must
@@ -284,6 +285,10 @@ func (lbd *LoadGeneratingConnectionDownload) IsValid() bool {
 	return lbd.valid
 }
 
+func (lbd *LoadGeneratingConnectionDownload) Stats() *stats.TraceStats {
+	return &lbd.stats
+}
+
 func (lbd *LoadGeneratingConnectionDownload) doDownload(ctx context.Context) {
 	var request *http.Request = nil
 	var get *http.Response = nil
@@ -419,4 +424,8 @@ func (lgu *LoadGeneratingConnectionUpload) Start(
 	}
 	go lgu.doUpload(ctx)
 	return true
+}
+
+func (lbd *LoadGeneratingConnectionUpload) Stats() *stats.TraceStats {
+	return nil
 }
