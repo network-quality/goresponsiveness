@@ -40,12 +40,14 @@ type LoadGeneratingConnection interface {
 	ClientId() uint64
 }
 
+// TODO: All 64-bit fields that are accessed atomically must
+// appear at the top of this struct.
 type LoadGeneratingConnectionDownload struct {
-	Path              string
 	downloaded        uint64
+	lastIntervalEnd   int64
+	Path              string
 	downloadStartTime time.Time
 	lastDownloaded    uint64
-	lastIntervalEnd   int64
 	client            *http.Client
 	debug             debug.DebugLevel
 	valid             bool
@@ -312,12 +314,14 @@ func (lbd *LoadGeneratingConnectionDownload) doDownload(ctx context.Context) {
 	}
 }
 
+// TODO: All 64-bit fields that are accessed atomically must
+// appear at the top of this struct.
 type LoadGeneratingConnectionUpload struct {
-	Path            string
 	uploaded        uint64
+	lastIntervalEnd int64
+	Path            string
 	uploadStartTime time.Time
 	lastUploaded    uint64
-	lastIntervalEnd int64
 	client          *http.Client
 	debug           debug.DebugLevel
 	valid           bool
