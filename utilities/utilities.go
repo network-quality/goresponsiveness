@@ -123,10 +123,9 @@ func RandBetween(max int) int {
 	return rand.New(rand.NewSource(int64(time.Now().Nanosecond()))).Int() % max
 }
 
-type NotImplemented struct {
-	Functionality string
-}
-
-func (ni *NotImplemented) Error() string {
-	return fmt.Sprintf("%v not implemented.\n", ni.Functionality)
+func Max(x, y uint64) uint64 {
+	if x > y {
+		return x
+	}
+	return y
 }

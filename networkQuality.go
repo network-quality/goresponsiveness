@@ -19,9 +19,6 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
-	_ "io"
-	_ "log"
-	"net"
 	"net/http"
 	"os"
 	"runtime/pprof"
@@ -31,6 +28,7 @@ import (
 	"github.com/network-quality/goresponsiveness/config"
 	"github.com/network-quality/goresponsiveness/constants"
 	"github.com/network-quality/goresponsiveness/debug"
+	"github.com/network-quality/goresponsiveness/extendedstats"
 	"github.com/network-quality/goresponsiveness/lgc"
 	"github.com/network-quality/goresponsiveness/rpm"
 	"github.com/network-quality/goresponsiveness/timeoutat"
@@ -80,6 +78,12 @@ var (
 		"",
 		"Enable client runtime profiling and specify storage location. Disabled by default.",
 	)
+
+	calculateExtendedStats = flag.Bool(
+		"extended-stats",
+		false,
+		"Enable the collection and display of extended statistics -- may not be available on certain platforms.",
+	)
 )
 
 func main() {
@@ -97,6 +101,11 @@ func main() {
 
 	if *debugCliFlag {
 		debugLevel = debug.Debug
+	}
+
+	if *calculateExtendedStats && !extendedstats.ExtendedStatsAvailable() {
+		*calculateExtendedStats = false
+		fmt.Printf("Warning: Calculation of extended statics was requested but they are not supported on this platform.\n")
 	}
 
 	if err := config.Get(configHostPort, *configPath); err != nil {
@@ -295,6 +304,18 @@ func main() {
 	totalMeasurements := uint64(0)
 	totalMeasurementTimes := float64(0)
 	measurementTimeout := false
+	extendedStats := extendedstats.ExtendedStats{}
+
+	for i := 0; i < len(downloadSaturation.LGCs); i++ {
+		// Assume that extended statistics are available -- the check was done explicitly at
+		// program startup if the calculateExtendedStats flag was set by the user on the command line.
+		if *calculateExtendedStats {
+			if !extendedstats.ExtendedStatsAvailable() {
+				panic("Extended stats are not available but the user requested their calculation.")
+			}
+			extendedStats.IncorporateConnectionStats(downloadSaturation.LGCs[i].Stats().ConnInfo.Conn)
+		}
+	}
 
 	for i := 0; i < constants.MeasurementProbeCount && !measurementTimeout; i++ {
 		if len(downloadSaturation.LGCs) == 0 {
@@ -322,29 +343,6 @@ func main() {
 				break
 			}
 			continue
-		}
-
-		if *debugCliFlag {
-			// Note: This code is just an example of how to use utilities.GetTCPInfo.
-			rawConn := downloadSaturation.LGCs[randomLGCsIndex].Stats().ConnInfo.Conn
-			tlsConn, ok := rawConn.(*tls.Conn)
-			if !ok {
-				fmt.Printf("OOPS: Could not get the TCP info for the connection (not a TLS connection)!\n")
-			}
-			tcpConn, ok := tlsConn.NetConn().(*net.TCPConn)
-			if !ok {
-				fmt.Printf("OOPS: Could not get the TCP info for the connection (not a TCP connection)!\n")
-			}
-			if info, err := utilities.GetTCPInfo(tcpConn); err != nil {
-				switch err.(type) {
-				case *utilities.NotImplemented:
-					fmt.Printf("GetTCPInfo not implemented on this platform.\n")
-				default:
-					fmt.Printf("OOPS: Could not get the TCP info for the connection: %v!\n", err)
-				}
-			} else {
-				utilities.PrintTCPInfo(info)
-			}
 		}
 
 		unsaturatedMeasurementTransport := http2.Transport{}
@@ -426,6 +424,10 @@ func main() {
 		fmt.Printf("RPM: %5.0f\n", rpm)
 	} else {
 		fmt.Printf("Error occurred calculating RPM -- no probe measurements received.\n")
+	}
+
+	if *calculateExtendedStats {
+		fmt.Printf(extendedStats.Repr())
 	}
 
 	cancelOperatingCtx()
