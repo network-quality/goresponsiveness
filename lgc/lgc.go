@@ -281,40 +281,40 @@ func (lgd *LoadGeneratingConnectionDownload) Start(
 	go lgd.doDownload(ctx)
 	return true
 }
-func (lbd *LoadGeneratingConnectionDownload) IsValid() bool {
-	return lbd.valid
+func (lgd *LoadGeneratingConnectionDownload) IsValid() bool {
+	return lgd.valid
 }
 
-func (lbd *LoadGeneratingConnectionDownload) Stats() *stats.TraceStats {
-	return &lbd.stats
+func (lgd *LoadGeneratingConnectionDownload) Stats() *stats.TraceStats {
+	return &lgd.stats
 }
 
-func (lbd *LoadGeneratingConnectionDownload) doDownload(ctx context.Context) {
+func (lgd *LoadGeneratingConnectionDownload) doDownload(ctx context.Context) {
 	var request *http.Request = nil
 	var get *http.Response = nil
 	var err error = nil
 
 	if request, err = http.NewRequestWithContext(
-		httptrace.WithClientTrace(ctx, lbd.tracer),
+		httptrace.WithClientTrace(ctx, lgd.tracer),
 		"GET",
-		lbd.Path,
+		lgd.Path,
 		nil,
 	); err != nil {
-		lbd.valid = false
+		lgd.valid = false
 		return
 	}
 
-	lbd.downloadStartTime = time.Now()
-	lbd.lastIntervalEnd = 0
+	lgd.downloadStartTime = time.Now()
+	lgd.lastIntervalEnd = 0
 
-	if get, err = lbd.client.Do(request); err != nil {
-		lbd.valid = false
+	if get, err = lgd.client.Do(request); err != nil {
+		lgd.valid = false
 		return
 	}
-	cr := &countingReader{n: &lbd.downloaded, ctx: ctx, readable: get.Body}
+	cr := &countingReader{n: &lgd.downloaded, ctx: ctx, readable: get.Body}
 	_, _ = io.Copy(ioutil.Discard, cr)
 	get.Body.Close()
-	if debug.IsDebug(lbd.debug) {
+	if debug.IsDebug(lgd.debug) {
 		fmt.Printf("Ending a load-generating download.\n")
 	}
 }
@@ -426,6 +426,7 @@ func (lgu *LoadGeneratingConnectionUpload) Start(
 	return true
 }
 
-func (lbd *LoadGeneratingConnectionUpload) Stats() *stats.TraceStats {
+func (lgu *LoadGeneratingConnectionUpload) Stats() *stats.TraceStats {
+	// Get all your stats from the download side of the LGC.
 	return nil
 }

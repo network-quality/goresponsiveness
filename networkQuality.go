@@ -336,7 +336,12 @@ func main() {
 				fmt.Printf("OOPS: Could not get the TCP info for the connection (not a TCP connection)!\n")
 			}
 			if info, err := utilities.GetTCPInfo(tcpConn); err != nil {
-				fmt.Printf("OOPS: Could not get the TCP info for the connection: %v!\n", err)
+				switch err.(type) {
+				case *utilities.NotImplemented:
+					fmt.Printf("GetTCPInfo not implemented on this platform.\n")
+				default:
+					fmt.Printf("OOPS: Could not get the TCP info for the connection: %v!\n", err)
+				}
 			} else {
 				utilities.PrintTCPInfo(info)
 			}
