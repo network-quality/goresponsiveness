@@ -22,6 +22,7 @@ type TraceStats struct {
 	TLSDoneTime            utilities.Optional[time.Time]
 	ConnectStartTime       time.Time
 	ConnectDoneTime        time.Time
+	ConnectionReused       bool
 	GetConnectionStartTime time.Time
 	GetConnectionDoneTime  time.Time
 	HttpWroteRequestTime   time.Time
@@ -44,6 +45,7 @@ func (s *TraceStats) String() string {
 		fmt.Sprintf("TLSDoneTime: %v\n", s.TLSDoneTime) +
 		fmt.Sprintf("ConnectStartTime: %v\n", s.ConnectStartTime) +
 		fmt.Sprintf("ConnectDoneTime: %v\n", s.ConnectDoneTime) +
+		fmt.Sprintf("ConnectionReused: %v\n", s.ConnectionReused) +
 		fmt.Sprintf("GetConnectionStartTime: %v\n", s.GetConnectionStartTime) +
 		fmt.Sprintf("GetConnectionDoneTime: %v\n", s.GetConnectionDoneTime) +
 		fmt.Sprintf("HttpResponseReadyTime: %v\n", s.HttpResponseReadyTime)

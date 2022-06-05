@@ -9,7 +9,7 @@ var (
 	// calculation.
 	MovingAverageIntervalCount int = 4
 	// The number of intervals across which to consider a moving average stable.
-	MovingAverageStabilitySpan int = 4
+	MovingAverageStabilitySpan uint64 = 4
 	// The number of connections to add to a LBC when unsaturated.
 	AdditiveNumberOfLoadGeneratingConnections uint64 = 4
 	// The cutoff of the percent difference that defines instability.
@@ -18,7 +18,7 @@ var (
 	// The amount of time that the client will cooldown if it is in debug mode.
 	CooldownPeriod time.Duration = 4 * time.Second
 	// The number of probes to send when calculating RTT.
-	RPMProbeCount int = 5
+	MeasurementProbeCount int = 5
 	// The amount of time that we give ourselves to calculate the RPM.
 	RPMCalculationTime time.Duration = 10 * time.Second
 
@@ -30,4 +30,7 @@ var (
 	DefaultDebug bool = false
 	// The default URL for the config host.
 	DefaultConfigHost string = "networkquality.example.com"
+
+	// The default decision about whether to run the test in strict mode.
+	DefaultStrict bool = false
 )

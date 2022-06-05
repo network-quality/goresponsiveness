@@ -17,6 +17,7 @@ package utilities
 import (
 	"fmt"
 	"math"
+	"math/rand"
 	"os"
 	"reflect"
 	"sync/atomic"
@@ -32,7 +33,10 @@ func SignedPercentDifference(
 	current float64,
 	previous float64,
 ) (difference float64) {
-	return ((current - previous) / (float64(current+previous) / 2.0)) * float64(
+	//return ((current - previous) / (float64(current+previous) / 2.0)) * float64(
+	//100,
+	//	)
+	return ((current - previous) / previous) * float64(
 		100,
 	)
 }
@@ -61,10 +65,10 @@ func ToMBps(bytes float64) float64 {
 	return float64(bytes) / float64(1024*1024)
 }
 
-type GetLatency struct {
-	Delay          time.Duration
-	RoundTripCount uint16
-	Err            error
+type MeasurementResult struct {
+	Delay            time.Duration
+	MeasurementCount uint16
+	Err              error
 }
 
 func SeekForAppend(file *os.File) (err error) {
@@ -113,4 +117,15 @@ func (optional Optional[S]) String() string {
 	} else {
 		return "None"
 	}
+}
+
+func RandBetween(max int) int {
+	return rand.New(rand.NewSource(int64(time.Now().Nanosecond()))).Int() % max
+}
+
+func Max(x, y uint64) uint64 {
+	if x > y {
+		return x
+	}
+	return y
 }

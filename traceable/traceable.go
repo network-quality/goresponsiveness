@@ -42,9 +42,6 @@ func GenerateHttpTimingTracer(
 			traceable.SetGetConnTime(time.Now())
 		},
 		GotConn: func(connInfo httptrace.GotConnInfo) {
-			if connInfo.Reused {
-				panic(!connInfo.Reused)
-			}
 			traceable.SetGotConnTimeInfo(time.Now(), connInfo)
 		},
 		TLSHandshakeStart: func() {
