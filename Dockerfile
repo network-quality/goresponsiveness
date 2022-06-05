@@ -6,7 +6,7 @@
 
 # Run with: docker run goresp
 
-FROM golang:1.17.8-alpine3.15
+FROM golang:1.18.1-alpine3.15
 
 RUN mkdir /goresponsiveness
 ADD . /goresponsiveness
