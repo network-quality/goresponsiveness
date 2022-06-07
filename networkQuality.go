@@ -105,7 +105,7 @@ func main() {
 
 	if *calculateExtendedStats && !extendedstats.ExtendedStatsAvailable() {
 		*calculateExtendedStats = false
-		fmt.Printf("Warning: Calculation of extended statics was requested but they are not supported on this platform.\n")
+		fmt.Printf("Warning: Calculation of extended statistics was requested but they are not supported on this platform.\n")
 	}
 
 	if err := config.Get(configHostPort, *configPath); err != nil {
