@@ -4,7 +4,7 @@
 
 # Build with: docker build -t goresp .
 
-# Run with: docker run goresp
+# Run with: docker run --rm goresp
 
 FROM golang:1.18.3-alpine3.16
 
