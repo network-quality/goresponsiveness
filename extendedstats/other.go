@@ -5,8 +5,6 @@ package extendedstats
 
 import (
 	"net"
-
-	"golang.org/x/sys/unix"
 )
 
 type ExtendedStats struct{}
