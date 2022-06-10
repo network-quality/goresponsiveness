@@ -86,6 +86,23 @@ You can also test against the Apple infrastructure using:
 $ ./networkQuality --config mensura.cdn-apple.com --port 443 --path /api/v1/gm/config
 ```
 
+## Dockerfile
+
+This repo contains a Dockerfile for running the binary so you
+don't have to install any languages or build tools.
+To use it:
+
+```
+# build the container
+docker build -t goresp .   
+
+# run the RPM test
+docker run --rm goresp     
+
+# run the RPM test with full options, testing against Apple infrastructure
+docker run --rm goresp --config mensura.cdn-apple.com --port 443 --path /api/v1/gm/config --debug
+```
+
 ## Contributing
 
 We *love* contributions. Before submitting a patch, format your code with `go fmt`.
