@@ -1,5 +1,5 @@
-//go:build !darwin && !dragonfly && !freebsd && !linux && !netbsd && !openbsd
-// +build !darwin,!dragonfly,!freebsd,!linux,!netbsd,!openbsd
+//go:build !dragonfly && !freebsd && !linux && !netbsd && !openbsd
+// +build !dragonfly,!freebsd,!linux,!netbsd,!openbsd
 
 package extendedstats
 
