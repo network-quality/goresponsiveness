@@ -313,7 +313,9 @@ func main() {
 			if !extendedstats.ExtendedStatsAvailable() {
 				panic("Extended stats are not available but the user requested their calculation.")
 			}
-			extendedStats.IncorporateConnectionStats(downloadSaturation.LGCs[i].Stats().ConnInfo.Conn)
+			if err := extendedStats.IncorporateConnectionStats(downloadSaturation.LGCs[i].Stats().ConnInfo.Conn); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: Could not add extended stats for the connection: %v", err)
+			}
 		}
 	}
 
