@@ -1,5 +1,5 @@
 //go:build dragonfly || freebsd || linux || netbsd || openbsd
-// +build  dragonfly freebsd linux netbsd openbsd
+// +build dragonfly freebsd linux netbsd openbsd
 
 package extendedstats
 
@@ -24,17 +24,17 @@ func ExtendedStatsAvailable() bool {
 	return true
 }
 
-func (es *ExtendedStats) IncorporateConnectionStats(rawConn net.Conn) {
+func (es *ExtendedStats) IncorporateConnectionStats(rawConn net.Conn) error {
 	tlsConn, ok := rawConn.(*tls.Conn)
 	if !ok {
-		fmt.Printf("OOPS: Could not get the TCP info for the connection (not a TLS connection)!\n")
+		return fmt.Errorf("OOPS: Could not get the TCP info for the connection (not a TLS connection)!\n")
 	}
 	tcpConn, ok := tlsConn.NetConn().(*net.TCPConn)
 	if !ok {
-		fmt.Printf("OOPS: Could not get the TCP info for the connection (not a TCP connection)!\n")
+		return fmt.Errorf("OOPS: Could not get the TCP info for the connection (not a TCP connection)!\n")
 	}
 	if info, err := getTCPInfo(tcpConn); err != nil {
-		fmt.Printf("OOPS: Could not get the TCP info for the connection: %v!\n", err)
+		return fmt.Errorf("OOPS: Could not get the TCP info for the connection: %v!\n", err)
 	} else {
 		es.MaxPathMtu = utilities.Max(es.MaxPathMtu, uint64(info.Pmtu))
 		// https://lkml.iu.edu/hypermail/linux/kernel/1705.0/01790.html
@@ -42,8 +42,8 @@ func (es *ExtendedStats) IncorporateConnectionStats(rawConn net.Conn) {
 		es.total_rtt += float64(info.Rtt)
 		es.rtt_measurements += 1
 		es.AverageRtt = es.total_rtt / float64(es.rtt_measurements)
-
 	}
+	return nil
 }
 
 func (es *ExtendedStats) Repr() string {
