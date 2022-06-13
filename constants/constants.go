@@ -20,7 +20,7 @@ var (
 	// The number of probes to send when calculating RTT.
 	MeasurementProbeCount int = 5
 	// The amount of time that we give ourselves to calculate the RPM.
-	RPMCalculationTime time.Duration = 10 * time.Second
+	RPMCalculationTime int = 10
 
 	// The default amount of time that a test will take to calculate the RPM.
 	DefaultTestTime int = 20

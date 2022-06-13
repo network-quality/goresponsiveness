@@ -63,10 +63,15 @@ var (
 		constants.DefaultStrict,
 		"Whether to run the test in strict mode (measure HTTP get time on load-generating connection)",
 	)
-	timeout = flag.Int(
-		"timeout",
+	sattimeout = flag.Int(
+		"sattimeout",
 		constants.DefaultTestTime,
-		"Maximum time to spend measuring.",
+		"Maximum time to spend measuring saturation.",
+	)
+	rpmtimeout = flag.Int(
+		"rpmtimeout",
+		constants.RPMCalculationTime,
+		"Maximum time to spend calculating RPM.",
 	)
 	sslKeyFileName = flag.String(
 		"ssl-key-file",
@@ -89,7 +94,7 @@ var (
 func main() {
 	flag.Parse()
 
-	timeoutDuration := time.Second * time.Duration(*timeout)
+	timeoutDuration := time.Second * time.Duration(*sattimeout)
 	timeoutAbsoluteTime := time.Now().Add(timeoutDuration)
 	configHostPort := fmt.Sprintf("%s:%d", *configHost, *configPort)
 	operatingCtx, cancelOperatingCtx := context.WithCancel(context.Background())
@@ -273,7 +278,7 @@ func main() {
 				// and then we will give ourselves some additional time in order
 				// to calculate a provisional saturation.
 				timeoutAbsoluteTime = time.Now().
-					Add(constants.RPMCalculationTime)
+					Add(time.Second * time.Duration(*rpmtimeout))
 				timeoutChannel = timeoutat.TimeoutAt(
 					operatingCtx,
 					timeoutAbsoluteTime,
@@ -293,7 +298,7 @@ func main() {
 	// We did it up there so that we could also limit the amount of time waiting
 	// for a conditional saturation calculation.
 	if !saturationTimeout {
-		timeoutAbsoluteTime = time.Now().Add(constants.RPMCalculationTime)
+		timeoutAbsoluteTime = time.Now().Add(time.Second * time.Duration(*rpmtimeout))
 		timeoutChannel = timeoutat.TimeoutAt(
 			operatingCtx,
 			timeoutAbsoluteTime,
