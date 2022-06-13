@@ -74,8 +74,10 @@ $./networkQuality --help
     	Enable client runtime profiling and specify storage location. Disabled by default.
   -ssl-key-file string
     	Store the per-session SSL key files in this file.
-  -timeout int
-    	Maximum time to spend measuring. (default 20)
+  -sattimeout int
+    	Maximum time to spend measuring saturation. (default 20)
+  -rpmtimeout int
+      Maximum time to spend calculating RPM. (default 10)
 ```
 
 To facilitate testing, you may want to use the open-source RPM server available from [Apple on GitHub](https://github.com/network-quality/server/tree/main/go).
