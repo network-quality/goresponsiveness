@@ -4,6 +4,7 @@
 package extendedstats
 
 import (
+	"fmt"
 	"net"
 )
 
