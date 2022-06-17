@@ -14,7 +14,10 @@ import (
 
 type ExtendedStats struct {
 	MaxPathMtu           uint64
+	MaxSendMss           uint64
+	MaxRecvMss           uint64
 	TotalRetransmissions uint64
+	TotalReorderings     uint64
 	AverageRtt           float64
 	rtt_measurements     uint64
 	total_rtt            float64
@@ -37,8 +40,11 @@ func (es *ExtendedStats) IncorporateConnectionStats(rawConn net.Conn) error {
 		return fmt.Errorf("OOPS: Could not get the TCP info for the connection: %v!\n", err)
 	} else {
 		es.MaxPathMtu = utilities.Max(es.MaxPathMtu, uint64(info.Pmtu))
+		es.MaxRecvMss = utilities.Max(es.MaxRecvMss, uint64(info.Rcv_mss))
+		es.MaxSendMss = utilities.Max(es.MaxSendMss, uint64(info.Snd_mss))
 		// https://lkml.iu.edu/hypermail/linux/kernel/1705.0/01790.html
 		es.TotalRetransmissions += uint64(info.Total_retrans)
+		es.TotalReorderings += uint64(info.Reordering)
 		es.total_rtt += float64(info.Rtt)
 		es.rtt_measurements += 1
 		es.AverageRtt = es.total_rtt / float64(es.rtt_measurements)
@@ -49,9 +55,12 @@ func (es *ExtendedStats) IncorporateConnectionStats(rawConn net.Conn) error {
 func (es *ExtendedStats) Repr() string {
 	return fmt.Sprintf(`Extended Statistics:
 	Maximum Path MTU: %v
+	Maximum Send MSS: %v
+	Maximum Recv MSS: %v
 	Total Retransmissions: %v
+	Total Reorderings: %v
 	Average RTT: %v
-`, es.MaxPathMtu, es.TotalRetransmissions, es.AverageRtt)
+`, es.MaxPathMtu, es.MaxSendMss, es.MaxRecvMss, es.TotalRetransmissions, es.TotalReorderings, es.AverageRtt)
 }
 
 func getTCPInfo(connection net.Conn) (*unix.TCPInfo, error) {
