@@ -434,7 +434,7 @@ func main() {
 	}
 
 	if *calculateExtendedStats {
-		fmt.Printf(extendedStats.Repr())
+		fmt.Println(extendedStats.Repr())
 	}
 
 	cancelOperatingCtx()

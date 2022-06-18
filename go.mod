@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	golang.org/x/net v0.0.0-20220225172249-27dd8689420f
-	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a
+	golang.org/x/sys v0.0.0-20220615213510-4f61da869c0c
 )
 
 require golang.org/x/text v0.3.7 // indirect
