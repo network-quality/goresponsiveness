@@ -128,7 +128,11 @@ func Saturate(
 				allInvalid = false
 				currentTransferred, currentInterval := lgcs[i].TransferredInInterval()
 				// normalize to a second-long interval!
-				instantaneousTransferred := float64(currentTransferred) / float64(currentInterval.Seconds())
+				instantaneousTransferred := float64(
+					currentTransferred,
+				) / float64(
+					currentInterval.Seconds(),
+				)
 				totalTransfer += instantaneousTransferred
 			}
 
@@ -315,7 +319,9 @@ func (p *Probe) GetTLSAndHttpHeaderDelta() time.Duration {
 }
 
 func (p *Probe) GetHttpHeaderDelta() time.Duration {
-	panic("Unusable until TLS tracing support is enabled! Use GetTLSAndHttpHeaderDelta() instead.\n")
+	panic(
+		"Unusable until TLS tracing support is enabled! Use GetTLSAndHttpHeaderDelta() instead.\n",
+	)
 	delta := p.stats.HttpResponseReadyTime.Sub(utilities.GetSome(p.stats.TLSDoneTime))
 	if debug.IsDebug(p.debug) {
 		fmt.Printf("(Probe %v): Http Header Time: %v\n", p.probeid, delta)
@@ -495,7 +501,12 @@ func (probe *Probe) SetHttpResponseReadyTime(
 	}
 }
 
-func getLatency(ctx context.Context, probe *Probe, url string, debugLevel debug.DebugLevel) utilities.MeasurementResult {
+func getLatency(
+	ctx context.Context,
+	probe *Probe,
+	url string,
+	debugLevel debug.DebugLevel,
+) utilities.MeasurementResult {
 	time_before_probe := time.Now()
 	probe_req, err := http.NewRequestWithContext(
 		httptrace.WithClientTrace(ctx, probe.GetTrace()),
@@ -526,8 +537,10 @@ func getLatency(ctx context.Context, probe *Probe, url string, debugLevel debug.
 	sanity := time_after_probe.Sub(time_before_probe)
 
 	tlsAndHttpHeaderDelta := probe.GetTLSAndHttpHeaderDelta()
-	httpDownloadDelta := probe.GetHttpDownloadDelta(time_after_probe) // Combined with above, constitutes 2 time measurements, per the Spec.
-	tcpDelta := probe.GetTCPDelta()                                   // Constitutes 1 time measurement, per the Spec.
+	httpDownloadDelta := probe.GetHttpDownloadDelta(
+		time_after_probe,
+	) // Combined with above, constitutes 2 time measurements, per the Spec.
+	tcpDelta := probe.GetTCPDelta() // Constitutes 1 time measurement, per the Spec.
 	totalDelay := tlsAndHttpHeaderDelta + httpDownloadDelta + tcpDelta
 
 	// By default, assume that there was a reused connection which
@@ -547,7 +560,11 @@ func getLatency(ctx context.Context, probe *Probe, url string, debugLevel debug.
 			totalDelay,
 		)
 	}
-	return utilities.MeasurementResult{Delay: totalDelay, MeasurementCount: measurementCount, Err: nil}
+	return utilities.MeasurementResult{
+		Delay:            totalDelay,
+		MeasurementCount: measurementCount,
+		Err:              nil,
+	}
 }
 
 func CalculateProbeMeasurements(

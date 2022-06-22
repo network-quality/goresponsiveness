@@ -32,14 +32,18 @@ func ExtendedStatsAvailable() bool {
 func (es *ExtendedStats) IncorporateConnectionStats(rawConn net.Conn) error {
 	tlsConn, ok := rawConn.(*tls.Conn)
 	if !ok {
-		return fmt.Errorf("OOPS: Could not get the TCP info for the connection (not a TLS connection)!\n")
+		return fmt.Errorf(
+			"OOPS: Could not get the TCP info for the connection (not a TLS connection)",
+		)
 	}
 	tcpConn, ok := tlsConn.NetConn().(*net.TCPConn)
 	if !ok {
-		return fmt.Errorf("OOPS: Could not get the TCP info for the connection (not a TCP connection)!\n")
+		return fmt.Errorf(
+			"OOPS: Could not get the TCP info for the connection (not a TCP connection)",
+		)
 	}
 	if info, err := getTCPConnectionInfo(tcpConn); err != nil {
-		return fmt.Errorf("OOPS: Could not get the TCP info for the connection: %v!\n", err)
+		return fmt.Errorf("OOPS: Could not get the TCP info for the connection: %v", err)
 	} else {
 		es.Maxseg = utilities.Max(es.Maxseg, uint64(info.Maxseg))
 		es.TotalReorderings += info.Rxoutoforderbytes
@@ -75,7 +79,11 @@ func getTCPConnectionInfo(connection net.Conn) (*unix.TCPConnectionInfo, error) 
 
 	var info *unix.TCPConnectionInfo = nil
 	rawConn.Control(func(fd uintptr) {
-		info, err = unix.GetsockoptTCPConnectionInfo(int(fd), unix.IPPROTO_TCP, unix.TCP_CONNECTION_INFO)
+		info, err = unix.GetsockoptTCPConnectionInfo(
+			int(fd),
+			unix.IPPROTO_TCP,
+			unix.TCP_CONNECTION_INFO,
+		)
 	})
 	return info, err
 }

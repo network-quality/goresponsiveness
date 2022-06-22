@@ -110,7 +110,9 @@ func main() {
 
 	if *calculateExtendedStats && !extendedstats.ExtendedStatsAvailable() {
 		*calculateExtendedStats = false
-		fmt.Printf("Warning: Calculation of extended statistics was requested but they are not supported on this platform.\n")
+		fmt.Printf(
+			"Warning: Calculation of extended statistics was requested but they are not supported on this platform.\n",
+		)
 	}
 
 	if err := config.Get(configHostPort, *configPath); err != nil {
@@ -319,7 +321,11 @@ func main() {
 				panic("Extended stats are not available but the user requested their calculation.")
 			}
 			if err := extendedStats.IncorporateConnectionStats(downloadSaturation.LGCs[i].Stats().ConnInfo.Conn); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: Could not add extended stats for the connection: %v", err)
+				fmt.Fprintf(
+					os.Stderr,
+					"Warning: Could not add extended stats for the connection: %v",
+					err,
+				)
 			}
 		}
 	}

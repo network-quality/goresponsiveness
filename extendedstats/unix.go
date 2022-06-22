@@ -30,14 +30,18 @@ func ExtendedStatsAvailable() bool {
 func (es *ExtendedStats) IncorporateConnectionStats(rawConn net.Conn) error {
 	tlsConn, ok := rawConn.(*tls.Conn)
 	if !ok {
-		return fmt.Errorf("OOPS: Could not get the TCP info for the connection (not a TLS connection)!\n")
+		return fmt.Errorf(
+			"OOPS: Could not get the TCP info for the connection (not a TLS connection)",
+		)
 	}
 	tcpConn, ok := tlsConn.NetConn().(*net.TCPConn)
 	if !ok {
-		return fmt.Errorf("OOPS: Could not get the TCP info for the connection (not a TCP connection)!\n")
+		return fmt.Errorf(
+			"OOPS: Could not get the TCP info for the connection (not a TCP connection)",
+		)
 	}
 	if info, err := getTCPInfo(tcpConn); err != nil {
-		return fmt.Errorf("OOPS: Could not get the TCP info for the connection: %v!\n", err)
+		return fmt.Errorf("OOPS: Could not get the TCP info for the connection: %v", err)
 	} else {
 		es.MaxPathMtu = utilities.Max(es.MaxPathMtu, uint64(info.Pmtu))
 		es.MaxRecvMss = utilities.Max(es.MaxRecvMss, uint64(info.Rcv_mss))

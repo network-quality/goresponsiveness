@@ -70,11 +70,15 @@ type TCPINFO_V1 struct {
 func (es *ExtendedStats) IncorporateConnectionStats(rawConn net.Conn) error {
 	tlsConn, ok := rawConn.(*tls.Conn)
 	if !ok {
-		return fmt.Errorf("OOPS: Could not get the TCP info for the connection (not a TLS connection)")
+		return fmt.Errorf(
+			"OOPS: Could not get the TCP info for the connection (not a TLS connection)",
+		)
 	}
 	tcpConn, ok := tlsConn.NetConn().(*net.TCPConn)
 	if !ok {
-		return fmt.Errorf("OOPS: Could not get the TCP info for the connection (not a TCP connection)")
+		return fmt.Errorf(
+			"OOPS: Could not get the TCP info for the connection (not a TCP connection)",
+		)
 	}
 	if info, err := getTCPInfo(tcpConn); err != nil {
 		return fmt.Errorf("OOPS: Could not get the TCP info for the connection: %v", err)
@@ -142,7 +146,17 @@ func getTCPInfo(connection net.Conn) (*TCPINFO_V1, error) {
 	completionRoutine := uintptr(0)
 
 	rawConn.Control(func(fd uintptr) {
-		err = windows.WSAIoctl(windows.Handle(fd), iocc, (*byte)(unsafe.Pointer(&inbuf)), cbif, (*byte)(unsafe.Pointer(&outbuf)), cbob, &cbbr, &overlapped, completionRoutine)
+		err = windows.WSAIoctl(
+			windows.Handle(fd),
+			iocc,
+			(*byte)(unsafe.Pointer(&inbuf)),
+			cbif,
+			(*byte)(unsafe.Pointer(&outbuf)),
+			cbob,
+			&cbbr,
+			&overlapped,
+			completionRoutine,
+		)
 	})
 	return &outbuf, err
 }

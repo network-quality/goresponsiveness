@@ -11,7 +11,7 @@ import (
 type ExtendedStats struct{}
 
 func (es *ExtendedStats) IncorporateConnectionStats(conn net.Conn) error {
-	return fmt.Errorf("OOPS: IncorporateConnectionStats is not supported on this platform.")
+	return fmt.Errorf("OOPS: IncorporateConnectionStats is not supported on this platform")
 }
 
 func (es *ExtendedStats) Repr() string {
