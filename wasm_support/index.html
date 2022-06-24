@@ -3,12 +3,16 @@
         <meta charset="utf-8"/>
         <script src="wasm_exec.js"></script>
         <script>
-            const go = new Go();
-            WebAssembly.instantiateStreaming(fetch("main.wasm"), go.importObject).then((result) => {
-                go.argv = ['networkQuality', '-config', 'rpm.obs.cr', '-debug']
-                go.run(result.instance);
-            });
+            function start() {
+                const go = new Go();
+                WebAssembly.instantiateStreaming(fetch("main.wasm"), go.importObject).then((result) => {
+                    go.argv = ['networkQuality', '-config', 'rpm.obs.cr', '-debug']
+                    go.run(result.instance);
+                });
+            }
         </script>
     </head>
-    <body></body>
+    <body>
+        <button onclick="start()">Click me to start</button>
+    </body>
 </html>
