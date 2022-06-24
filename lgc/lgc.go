@@ -267,7 +267,8 @@ func (lgd *LoadGeneratingConnectionDownload) Start(
 	}
 	transport.TLSClientConfig.InsecureSkipVerify = true
 
-	lgd.client = &http.Client{Transport: &transport}
+	//lgd.client = &http.Client{Transport: &transport}
+	lgd.client = &http.Client{}
 	lgd.debug = debugLevel
 	lgd.valid = true
 	lgd.tracer = traceable.GenerateHttpTimingTracer(lgd, lgd.debug)
@@ -368,7 +369,14 @@ func (s *syntheticCountingReader) Read(p []byte) (n int, err error) {
 	}
 	err = nil
 	n = len(p)
-
+	// n = 512
+	// if len(p) < 512 {
+	// 	n = len(p)
+	// }
+	// if len(p) > 1024 {
+	// 	return 0, io.EOF
+	// }
+	// fmt.Printf("%d\n", n)
 	atomic.AddUint64(s.n, uint64(n))
 	return
 }
@@ -416,7 +424,8 @@ func (lgu *LoadGeneratingConnectionUpload) Start(
 	}
 	transport.TLSClientConfig.InsecureSkipVerify = true
 
-	lgu.client = &http.Client{Transport: &transport}
+	//lgu.client = &http.Client{Transport: &transport}
+	lgu.client = &http.Client{}
 	lgu.valid = true
 
 	if debug.IsDebug(lgu.debug) {
