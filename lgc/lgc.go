@@ -368,15 +368,17 @@ func (s *syntheticCountingReader) Read(p []byte) (n int, err error) {
 		return 0, io.EOF
 	}
 	err = nil
-	n = len(p)
-	// n = 512
-	// if len(p) < 512 {
-	// 	n = len(p)
-	// }
-	// if len(p) > 1024 {
-	// 	return 0, io.EOF
-	// }
-	// fmt.Printf("%d\n", n)
+	/* This is a workaround. We are going to have to add streaming to the wasm go runtime.
+	 * Rather than streaming the contents of the file to the server, tt attempts to read
+	 * the entire file to be sent *before* it flushes a read for the first time!
+	 */
+	n = 512
+	if len(p) < 512 {
+		n = len(p)
+	}
+	if *s.n > 1024 {
+		return 0, io.EOF
+	}
 	atomic.AddUint64(s.n, uint64(n))
 	return
 }
@@ -391,6 +393,7 @@ func (lgu *LoadGeneratingConnectionUpload) doUpload(ctx context.Context) bool {
 	lgu.lastIntervalEnd = 0
 
 	if resp, err = lgu.client.Post(lgu.Path, "application/octet-stream", s); err != nil {
+		fmt.Printf("Failed to start an upload post: %v\n", err)
 		lgu.valid = false
 		return false
 	}
