@@ -372,12 +372,12 @@ func (s *syntheticCountingReader) Read(p []byte) (n int, err error) {
 	 * Rather than streaming the contents of the file to the server, tt attempts to read
 	 * the entire file to be sent *before* it flushes a read for the first time!
 	 */
-	n = 512
-	if len(p) < 512 {
+	n = 10000
+	if len(p) < 10000 {
 		n = len(p)
 	}
-	if *s.n > 1024 {
-		return 0, io.EOF
+	if len(p) > 250000 {
+		err = io.EOF
 	}
 	atomic.AddUint64(s.n, uint64(n))
 	return
@@ -401,6 +401,7 @@ func (lgu *LoadGeneratingConnectionUpload) doUpload(ctx context.Context) bool {
 	if debug.IsDebug(lgu.debug) {
 		fmt.Printf("Ending a load-generating upload.\n")
 	}
+	lgu.doUpload(ctx)
 	return true
 }
 
@@ -429,6 +430,7 @@ func (lgu *LoadGeneratingConnectionUpload) Start(
 
 	//lgu.client = &http.Client{Transport: &transport}
 	lgu.client = &http.Client{}
+
 	lgu.valid = true
 
 	if debug.IsDebug(lgu.debug) {

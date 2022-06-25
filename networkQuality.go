@@ -364,8 +364,8 @@ func main() {
 			unsaturatedMeasurementTransport.TLSClientConfig.KeyLogWriter = sslKeyFileConcurrentWriter
 		}
 		unsaturatedMeasurementTransport.TLSClientConfig.InsecureSkipVerify = true
-		newClient := http.Client{Transport: &unsaturatedMeasurementTransport}
-
+		//newClient := http.Client{Transport: &unsaturatedMeasurementTransport}
+		newClient := http.Client{}
 		unsaturatedMeasurementProbe := rpm.NewProbe(&newClient, debugLevel)
 
 		saturatedMeasurementProbe := rpm.NewProbe(
