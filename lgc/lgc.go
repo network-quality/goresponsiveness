@@ -241,7 +241,7 @@ func (cr *countingReader) Read(p []byte) (n int, err error) {
 }
 
 func (lgd *LoadGeneratingConnectionDownload) Start(
-	ctx context.Context,
+	parentCtx context.Context,
 	debugLevel debug.DebugLevel,
 ) bool {
 	lgd.downloaded = 0
@@ -278,9 +278,18 @@ func (lgd *LoadGeneratingConnectionDownload) Start(
 			lgd.clientId,
 		)
 	}
-	go lgd.doDownload(ctx)
+
+	// Later, when the doDownload function attempts to add a tracer to the http request,
+	// it will be associated with the context. Multiple tracers associated with the same
+	// context will make it impossible to disambiguate the events. In other words, if there
+	// are multiple tracers associated with the same context, *all* the tracers get invoked
+	// every time that an event happens on a request with any of them! So, we will make a
+	// unique context so that there is a one-to-one correspondence between tracers and requests.
+	downloadCtx, _ := context.WithCancel(parentCtx)
+	go lgd.doDownload(downloadCtx)
 	return true
 }
+
 func (lgd *LoadGeneratingConnectionDownload) IsValid() bool {
 	return lgd.valid
 }
@@ -394,7 +403,7 @@ func (lgu *LoadGeneratingConnectionUpload) doUpload(ctx context.Context) bool {
 }
 
 func (lgu *LoadGeneratingConnectionUpload) Start(
-	ctx context.Context,
+	parentCtx context.Context,
 	debugLevel debug.DebugLevel,
 ) bool {
 	lgu.uploaded = 0
@@ -422,7 +431,15 @@ func (lgu *LoadGeneratingConnectionUpload) Start(
 	if debug.IsDebug(lgu.debug) {
 		fmt.Printf("Started a load-generating upload (id: %v).\n", lgu.clientId)
 	}
-	go lgu.doUpload(ctx)
+
+	// Later, when the doUpload function attempts to add a tracer to the http request,
+	// it will be associated with the context. Multiple tracers associated with the same
+	// context will make it impossible to disambiguate the events. In other words, if there
+	// are multiple tracers associated with the same context, *all* the tracers get invoked
+	// every time that an event happens on a request with any of them! So, we will make a
+	// unique context so that there is a one-to-one correspondence between tracers and requests.
+	uploadCtx, _ := context.WithCancel(parentCtx)
+	go lgu.doUpload(uploadCtx)
 	return true
 }
 
