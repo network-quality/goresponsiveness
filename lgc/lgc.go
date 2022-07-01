@@ -279,14 +279,7 @@ func (lgd *LoadGeneratingConnectionDownload) Start(
 		)
 	}
 
-	// Later, when the doDownload function attempts to add a tracer to the http request,
-	// it will be associated with the context. Multiple tracers associated with the same
-	// context will make it impossible to disambiguate the events. In other words, if there
-	// are multiple tracers associated with the same context, *all* the tracers get invoked
-	// every time that an event happens on a request with any of them! So, we will make a
-	// unique context so that there is a one-to-one correspondence between tracers and requests.
-	downloadCtx, _ := context.WithCancel(parentCtx)
-	go lgd.doDownload(downloadCtx)
+	go lgd.doDownload(parentCtx)
 	return true
 }
 
@@ -432,14 +425,7 @@ func (lgu *LoadGeneratingConnectionUpload) Start(
 		fmt.Printf("Started a load-generating upload (id: %v).\n", lgu.clientId)
 	}
 
-	// Later, when the doUpload function attempts to add a tracer to the http request,
-	// it will be associated with the context. Multiple tracers associated with the same
-	// context will make it impossible to disambiguate the events. In other words, if there
-	// are multiple tracers associated with the same context, *all* the tracers get invoked
-	// every time that an event happens on a request with any of them! So, we will make a
-	// unique context so that there is a one-to-one correspondence between tracers and requests.
-	uploadCtx, _ := context.WithCancel(parentCtx)
-	go lgu.doUpload(uploadCtx)
+	go lgu.doUpload(parentCtx)
 	return true
 }
 

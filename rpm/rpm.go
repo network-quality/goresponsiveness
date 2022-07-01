@@ -53,12 +53,17 @@ type LGDataCollectionResult struct {
 	DataPoints []DataPoint
 }
 
-func LGProbe(parentProbeCtx context.Context, connection lgc.LoadGeneratingConnection, lgProbeUrl string, result *chan DataPoint, debugging *debug.DebugWithPrefix) error {
-	probeCtx, _ := context.WithCancel(parentProbeCtx)
+func LGProbe(
+	parentProbeCtx context.Context,
+	connection lgc.LoadGeneratingConnection,
+	lgProbeUrl string,
+	result *chan DataPoint,
+	debugging *debug.DebugWithPrefix,
+) error {
 	probeTracer := NewProbeTracer(connection.Client(), true, debugging)
 	time_before_probe := time.Now()
 	probe_req, err := http.NewRequestWithContext(
-		httptrace.WithClientTrace(probeCtx, probeTracer.trace),
+		httptrace.WithClientTrace(parentProbeCtx, probeTracer.trace),
 		"GET",
 		lgProbeUrl,
 		nil,
@@ -109,9 +114,16 @@ func LGProbe(parentProbeCtx context.Context, connection lgc.LoadGeneratingConnec
 	*result <- DataPoint{RoundTripCount: 1, Duration: totalDelay}
 
 	return nil
-	/////////////
 }
-func LGProber(proberCtx context.Context, defaultConnection lgc.LoadGeneratingConnection, altConnections *[]lgc.LoadGeneratingConnection, url string, interval time.Duration, debugging *debug.DebugWithPrefix) (points chan DataPoint) {
+
+func LGProber(
+	proberCtx context.Context,
+	defaultConnection lgc.LoadGeneratingConnection,
+	altConnections *[]lgc.LoadGeneratingConnection,
+	url string,
+	interval time.Duration,
+	debugging *debug.DebugWithPrefix,
+) (points chan DataPoint) {
 	points = make(chan DataPoint)
 
 	go func() {
@@ -149,7 +161,14 @@ func LGCollectData(
 
 		lgProbeConfiguration := lgProbeConfigurationGenerator()
 
-		LGProber(lgDataCollectionCtx, lgcs[0], &lgcs, lgProbeConfiguration.URL, time.Duration(100*time.Millisecond), debugging)
+		LGProber(
+			lgDataCollectionCtx,
+			lgcs[0],
+			&lgcs,
+			lgProbeConfiguration.URL,
+			time.Duration(100*time.Millisecond),
+			debugging,
+		)
 
 		previousFlowIncreaseInterval := uint64(0)
 		previousMovingAverage := float64(0)
