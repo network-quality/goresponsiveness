@@ -245,7 +245,7 @@ func (lgd *LoadGeneratingConnectionDownload) Start(
 	debugLevel debug.DebugLevel,
 ) bool {
 	lgd.downloaded = 0
-	lgd.clientId = utilities.GenerateConnectionId()
+	lgd.clientId = utilities.GenerateUniqueId()
 	transport := http2.Transport{}
 	transport.TLSClientConfig = &tls.Config{}
 
@@ -400,7 +400,7 @@ func (lgu *LoadGeneratingConnectionUpload) Start(
 	debugLevel debug.DebugLevel,
 ) bool {
 	lgu.uploaded = 0
-	lgu.clientId = utilities.GenerateConnectionId()
+	lgu.clientId = utilities.GenerateUniqueId()
 	lgu.debug = debugLevel
 
 	// See above for the rationale of doing http2.Transport{} here

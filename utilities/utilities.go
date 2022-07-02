@@ -76,7 +76,7 @@ func SeekForAppend(file *os.File) (err error) {
 	return
 }
 
-var GenerateConnectionId func() uint64 = func() func() uint64 {
+var GenerateUniqueId func() uint64 = func() func() uint64 {
 	var nextConnectionId uint64 = 0
 	return func() uint64 {
 		return atomic.AddUint64(&nextConnectionId, 1)

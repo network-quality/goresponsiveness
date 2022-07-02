@@ -98,6 +98,9 @@ func main() {
 	lgDataCollectionCtx, cancelLGDataCollectionCtx := context.WithCancel(
 		context.Background(),
 	)
+	newConnectionProberCtx, newConnectionProberCtxCancel := context.WithCancel(
+		context.Background(),
+	)
 	config := &config.Config{}
 	var debugLevel debug.DebugLevel = debug.Error
 
@@ -198,11 +201,20 @@ func main() {
 	}
 
 	generate_lg_probe_configuration := func() rpm.ProbeConfiguration {
-		return rpm.ProbeConfiguration{URL: config.Urls.SmallUrl}
+		return rpm.ProbeConfiguration{URL: config.Urls.SmallUrl, Interval: 100 * time.Millisecond}
+	}
+
+	generate_nc_probe_configuration := func() rpm.ProbeConfiguration {
+		return rpm.ProbeConfiguration{URL: config.Urls.SmallUrl, Interval: 100 * time.Millisecond}
 	}
 
 	var downloadDebugging *debug.DebugWithPrefix = debug.NewDebugWithPrefix(debugLevel, "download")
 	var uploadDebugging *debug.DebugWithPrefix = debug.NewDebugWithPrefix(debugLevel, "upload")
+	var newConnectionDebugging *debug.DebugWithPrefix = debug.NewDebugWithPrefix(debugLevel, "new connection probe")
+
+	// TODO: Separate contexts for load generation and data collection. If we do that, if either of the two
+	// data collection go routines stops well before the other, they will continue to send probes and we can
+	// generate additional information!
 
 	downloadDataCollectionChannel := rpm.LGCollectData(
 		lgDataCollectionCtx,
@@ -217,6 +229,13 @@ func main() {
 		generate_lgu,
 		generate_lg_probe_configuration,
 		uploadDebugging,
+	)
+
+	newConnectionProbeDataPoints := rpm.Prober(
+		newConnectionProberCtx,
+		generate_nc_probe_configuration,
+		sslKeyFileConcurrentWriter,
+		newConnectionDebugging,
 	)
 
 	dataCollectionTimeout := false
@@ -298,6 +317,9 @@ func main() {
 		}
 	}
 
+	// Shutdown the new-connection prober!
+	newConnectionProberCtxCancel()
+
 	// In the new version we are no longer going to wait to send probes until after
 	// saturation. When we get here we are now only going to compute the results
 	// and/or extended statistics!
@@ -332,6 +354,53 @@ func main() {
 		utilities.ToMBps(uploadDataCollectionResult.RateBps),
 		len(uploadDataCollectionResult.LGCs),
 	)
+
+	totalNewConnectionRoundTripTime := float64(0)
+	totalNewConnectionRoundTrips := uint64(0)
+	for ncDp := range newConnectionProbeDataPoints {
+		totalNewConnectionRoundTripTime += ncDp.Duration.Seconds()
+		totalNewConnectionRoundTrips += uint64(ncDp.RoundTripCount)
+	}
+	averageNewConnectionRoundTripTime := totalNewConnectionRoundTripTime / float64(
+		totalNewConnectionRoundTrips,
+	)
+	newConnectionRpm := (1.0 / averageNewConnectionRoundTripTime) * 60.0
+	if *debugCliFlag {
+		fmt.Printf(
+			"Total New-Connection Round Trips: %d, Total New-Connection Round Trip Time: %f, Average New-Connection Round Trip Time (in seconds): %f\n",
+			totalNewConnectionRoundTrips,
+			totalNewConnectionRoundTripTime,
+			averageNewConnectionRoundTripTime,
+		)
+		fmt.Printf("(New-Connection) RPM: %f\n", newConnectionRpm)
+	}
+
+	totalLoadGeneratingRoundTripTime := float64(0)
+	totalLoadGeneratingRoundTrips := uint64(0)
+	for _, dp := range downloadDataCollectionResult.DataPoints {
+		totalLoadGeneratingRoundTripTime += dp.Duration.Seconds()
+		totalLoadGeneratingRoundTrips += uint64(dp.RoundTripCount)
+	}
+	for _, dp := range uploadDataCollectionResult.DataPoints {
+		totalLoadGeneratingRoundTripTime += dp.Duration.Seconds()
+		totalLoadGeneratingRoundTrips += uint64(dp.RoundTripCount)
+	}
+	averageLoadGeneratingRoundTripTime := totalLoadGeneratingRoundTripTime / float64(
+		totalLoadGeneratingRoundTrips,
+	)
+	loadGeneratingRPM := (1.0 / averageLoadGeneratingRoundTripTime) * 60.0
+	if *debugCliFlag {
+		fmt.Printf(
+			"Total Load-Generating Round Trips: %d, Total New-Connection Round Trip Time: %f, Average New-Connection Round Trip Time (in seconds): %f\n",
+			totalLoadGeneratingRoundTrips,
+			totalLoadGeneratingRoundTripTime,
+			averageLoadGeneratingRoundTripTime,
+		)
+		fmt.Printf("(Load-Generating) RPM: %f\n", loadGeneratingRPM)
+	}
+
+	rpm := (newConnectionRpm + loadGeneratingRPM) / 2.0
+	fmt.Printf("RPM: %5.0f\n", rpm)
 
 	if *calculateExtendedStats {
 		fmt.Println(extendedStats.Repr())
