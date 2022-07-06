@@ -69,31 +69,40 @@ type TCPINFO_V1 struct {
 
 func (es *ExtendedStats) IncorporateConnectionStats(rawConn net.Conn) error {
 	tlsConn, ok := rawConn.(*tls.Conn)
-	if !ok {
-		return fmt.Errorf(
-			"OOPS: Could not get the TCP info for the connection (not a TLS connection)",
-		)
-	}
-	tcpConn, ok := tlsConn.NetConn().(*net.TCPConn)
-	if !ok {
-		return fmt.Errorf(
-			"OOPS: Could not get the TCP info for the connection (not a TCP connection)",
-		)
-	}
-	if info, err := getTCPInfo(tcpConn); err != nil {
-		return fmt.Errorf("OOPS: Could not get the TCP info for the connection: %v", err)
-	} else {
-		es.MaxMss = utilities.Max(es.MaxMss, uint64(info.Mss))
-		es.TotalBytesReordered += uint64(info.BytesReordered)
-		es.TotalBytesRetransmitted += uint64(info.BytesRetrans)
-		es.TotalBytesSent += info.BytesOut
-		es.TotalBytesReceived += info.BytesIn
 
-		es.total_rtt += float64(info.RttUs)
-		es.rtt_measurements += 1
-		es.AverageRtt = es.total_rtt / float64(es.rtt_measurements)
-		es.RetransmitRatio = (float64(es.TotalBytesRetransmitted) / float64(es.TotalBytesSent)) * 100.0
+	var info *TCPINFO_V1
+	var err error
+	if !ok {
+		if info, err = getTCPInfo(rawConn); err != nil {
+			return fmt.Errorf(
+				"OOPS: Could not get the TCP info for the connection (not a TLS connection)",
+			)
+		}
 	}
+	if info == nil {
+		tcpConn, ok := tlsConn.NetConn().(*net.TCPConn)
+		if !ok {
+			return fmt.Errorf(
+				"OOPS: Could not get the TCP info for the connection (not a TCP connection)",
+			)
+		}
+		if info, err = getTCPInfo(tcpConn); err != nil {
+			return fmt.Errorf("OOPS: Could not get the TCP info for the connection: %v", err)
+		}
+	}
+
+	// Got through all the logic means that we have an info object
+
+	es.MaxMss = utilities.Max(es.MaxMss, uint64(info.Mss))
+	es.TotalBytesReordered += uint64(info.BytesReordered)
+	es.TotalBytesRetransmitted += uint64(info.BytesRetrans)
+	es.TotalBytesSent += info.BytesOut
+	es.TotalBytesReceived += info.BytesIn
+
+	es.total_rtt += float64(info.RttUs)
+	es.rtt_measurements += 1
+	es.AverageRtt = es.total_rtt / float64(es.rtt_measurements)
+	es.RetransmitRatio = (float64(es.TotalBytesRetransmitted) / float64(es.TotalBytesSent)) * 100.0
 	return nil
 }
 

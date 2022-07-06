@@ -83,11 +83,15 @@ var (
 		"",
 		"Enable client runtime profiling and specify storage location. Disabled by default.",
 	)
-
 	calculateExtendedStats = flag.Bool(
 		"extended-stats",
 		false,
 		"Enable the collection and display of extended statistics -- may not be available on certain platforms.",
+	)
+	usehttp = flag.Bool(
+		"http",
+		false,
+		"Use http instead of https for load generating connections.",
 	)
 )
 
@@ -187,16 +191,33 @@ func main() {
 	 * Create (and then, ironically, name) two anonymous functions that, when invoked,
 	 * will create load-generating connections for upload/download/
 	 */
-	generate_lbd := func() lgc.LoadGeneratingConnection {
-		return &lgc.LoadGeneratingConnectionDownload{
-			Path:      config.Urls.LargeUrl,
-			KeyLogger: sslKeyFileConcurrentWriter,
+	var generate_lbd func() lgc.LoadGeneratingConnection
+	var generate_lbu func() lgc.LoadGeneratingConnection
+	if *usehttp {
+		generate_lbd = func() lgc.LoadGeneratingConnection {
+			return &lgc.LoadGeneratingConnectionDownload{
+				Path:      config.Urls.LargeUrlHTTP,
+				KeyLogger: sslKeyFileConcurrentWriter,
+			}
 		}
-	}
-	generate_lbu := func() lgc.LoadGeneratingConnection {
-		return &lgc.LoadGeneratingConnectionUpload{
-			Path:      config.Urls.UploadUrl,
-			KeyLogger: sslKeyFileConcurrentWriter,
+		generate_lbu = func() lgc.LoadGeneratingConnection {
+			return &lgc.LoadGeneratingConnectionUpload{
+				Path:      config.Urls.UploadUrlHTTP,
+				KeyLogger: sslKeyFileConcurrentWriter,
+			}
+		}
+	} else {
+		generate_lbd = func() lgc.LoadGeneratingConnection {
+			return &lgc.LoadGeneratingConnectionDownload{
+				Path:      config.Urls.LargeUrl,
+				KeyLogger: sslKeyFileConcurrentWriter,
+			}
+		}
+		generate_lbu = func() lgc.LoadGeneratingConnection {
+			return &lgc.LoadGeneratingConnectionUpload{
+				Path:      config.Urls.UploadUrl,
+				KeyLogger: sslKeyFileConcurrentWriter,
+			}
 		}
 	}
 
@@ -208,12 +229,14 @@ func main() {
 		operatingCtx,
 		generate_lbd,
 		downloadDebugging,
+		*usehttp,
 	)
 	uploadSaturationChannel := rpm.Saturate(
 		saturationCtx,
 		operatingCtx,
 		generate_lbu,
 		uploadDebugging,
+		*usehttp,
 	)
 
 	saturationTimeout := false

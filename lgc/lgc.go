@@ -33,7 +33,7 @@ import (
 )
 
 type LoadGeneratingConnection interface {
-	Start(context.Context, debug.DebugLevel) bool
+	Start(context.Context, debug.DebugLevel, bool) bool
 	TransferredInInterval() (uint64, time.Duration)
 	Client() *http.Client
 	IsValid() bool
@@ -243,6 +243,7 @@ func (cr *countingReader) Read(p []byte) (n int, err error) {
 func (lgd *LoadGeneratingConnectionDownload) Start(
 	ctx context.Context,
 	debugLevel debug.DebugLevel,
+	usehttp bool,
 ) bool {
 	lgd.downloaded = 0
 	lgd.clientId = utilities.GenerateConnectionId()
@@ -267,7 +268,14 @@ func (lgd *LoadGeneratingConnectionDownload) Start(
 	}
 	transport.TLSClientConfig.InsecureSkipVerify = true
 
-	lgd.client = &http.Client{Transport: &transport}
+	if usehttp {
+		transportT := http.DefaultTransport.(*http.Transport).Clone()
+		transportT.TLSNextProto = make(map[string]func(authority string, c *tls.Conn) http.RoundTripper)
+		lgd.client = &http.Client{Transport: transportT}
+	} else {
+		lgd.client = &http.Client{Transport: &transport}
+	}
+
 	lgd.debug = debugLevel
 	lgd.valid = true
 	lgd.tracer = traceable.GenerateHttpTimingTracer(lgd, lgd.debug)
@@ -383,6 +391,7 @@ func (lgu *LoadGeneratingConnectionUpload) doUpload(ctx context.Context) bool {
 	lgu.lastIntervalEnd = 0
 
 	if resp, err = lgu.client.Post(lgu.Path, "application/octet-stream", s); err != nil {
+		fmt.Printf("%s", err)
 		lgu.valid = false
 		return false
 	}
@@ -396,6 +405,7 @@ func (lgu *LoadGeneratingConnectionUpload) doUpload(ctx context.Context) bool {
 func (lgu *LoadGeneratingConnectionUpload) Start(
 	ctx context.Context,
 	debugLevel debug.DebugLevel,
+	usehttp bool,
 ) bool {
 	lgu.uploaded = 0
 	lgu.clientId = utilities.GenerateConnectionId()
@@ -416,7 +426,16 @@ func (lgu *LoadGeneratingConnectionUpload) Start(
 	}
 	transport.TLSClientConfig.InsecureSkipVerify = true
 
-	lgu.client = &http.Client{Transport: &transport}
+	if usehttp {
+		transportT := http.DefaultTransport.(*http.Transport).Clone()
+		transportT.TLSNextProto = make(map[string]func(authority string, c *tls.Conn) http.RoundTripper)
+		transportT.MaxConnsPerHost = 500
+		transportT.MaxIdleConnsPerHost = 400
+		lgu.client = &http.Client{Transport: transportT}
+	} else {
+		lgu.client = &http.Client{Transport: &transport}
+	}
+
 	lgu.valid = true
 
 	if debug.IsDebug(lgu.debug) {

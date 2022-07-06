@@ -14,9 +14,11 @@ import (
 )
 
 type ConfigUrls struct {
-	SmallUrl  string `json:"small_https_download_url"`
-	LargeUrl  string `json:"large_https_download_url"`
-	UploadUrl string `json:"https_upload_url"`
+	SmallUrl      string `json:"small_https_download_url"`
+	LargeUrl      string `json:"large_https_download_url"`
+	UploadUrl     string `json:"https_upload_url"`
+	LargeUrlHTTP  string `json:"large_http_download_url"`
+	UploadUrlHTTP string `json:"http_upload_url"`
 }
 
 type Config struct {
@@ -126,6 +128,28 @@ func (c *Config) IsValid() error {
 			utilities.Conditional(
 				len(c.Urls.UploadUrl) != 0,
 				c.Urls.UploadUrl,
+				"Missing",
+			),
+		)
+	}
+	if parsedUrl, err := url.ParseRequestURI(c.Urls.LargeUrlHTTP); err != nil ||
+		parsedUrl.Scheme != "http" {
+		return fmt.Errorf(
+			"Configuration url large_http_download_url is invalid: %s",
+			utilities.Conditional(
+				len(c.Urls.LargeUrlHTTP) != 0,
+				c.Urls.LargeUrlHTTP,
+				"Missing",
+			),
+		)
+	}
+	if parsedUrl, err := url.ParseRequestURI(c.Urls.UploadUrlHTTP); err != nil ||
+		parsedUrl.Scheme != "http" {
+		return fmt.Errorf(
+			"Configuration url http_upload_url is invalid: %s",
+			utilities.Conditional(
+				len(c.Urls.UploadUrlHTTP) != 0,
+				c.Urls.UploadUrlHTTP,
 				"Missing",
 			),
 		)

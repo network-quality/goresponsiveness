@@ -1,0 +1,712 @@
+
+Run: 0: Monday, July 4, 2022 5:39:16 PM  
+07-04-2022 21:39:16 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 308.415 Mbps ( 38.552 MBps), using 24 parallel connections.
+Upload:   132.133 Mbps ( 16.517 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1054
+
+Run: 1: Monday, July 4, 2022 5:39:53 PM  
+07-04-2022 21:39:53 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 215.356 Mbps ( 26.919 MBps), using 16 parallel connections.
+Upload:   132.309 Mbps ( 16.539 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1028
+
+Run: 2: Monday, July 4, 2022 5:40:21 PM  
+07-04-2022 21:40:21 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 236.789 Mbps ( 29.599 MBps), using 16 parallel connections.
+Upload:   134.261 Mbps ( 16.783 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1057
+
+Run: 3: Monday, July 4, 2022 5:40:50 PM  
+07-04-2022 21:40:50 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 203.234 Mbps ( 25.404 MBps), using 16 parallel connections.
+Upload:   132.501 Mbps ( 16.563 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1110
+
+Run: 4: Monday, July 4, 2022 5:41:17 PM  
+07-04-2022 21:41:17 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 227.255 Mbps ( 28.407 MBps), using 16 parallel connections.
+Upload:   132.232 Mbps ( 16.529 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:   752
+
+Run: 5: Monday, July 4, 2022 5:41:49 PM  
+07-04-2022 21:41:49 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 339.879 Mbps ( 42.485 MBps), using 24 parallel connections.
+Upload:   131.917 Mbps ( 16.490 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1167
+
+Run: 6: Monday, July 4, 2022 5:42:21 PM  
+07-04-2022 21:42:22 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 235.813 Mbps ( 29.477 MBps), using 16 parallel connections.
+Upload:   134.679 Mbps ( 16.835 MBps), using 16 parallel connections.
+Total measurements: 15
+RPM:  1068
+
+Run: 7: Monday, July 4, 2022 5:42:53 PM  
+07-04-2022 21:42:53 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 277.724 Mbps ( 34.716 MBps), using 20 parallel connections.
+Upload:   134.937 Mbps ( 16.867 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1198
+
+Run: 8: Monday, July 4, 2022 5:43:26 PM  
+07-04-2022 21:43:26 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 335.802 Mbps ( 41.975 MBps), using 28 parallel connections.
+Upload:   131.267 Mbps ( 16.408 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  2032
+
+Run: 9: Monday, July 4, 2022 5:44:03 PM  
+07-04-2022 21:44:04 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 187.254 Mbps ( 23.407 MBps), using 16 parallel connections.
+Upload:   131.520 Mbps ( 16.440 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:   648
+
+Run: 10: Monday, July 4, 2022 5:44:31 PM  
+07-04-2022 21:44:31 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 348.327 Mbps ( 43.541 MBps), using 24 parallel connections.
+Upload:   133.245 Mbps ( 16.656 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1194
+
+Run: 11: Monday, July 4, 2022 5:45:04 PM  
+07-04-2022 21:45:04 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 310.902 Mbps ( 38.863 MBps), using 24 parallel connections.
+Upload:   130.222 Mbps ( 16.278 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1079
+
+Run: 12: Monday, July 4, 2022 5:45:53 PM  
+07-04-2022 21:45:53 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 245.504 Mbps ( 30.688 MBps), using 20 parallel connections.
+Upload:   132.479 Mbps ( 16.560 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:   896
+
+Run: 13: Monday, July 4, 2022 5:46:25 PM  
+07-04-2022 21:46:25 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 198.283 Mbps ( 24.785 MBps), using 16 parallel connections.
+Upload:   132.670 Mbps ( 16.584 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1094
+
+Run: 14: Monday, July 4, 2022 5:46:57 PM  
+07-04-2022 21:46:57 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 272.288 Mbps ( 34.036 MBps), using 16 parallel connections.
+Upload:   134.254 Mbps ( 16.782 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1033
+
+Run: 15: Monday, July 4, 2022 5:47:23 PM  
+07-04-2022 21:47:23 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 269.172 Mbps ( 33.646 MBps), using 20 parallel connections.
+Upload:   130.491 Mbps ( 16.311 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:   963
+
+Run: 16: Monday, July 4, 2022 5:47:54 PM  
+07-04-2022 21:47:55 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 214.279 Mbps ( 26.785 MBps), using 16 parallel connections.
+Upload:   132.142 Mbps ( 16.518 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1063
+
+Run: 17: Monday, July 4, 2022 5:48:22 PM  
+07-04-2022 21:48:22 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 164.777 Mbps ( 20.597 MBps), using 16 parallel connections.
+Upload:   132.459 Mbps ( 16.557 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1071
+
+Run: 18: Monday, July 4, 2022 5:48:48 PM  
+07-04-2022 21:48:48 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 266.818 Mbps ( 33.352 MBps), using 20 parallel connections.
+Upload:   136.230 Mbps ( 17.029 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1042
+
+Run: 19: Monday, July 4, 2022 5:49:20 PM  
+07-04-2022 21:49:20 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 244.681 Mbps ( 30.585 MBps), using 16 parallel connections.
+Upload:   133.021 Mbps ( 16.628 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1045
+
+Run: 20: Monday, July 4, 2022 5:49:49 PM  
+07-04-2022 21:49:49 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 207.224 Mbps ( 25.903 MBps), using 16 parallel connections.
+Upload:   134.652 Mbps ( 16.831 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1039
+
+Run: 21: Monday, July 4, 2022 5:50:17 PM  
+07-04-2022 21:50:17 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 220.606 Mbps ( 27.576 MBps), using 16 parallel connections.
+Upload:   134.475 Mbps ( 16.809 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1087
+
+Run: 22: Monday, July 4, 2022 5:50:44 PM  
+07-04-2022 21:50:45 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 236.815 Mbps ( 29.602 MBps), using 20 parallel connections.
+Upload:   131.510 Mbps ( 16.439 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:   909
+
+Run: 23: Monday, July 4, 2022 5:51:16 PM  
+07-04-2022 21:51:16 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 227.834 Mbps ( 28.479 MBps), using 16 parallel connections.
+Upload:   131.225 Mbps ( 16.403 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:   533
+
+Run: 24: Monday, July 4, 2022 5:51:49 PM  
+07-04-2022 21:51:49 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 225.692 Mbps ( 28.212 MBps), using 16 parallel connections.
+Upload:   130.385 Mbps ( 16.298 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1116
+
+Run: 25: Monday, July 4, 2022 5:52:23 PM  
+07-04-2022 21:52:23 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 295.178 Mbps ( 36.897 MBps), using 24 parallel connections.
+Upload:   135.674 Mbps ( 16.959 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1841
+
+Run: 26: Monday, July 4, 2022 5:52:59 PM  
+07-04-2022 21:52:59 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 387.600 Mbps ( 48.450 MBps), using 20 parallel connections.
+Upload:   133.348 Mbps ( 16.669 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:   990
+
+Run: 27: Monday, July 4, 2022 5:53:35 PM  
+07-04-2022 21:53:35 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 314.725 Mbps ( 39.341 MBps), using 20 parallel connections.
+Upload:   130.327 Mbps ( 16.291 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1021
+
+Run: 28: Monday, July 4, 2022 5:54:06 PM  
+07-04-2022 21:54:06 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 266.128 Mbps ( 33.266 MBps), using 16 parallel connections.
+Upload:   130.516 Mbps ( 16.314 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1028
+
+Run: 29: Monday, July 4, 2022 5:54:34 PM  
+07-04-2022 21:54:34 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 203.035 Mbps ( 25.379 MBps), using 16 parallel connections.
+Upload:   134.495 Mbps ( 16.812 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:   984
+
+Run: 30: Monday, July 4, 2022 5:55:02 PM  
+07-04-2022 21:55:02 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 202.951 Mbps ( 25.369 MBps), using 16 parallel connections.
+Upload:   134.021 Mbps ( 16.753 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1084
+
+Run: 31: Monday, July 4, 2022 5:55:29 PM  
+07-04-2022 21:55:30 UTC Go Responsiveness to rpm.obs.cr:4043...
+networkQPatch.exe : Error: Saturation could not be completed in time and no provisional rates could be assessed. Test failed.
+At D:\Computer Programming\2022\Research\goresponsiveness\data-analysis-router\http1\gather.ps1:13 char:5
++     & ".\networkQPatch.exe" --config rpm.obs.cr --path config --port  ...
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Error: Saturati...d. Test failed.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+Run: 32: Monday, July 4, 2022 5:56:13 PM  
+07-04-2022 21:56:13 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 206.235 Mbps ( 25.779 MBps), using 16 parallel connections.
+Upload:   132.865 Mbps ( 16.608 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1049
+
+Run: 33: Monday, July 4, 2022 5:56:41 PM  
+07-04-2022 21:56:41 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 340.342 Mbps ( 42.543 MBps), using 20 parallel connections.
+Upload:   134.337 Mbps ( 16.792 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1046
+
+Run: 34: Monday, July 4, 2022 5:57:13 PM  
+07-04-2022 21:57:13 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 293.109 Mbps ( 36.639 MBps), using 16 parallel connections.
+Upload:   131.130 Mbps ( 16.391 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:   867
+
+Run: 35: Monday, July 4, 2022 5:57:42 PM  
+07-04-2022 21:57:42 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 272.929 Mbps ( 34.116 MBps), using 16 parallel connections.
+Upload:   132.096 Mbps ( 16.512 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1075
+
+Run: 36: Monday, July 4, 2022 5:58:12 PM  
+07-04-2022 21:58:12 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 286.244 Mbps ( 35.781 MBps), using 16 parallel connections.
+Upload:   134.487 Mbps ( 16.811 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1073
+
+Run: 37: Monday, July 4, 2022 5:58:45 PM  
+07-04-2022 21:58:45 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 307.778 Mbps ( 38.472 MBps), using 16 parallel connections.
+Upload:   131.989 Mbps ( 16.499 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1067
+
+Run: 38: Monday, July 4, 2022 5:59:15 PM  
+07-04-2022 21:59:15 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 217.471 Mbps ( 27.184 MBps), using 16 parallel connections.
+Upload:   131.675 Mbps ( 16.459 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1108
+
+Run: 39: Monday, July 4, 2022 5:59:43 PM  
+07-04-2022 21:59:43 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 323.406 Mbps ( 40.426 MBps), using 28 parallel connections.
+Upload:   132.501 Mbps ( 16.563 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1364
+
+Run: 40: Monday, July 4, 2022 6:00:16 PM  
+07-04-2022 22:00:17 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 290.513 Mbps ( 36.314 MBps), using 16 parallel connections.
+Upload:   131.387 Mbps ( 16.423 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:   971
+
+Run: 41: Monday, July 4, 2022 6:00:47 PM  
+07-04-2022 22:00:47 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 201.202 Mbps ( 25.150 MBps), using 16 parallel connections.
+Upload:   132.045 Mbps ( 16.506 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1076
+
+Run: 42: Monday, July 4, 2022 6:01:18 PM  
+07-04-2022 22:01:18 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 265.033 Mbps ( 33.129 MBps), using 20 parallel connections.
+Upload:   133.527 Mbps ( 16.691 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:   454
+
+Run: 43: Monday, July 4, 2022 6:01:50 PM  
+07-04-2022 22:01:50 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 278.352 Mbps ( 34.794 MBps), using 24 parallel connections.
+Upload:   129.992 Mbps ( 16.249 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1054
+
+Run: 44: Monday, July 4, 2022 6:02:22 PM  
+07-04-2022 22:02:22 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 234.694 Mbps ( 29.337 MBps), using 16 parallel connections.
+Upload:   133.091 Mbps ( 16.636 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:   993
+
+Run: 45: Monday, July 4, 2022 6:02:50 PM  
+07-04-2022 22:02:50 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 258.394 Mbps ( 32.299 MBps), using 16 parallel connections.
+Upload:   132.191 Mbps ( 16.524 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1094
+
+Run: 46: Monday, July 4, 2022 6:03:18 PM  
+07-04-2022 22:03:18 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 262.454 Mbps ( 32.807 MBps), using 20 parallel connections.
+Upload:   133.569 Mbps ( 16.696 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:   425
+
+Run: 47: Monday, July 4, 2022 6:03:49 PM  
+07-04-2022 22:03:49 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 248.084 Mbps ( 31.010 MBps), using 20 parallel connections.
+Upload:   132.263 Mbps ( 16.533 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:   575
+
+Run: 48: Monday, July 4, 2022 6:04:20 PM  
+07-04-2022 22:04:20 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 259.403 Mbps ( 32.425 MBps), using 16 parallel connections.
+Upload:   130.925 Mbps ( 16.366 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1012
+
+Run: 49: Monday, July 4, 2022 6:04:54 PM  
+07-04-2022 22:04:54 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 204.143 Mbps ( 25.518 MBps), using 16 parallel connections.
+Upload:   132.786 Mbps ( 16.598 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1062
+
+Run: 50: Monday, July 4, 2022 6:05:27 PM  
+07-04-2022 22:05:27 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 334.757 Mbps ( 41.845 MBps), using 16 parallel connections.
+Upload:   131.980 Mbps ( 16.498 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1134
+
+Run: 51: Monday, July 4, 2022 6:06:10 PM  
+07-04-2022 22:06:10 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 285.710 Mbps ( 35.714 MBps), using 24 parallel connections.
+Upload:   131.969 Mbps ( 16.496 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:   841
+
+Run: 52: Monday, July 4, 2022 6:06:58 PM  
+07-04-2022 22:06:58 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 280.866 Mbps ( 35.108 MBps), using 24 parallel connections.
+Upload:   133.372 Mbps ( 16.672 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1110
+
+Run: 53: Monday, July 4, 2022 6:07:35 PM  
+07-04-2022 22:07:35 UTC Go Responsiveness to rpm.obs.cr:4043...
+networkQPatch.exe : Error: Saturation could not be completed in time and no provisional rates could be assessed. Test failed.
+At D:\Computer Programming\2022\Research\goresponsiveness\data-analysis-router\http1\gather.ps1:13 char:5
++     & ".\networkQPatch.exe" --config rpm.obs.cr --path config --port  ...
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Error: Saturati...d. Test failed.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+Run: 54: Monday, July 4, 2022 6:08:19 PM  
+07-04-2022 22:08:19 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 269.683 Mbps ( 33.710 MBps), using 28 parallel connections.
+Upload:   132.960 Mbps ( 16.620 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  2027
+
+Run: 55: Monday, July 4, 2022 6:08:56 PM  
+07-04-2022 22:08:56 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 252.384 Mbps ( 31.548 MBps), using 20 parallel connections.
+Upload:   131.311 Mbps ( 16.414 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:   850
+
+Run: 56: Monday, July 4, 2022 6:09:26 PM  
+07-04-2022 22:09:26 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 264.831 Mbps ( 33.104 MBps), using 28 parallel connections.
+Upload:   136.351 Mbps ( 17.044 MBps), using 16 parallel connections.
+Total measurements: 15
+RPM:  1058
+
+Run: 57: Monday, July 4, 2022 6:10:01 PM  
+07-04-2022 22:10:01 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 218.276 Mbps ( 27.285 MBps), using 16 parallel connections.
+Upload:   133.616 Mbps ( 16.702 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1015
+
+Run: 58: Monday, July 4, 2022 6:10:30 PM  
+07-04-2022 22:10:30 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 249.741 Mbps ( 31.218 MBps), using 16 parallel connections.
+Upload:   133.948 Mbps ( 16.743 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1048
+
+Run: 59: Monday, July 4, 2022 6:10:57 PM  
+07-04-2022 22:10:57 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 264.447 Mbps ( 33.056 MBps), using 16 parallel connections.
+Upload:   132.589 Mbps ( 16.574 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:   958
+
+Run: 60: Monday, July 4, 2022 6:11:25 PM  
+07-04-2022 22:11:25 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 203.002 Mbps ( 25.375 MBps), using 16 parallel connections.
+Upload:   136.216 Mbps ( 17.027 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:   991
+
+Run: 61: Monday, July 4, 2022 6:11:52 PM  
+07-04-2022 22:11:52 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 246.967 Mbps ( 30.871 MBps), using 16 parallel connections.
+Upload:   130.933 Mbps ( 16.367 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1112
+
+Run: 62: Monday, July 4, 2022 6:12:36 PM  
+07-04-2022 22:12:36 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 224.970 Mbps ( 28.121 MBps), using 16 parallel connections.
+Upload:   131.490 Mbps ( 16.436 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1015
+
+Run: 63: Monday, July 4, 2022 6:13:04 PM  
+07-04-2022 22:13:04 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 274.984 Mbps ( 34.373 MBps), using 16 parallel connections.
+Upload:   131.780 Mbps ( 16.472 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1061
+
+Run: 64: Monday, July 4, 2022 6:13:31 PM  
+07-04-2022 22:13:31 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 297.217 Mbps ( 37.152 MBps), using 20 parallel connections.
+Upload:   130.020 Mbps ( 16.253 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:   838
+
+Run: 65: Monday, July 4, 2022 6:14:03 PM  
+07-04-2022 22:14:03 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 328.895 Mbps ( 41.112 MBps), using 24 parallel connections.
+Upload:   132.110 Mbps ( 16.514 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:   825
+
+Run: 66: Monday, July 4, 2022 6:14:53 PM  
+07-04-2022 22:14:53 UTC Go Responsiveness to rpm.obs.cr:4043...
+networkQPatch.exe : Error: Saturation could not be completed in time and no provisional rates could be assessed. Test failed.
+At D:\Computer Programming\2022\Research\goresponsiveness\data-analysis-router\http1\gather.ps1:13 char:5
++     & ".\networkQPatch.exe" --config rpm.obs.cr --path config --port  ...
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Error: Saturati...d. Test failed.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+Run: 67: Monday, July 4, 2022 6:15:38 PM  
+07-04-2022 22:15:39 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 304.636 Mbps ( 38.079 MBps), using 20 parallel connections.
+Upload:   131.236 Mbps ( 16.405 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:   690
+
+Run: 68: Monday, July 4, 2022 6:16:09 PM  
+07-04-2022 22:16:09 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 257.952 Mbps ( 32.244 MBps), using 16 parallel connections.
+Upload:   132.617 Mbps ( 16.577 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1164
+
+Run: 69: Monday, July 4, 2022 6:16:41 PM  
+07-04-2022 22:16:41 UTC Go Responsiveness to rpm.obs.cr:4043...
+networkQPatch.exe : Error: Saturation could not be completed in time and no provisional rates could be assessed. Test failed.
+At D:\Computer Programming\2022\Research\goresponsiveness\data-analysis-router\http1\gather.ps1:13 char:5
++     & ".\networkQPatch.exe" --config rpm.obs.cr --path config --port  ...
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Error: Saturati...d. Test failed.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+Run: 70: Monday, July 4, 2022 6:17:24 PM  
+07-04-2022 22:17:24 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 223.785 Mbps ( 27.973 MBps), using 16 parallel connections.
+Upload:   134.323 Mbps ( 16.790 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1052
+
+Run: 71: Monday, July 4, 2022 6:17:57 PM  
+07-04-2022 22:17:57 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 337.415 Mbps ( 42.177 MBps), using 16 parallel connections.
+Upload:   132.191 Mbps ( 16.524 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1138
+
+Run: 72: Monday, July 4, 2022 6:18:31 PM  
+07-04-2022 22:18:31 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 254.931 Mbps ( 31.866 MBps), using 16 parallel connections.
+Upload:   129.918 Mbps ( 16.240 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:   979
+
+Run: 73: Monday, July 4, 2022 6:19:14 PM  
+07-04-2022 22:19:14 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 249.667 Mbps ( 31.208 MBps), using 16 parallel connections.
+Upload:   133.580 Mbps ( 16.697 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:   911
+
+Run: 74: Monday, July 4, 2022 6:19:43 PM  
+07-04-2022 22:19:43 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 294.824 Mbps ( 36.853 MBps), using 24 parallel connections.
+Upload:   131.834 Mbps ( 16.479 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1183
+
+Run: 75: Monday, July 4, 2022 6:20:15 PM  
+07-04-2022 22:20:15 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 206.847 Mbps ( 25.856 MBps), using 16 parallel connections.
+Upload:   134.445 Mbps ( 16.806 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:   485
+
+Run: 76: Monday, July 4, 2022 6:20:43 PM  
+07-04-2022 22:20:43 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 202.426 Mbps ( 25.303 MBps), using 16 parallel connections.
+Upload:   131.503 Mbps ( 16.438 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1053
+
+Run: 77: Monday, July 4, 2022 6:21:11 PM  
+07-04-2022 22:21:11 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 212.372 Mbps ( 26.547 MBps), using 16 parallel connections.
+Upload:   131.016 Mbps ( 16.377 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:   983
+
+Run: 78: Monday, July 4, 2022 6:21:40 PM  
+07-04-2022 22:21:40 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 288.209 Mbps ( 36.026 MBps), using 20 parallel connections.
+Upload:   134.218 Mbps ( 16.777 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1071
+
+Run: 79: Monday, July 4, 2022 6:22:10 PM  
+07-04-2022 22:22:10 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 330.991 Mbps ( 41.374 MBps), using 20 parallel connections.
+Upload:   132.776 Mbps ( 16.597 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1018
+
+Run: 80: Monday, July 4, 2022 6:22:45 PM  
+07-04-2022 22:22:45 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 291.715 Mbps ( 36.464 MBps), using 28 parallel connections.
+Upload:   131.681 Mbps ( 16.460 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  2096
+
+Run: 81: Monday, July 4, 2022 6:23:22 PM  
+07-04-2022 22:23:22 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 263.709 Mbps ( 32.964 MBps), using 16 parallel connections.
+Upload:   134.578 Mbps ( 16.822 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:   749
+
+Run: 82: Monday, July 4, 2022 6:24:06 PM  
+07-04-2022 22:24:06 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 252.448 Mbps ( 31.556 MBps), using 16 parallel connections.
+Upload:   130.681 Mbps ( 16.335 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1121
+
+Run: 83: Monday, July 4, 2022 6:24:33 PM  
+07-04-2022 22:24:33 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 236.412 Mbps ( 29.552 MBps), using 20 parallel connections.
+Upload:   130.074 Mbps ( 16.259 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1149
+
+Run: 84: Monday, July 4, 2022 6:25:05 PM  
+07-04-2022 22:25:05 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 322.850 Mbps ( 40.356 MBps), using 28 parallel connections.
+Upload:   129.818 Mbps ( 16.227 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1143
+
+Run: 85: Monday, July 4, 2022 6:25:45 PM  
+07-04-2022 22:25:45 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 187.475 Mbps ( 23.434 MBps), using 16 parallel connections.
+Upload:   132.864 Mbps ( 16.608 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1046
+
+Run: 86: Monday, July 4, 2022 6:26:19 PM  
+07-04-2022 22:26:19 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 187.638 Mbps ( 23.455 MBps), using 16 parallel connections.
+Upload:   135.294 Mbps ( 16.912 MBps), using 20 parallel connections.
+Total measurements: 15
+RPM:   991
+
+Run: 87: Monday, July 4, 2022 6:26:45 PM  
+07-04-2022 22:26:45 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 238.525 Mbps ( 29.816 MBps), using 16 parallel connections.
+Upload:   129.944 Mbps ( 16.243 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:   971
+
+Run: 88: Monday, July 4, 2022 6:27:13 PM  
+07-04-2022 22:27:13 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 264.988 Mbps ( 33.124 MBps), using 20 parallel connections.
+Upload:   133.696 Mbps ( 16.712 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:   841
+
+Run: 89: Monday, July 4, 2022 6:27:43 PM  
+07-04-2022 22:27:43 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 254.277 Mbps ( 31.785 MBps), using 16 parallel connections.
+Upload:   130.022 Mbps ( 16.253 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1149
+
+Run: 90: Monday, July 4, 2022 6:28:10 PM  
+07-04-2022 22:28:10 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 299.749 Mbps ( 37.469 MBps), using 24 parallel connections.
+Upload:   133.395 Mbps ( 16.674 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1053
+
+Run: 91: Monday, July 4, 2022 6:28:59 PM  
+07-04-2022 22:28:59 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 299.349 Mbps ( 37.419 MBps), using 16 parallel connections.
+Upload:   132.062 Mbps ( 16.508 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1096
+
+Run: 92: Monday, July 4, 2022 6:29:28 PM  
+07-04-2022 22:29:28 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 326.477 Mbps ( 40.810 MBps), using 16 parallel connections.
+Upload:   135.109 Mbps ( 16.889 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:   921
+
+Run: 93: Monday, July 4, 2022 6:29:57 PM  
+07-04-2022 22:29:57 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 332.858 Mbps ( 41.607 MBps), using 20 parallel connections.
+Upload:   126.145 Mbps ( 15.768 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1075
+
+Run: 94: Monday, July 4, 2022 6:30:29 PM  
+07-04-2022 22:30:29 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 356.997 Mbps ( 44.625 MBps), using 24 parallel connections.
+Upload:   133.623 Mbps ( 16.703 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1094
+
+Run: 95: Monday, July 4, 2022 6:31:17 PM  
+07-04-2022 22:31:17 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 302.669 Mbps ( 37.834 MBps), using 24 parallel connections.
+Upload:   132.378 Mbps ( 16.547 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1059
+
+Run: 96: Monday, July 4, 2022 6:31:53 PM  
+07-04-2022 22:31:53 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 291.277 Mbps ( 36.410 MBps), using 20 parallel connections.
+Upload:   134.125 Mbps ( 16.766 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1044
+
+Run: 97: Monday, July 4, 2022 6:32:27 PM  
+07-04-2022 22:32:27 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 282.291 Mbps ( 35.286 MBps), using 20 parallel connections.
+Upload:   132.746 Mbps ( 16.593 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:   882
+
+Run: 98: Monday, July 4, 2022 6:33:03 PM  
+07-04-2022 22:33:03 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 314.827 Mbps ( 39.353 MBps), using 20 parallel connections.
+Upload:   131.103 Mbps ( 16.388 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:  1028
+
+Run: 99: Monday, July 4, 2022 6:33:38 PM  
+07-04-2022 22:33:38 UTC Go Responsiveness to rpm.obs.cr:4043...
+Download: 312.070 Mbps ( 39.009 MBps), using 16 parallel connections.
+Upload:   132.107 Mbps ( 16.513 MBps), using 12 parallel connections.
+Total measurements: 15
+RPM:   854

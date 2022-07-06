@@ -25,10 +25,11 @@ func addFlows(
 	lgcs *[]lgc.LoadGeneratingConnection,
 	lgcGenerator func() lgc.LoadGeneratingConnection,
 	debug debug.DebugLevel,
+	usehttp bool,
 ) {
 	for i := uint64(0); i < toAdd; i++ {
 		*lgcs = append(*lgcs, lgcGenerator())
-		if !(*lgcs)[len(*lgcs)-1].Start(ctx, debug) {
+		if !(*lgcs)[len(*lgcs)-1].Start(ctx, debug, usehttp) {
 			fmt.Printf(
 				"Error starting lgc with id %d!\n",
 				(*lgcs)[len(*lgcs)-1].ClientId(),
@@ -48,6 +49,7 @@ func Saturate(
 	operatingCtx context.Context,
 	lgcGenerator func() lgc.LoadGeneratingConnection,
 	debugging *debug.DebugWithPrefix,
+	usehttp bool,
 ) (saturated chan SaturationResult) {
 	saturated = make(chan SaturationResult)
 	go func() {
@@ -60,6 +62,7 @@ func Saturate(
 			&lgcs,
 			lgcGenerator,
 			debugging.Level,
+			usehttp,
 		)
 
 		previousFlowIncreaseInterval := uint64(0)
@@ -209,6 +212,7 @@ func Saturate(
 						&lgcs,
 						lgcGenerator,
 						debugging.Level,
+						usehttp,
 					)
 					previousFlowIncreaseInterval = currentInterval
 				} else {
@@ -232,7 +236,7 @@ func Saturate(
 					if debug.IsDebug(debugging.Level) {
 						fmt.Printf("%v: New flows to add to try to increase our saturation!\n", debugging)
 					}
-					addFlows(saturationCtx, constants.AdditiveNumberOfLoadGeneratingConnections, &lgcs, lgcGenerator, debugging.Level)
+					addFlows(saturationCtx, constants.AdditiveNumberOfLoadGeneratingConnections, &lgcs, lgcGenerator, debugging.Level, usehttp)
 					previousFlowIncreaseInterval = currentInterval
 				}
 			}
