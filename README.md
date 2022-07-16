@@ -107,11 +107,11 @@ docker run --rm goresp --config mensura.cdn-apple.com --port 443 --path /api/v1/
 
 ## Contributing
 
-We *love* contributions. Before submitting a patch, format your code with `go fmt`.
+We *love* contributions. Before submitting a patch, first format your code with `go fmt`. Then, run `golines`:
 
-Normally we would recommend that you format your code using `golines` before submitting, but `golines` does not appear to be compatible with Go's new generic types.
-
-This README.md will be updated when `golines` is patched to support Go's new generic types.
+```
+$ golines -w .
+```
 
 You can easily install `golines` in to your `${GOPATH}` with
 

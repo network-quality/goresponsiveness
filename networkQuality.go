@@ -9,7 +9,7 @@
  * PARTICULAR PURPOSE. See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License along
- * with Foobar. If not, see <https://www.gnu.org/licenses/>.
+ * with Go Responsiveness. If not, see <https://www.gnu.org/licenses/>.
  */
 
 package main
@@ -86,7 +86,11 @@ var (
 		false,
 		"Enable the collection and display of extended statistics -- may not be available on certain platforms.",
 	)
-	dataLoggerBaseFileName = flag.String("logger-filename", "", "Store information about the results of each probe in files with this basename. Time and probe type will be appended (before the first .) to create two separate log files. Disabled by default.")
+	dataLoggerBaseFileName = flag.String(
+		"logger-filename",
+		"",
+		"Store information about the results of each probe in files with this basename. Time and probe type will be appended (before the first .) to create two separate log files. Disabled by default.",
+	)
 )
 
 func main() {
@@ -191,15 +195,26 @@ func main() {
 		var err error = nil
 		unique := time.Now().UTC().Format("01-02-2006-15-04-05")
 		dataLoggerSelfFilename := utilities.FilenameAppend(*dataLoggerBaseFileName, "-self-"+unique)
-		dataLoggerForeignFilename := utilities.FilenameAppend(*dataLoggerBaseFileName, "-foreign-"+unique)
+		dataLoggerForeignFilename := utilities.FilenameAppend(
+			*dataLoggerBaseFileName,
+			"-foreign-"+unique,
+		)
 		selfDataLogger, err = datalogger.CreateCSVDataLogger[rpm.DataPoint](dataLoggerSelfFilename)
 		if err != nil {
-			fmt.Printf("Warning: Could not create the file for storing self probe results (%s). Disabling functionality.\n", dataLoggerSelfFilename)
+			fmt.Printf(
+				"Warning: Could not create the file for storing self probe results (%s). Disabling functionality.\n",
+				dataLoggerSelfFilename,
+			)
 			selfDataLogger = nil
 		}
-		foreignDataLogger, err = datalogger.CreateCSVDataLogger[rpm.DataPoint](dataLoggerForeignFilename)
+		foreignDataLogger, err = datalogger.CreateCSVDataLogger[rpm.DataPoint](
+			dataLoggerForeignFilename,
+		)
 		if err != nil {
-			fmt.Printf("Warning: Could not create the file for storing foreign probe results (%s). Disabling functionality.\n", dataLoggerForeignFilename)
+			fmt.Printf(
+				"Warning: Could not create the file for storing foreign probe results (%s). Disabling functionality.\n",
+				dataLoggerForeignFilename,
+			)
 			foreignDataLogger = nil
 		}
 	}
@@ -222,11 +237,19 @@ func main() {
 	}
 
 	generateSelfProbeConfiguration := func() rpm.ProbeConfiguration {
-		return rpm.ProbeConfiguration{URL: config.Urls.SmallUrl, DataLogger: selfDataLogger, Interval: 100 * time.Millisecond}
+		return rpm.ProbeConfiguration{
+			URL:        config.Urls.SmallUrl,
+			DataLogger: selfDataLogger,
+			Interval:   100 * time.Millisecond,
+		}
 	}
 
 	generateForeignProbeConfiguration := func() rpm.ProbeConfiguration {
-		return rpm.ProbeConfiguration{URL: config.Urls.SmallUrl, DataLogger: foreignDataLogger, Interval: 100 * time.Millisecond}
+		return rpm.ProbeConfiguration{
+			URL:        config.Urls.SmallUrl,
+			DataLogger: foreignDataLogger,
+			Interval:   100 * time.Millisecond,
+		}
 	}
 
 	var downloadDebugging *debug.DebugWithPrefix = debug.NewDebugWithPrefix(debugLevel, "download")
@@ -378,11 +401,20 @@ func main() {
 
 	foreignProbeDataPoints := utilities.ChannelToSlice(foreignProbeDataPointsChannel)
 	totalForeignRoundTrips := len(foreignProbeDataPoints)
-	foreignProbeRoundTripTimes := utilities.Fmap(foreignProbeDataPoints, func(dp rpm.DataPoint) float64 { return dp.Duration.Seconds() })
+	foreignProbeRoundTripTimes := utilities.Fmap(
+		foreignProbeDataPoints,
+		func(dp rpm.DataPoint) float64 { return dp.Duration.Seconds() },
+	)
 	foreignProbeRoundTripTimeP90 := utilities.CalculatePercentile(foreignProbeRoundTripTimes, 90)
 
-	downloadRoundTripTimes := utilities.Fmap(downloadDataCollectionResult.DataPoints, func(dcr rpm.DataPoint) float64 { return dcr.Duration.Seconds() })
-	uploadRoundTripTimes := utilities.Fmap(uploadDataCollectionResult.DataPoints, func(dcr rpm.DataPoint) float64 { return dcr.Duration.Seconds() })
+	downloadRoundTripTimes := utilities.Fmap(
+		downloadDataCollectionResult.DataPoints,
+		func(dcr rpm.DataPoint) float64 { return dcr.Duration.Seconds() },
+	)
+	uploadRoundTripTimes := utilities.Fmap(
+		uploadDataCollectionResult.DataPoints,
+		func(dcr rpm.DataPoint) float64 { return dcr.Duration.Seconds() },
+	)
 	selfProbeRoundTripTimes := append(downloadRoundTripTimes, uploadRoundTripTimes...)
 	totalSelfRoundTrips := len(selfProbeRoundTripTimes)
 	selfProbeRoundTripTimeP90 := utilities.CalculatePercentile(selfProbeRoundTripTimes, 90)
