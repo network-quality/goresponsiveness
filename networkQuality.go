@@ -25,6 +25,7 @@ import (
 	"github.com/network-quality/goresponsiveness/ccw"
 	"github.com/network-quality/goresponsiveness/config"
 	"github.com/network-quality/goresponsiveness/constants"
+	"github.com/network-quality/goresponsiveness/datalogger"
 	"github.com/network-quality/goresponsiveness/debug"
 	"github.com/network-quality/goresponsiveness/extendedstats"
 	"github.com/network-quality/goresponsiveness/lgc"
@@ -80,12 +81,12 @@ var (
 		"",
 		"Enable client runtime profiling and specify storage location. Disabled by default.",
 	)
-
 	calculateExtendedStats = flag.Bool(
 		"extended-stats",
 		false,
 		"Enable the collection and display of extended statistics -- may not be available on certain platforms.",
 	)
+	dataLoggerBaseFileName = flag.String("logger-filename", "", "Store information about the results of each probe in files with this basename. Time and probe type will be appended (before the first .) to create two separate log files. Disabled by default.")
 )
 
 func main() {
@@ -98,7 +99,7 @@ func main() {
 	lgDataCollectionCtx, cancelLGDataCollectionCtx := context.WithCancel(
 		context.Background(),
 	)
-	newConnectionProberCtx, newConnectionProberCtxCancel := context.WithCancel(
+	foreignProbertCtx, foreignProberCtxCancel := context.WithCancel(
 		context.Background(),
 	)
 	config := &config.Config{}
@@ -183,6 +184,26 @@ func main() {
 		}
 	}
 
+	var selfDataLogger datalogger.DataLogger[rpm.DataPoint] = nil
+	var foreignDataLogger datalogger.DataLogger[rpm.DataPoint] = nil
+	// User wants to log data from each probe!
+	if *dataLoggerBaseFileName != "" {
+		var err error = nil
+		unique := time.Now().UTC().Format("01-02-2006-15-04-05")
+		dataLoggerSelfFilename := utilities.FilenameAppend(*dataLoggerBaseFileName, "-self-"+unique)
+		dataLoggerForeignFilename := utilities.FilenameAppend(*dataLoggerBaseFileName, "-foreign-"+unique)
+		selfDataLogger, err = datalogger.CreateCSVDataLogger[rpm.DataPoint](dataLoggerSelfFilename)
+		if err != nil {
+			fmt.Printf("Warning: Could not create the file for storing self probe results (%s). Disabling functionality.\n", dataLoggerSelfFilename)
+			selfDataLogger = nil
+		}
+		foreignDataLogger, err = datalogger.CreateCSVDataLogger[rpm.DataPoint](dataLoggerForeignFilename)
+		if err != nil {
+			fmt.Printf("Warning: Could not create the file for storing foreign probe results (%s). Disabling functionality.\n", dataLoggerForeignFilename)
+			foreignDataLogger = nil
+		}
+	}
+
 	/*
 	 * Create (and then, ironically, name) two anonymous functions that, when invoked,
 	 * will create load-generating connections for upload/download/
@@ -200,17 +221,17 @@ func main() {
 		}
 	}
 
-	generate_lg_probe_configuration := func() rpm.ProbeConfiguration {
-		return rpm.ProbeConfiguration{URL: config.Urls.SmallUrl, Interval: 100 * time.Millisecond}
+	generateSelfProbeConfiguration := func() rpm.ProbeConfiguration {
+		return rpm.ProbeConfiguration{URL: config.Urls.SmallUrl, DataLogger: selfDataLogger, Interval: 100 * time.Millisecond}
 	}
 
-	generate_nc_probe_configuration := func() rpm.ProbeConfiguration {
-		return rpm.ProbeConfiguration{URL: config.Urls.SmallUrl, Interval: 100 * time.Millisecond}
+	generateForeignProbeConfiguration := func() rpm.ProbeConfiguration {
+		return rpm.ProbeConfiguration{URL: config.Urls.SmallUrl, DataLogger: foreignDataLogger, Interval: 100 * time.Millisecond}
 	}
 
 	var downloadDebugging *debug.DebugWithPrefix = debug.NewDebugWithPrefix(debugLevel, "download")
 	var uploadDebugging *debug.DebugWithPrefix = debug.NewDebugWithPrefix(debugLevel, "upload")
-	var newConnectionDebugging *debug.DebugWithPrefix = debug.NewDebugWithPrefix(debugLevel, "new connection probe")
+	var foreignDebugging *debug.DebugWithPrefix = debug.NewDebugWithPrefix(debugLevel, "foreign probe")
 
 	// TODO: Separate contexts for load generation and data collection. If we do that, if either of the two
 	// data collection go routines stops well before the other, they will continue to send probes and we can
@@ -220,35 +241,35 @@ func main() {
 		lgDataCollectionCtx,
 		operatingCtx,
 		generate_lgd,
-		generate_lg_probe_configuration,
+		generateSelfProbeConfiguration,
 		downloadDebugging,
 	)
 	uploadDataCollectionChannel := rpm.LGCollectData(
 		lgDataCollectionCtx,
 		operatingCtx,
 		generate_lgu,
-		generate_lg_probe_configuration,
+		generateSelfProbeConfiguration,
 		uploadDebugging,
 	)
 
-	newConnectionProbeDataPoints := rpm.Prober(
-		newConnectionProberCtx,
-		generate_nc_probe_configuration,
+	foreignProbeDataPointsChannel := rpm.ForeignProber(
+		foreignProbertCtx,
+		generateForeignProbeConfiguration,
 		sslKeyFileConcurrentWriter,
-		newConnectionDebugging,
+		foreignDebugging,
 	)
 
 	dataCollectionTimeout := false
 	uploadDataCollectionComplete := false
-	downloadDataCollectionComple := false
-	downloadDataCollectionResult := rpm.LGDataCollectionResult{}
-	uploadDataCollectionResult := rpm.LGDataCollectionResult{}
+	downloadDataCollectionComplete := false
+	downloadDataCollectionResult := rpm.SelfDataCollectionResult{}
+	uploadDataCollectionResult := rpm.SelfDataCollectionResult{}
 
-	for !(uploadDataCollectionComplete && downloadDataCollectionComple) {
+	for !(uploadDataCollectionComplete && downloadDataCollectionComplete) {
 		select {
 		case downloadDataCollectionResult = <-downloadDataCollectionChannel:
 			{
-				downloadDataCollectionComple = true
+				downloadDataCollectionComplete = true
 				if *debugCliFlag {
 					fmt.Printf(
 						"################# download load-generating data collection is %s complete (%fMBps, %d flows)!\n",
@@ -318,7 +339,7 @@ func main() {
 	}
 
 	// Shutdown the new-connection prober!
-	newConnectionProberCtxCancel()
+	foreignProberCtxCancel()
 
 	// In the new version we are no longer going to wait to send probes until after
 	// saturation. When we get here we are now only going to compute the results
@@ -355,57 +376,50 @@ func main() {
 		len(uploadDataCollectionResult.LGCs),
 	)
 
-	totalNewConnectionRoundTripTime := float64(0)
-	totalNewConnectionRoundTrips := uint64(0)
-	for ncDp := range newConnectionProbeDataPoints {
-		totalNewConnectionRoundTripTime += ncDp.Duration.Seconds()
-		totalNewConnectionRoundTrips += uint64(ncDp.RoundTripCount)
-	}
-	averageNewConnectionRoundTripTime := totalNewConnectionRoundTripTime / float64(
-		totalNewConnectionRoundTrips,
-	)
-	newConnectionRpm := (1.0 / averageNewConnectionRoundTripTime) * 60.0
+	foreignProbeDataPoints := utilities.ChannelToSlice(foreignProbeDataPointsChannel)
+	totalForeignRoundTrips := len(foreignProbeDataPoints)
+	foreignProbeRoundTripTimes := utilities.Fmap(foreignProbeDataPoints, func(dp rpm.DataPoint) float64 { return dp.Duration.Seconds() })
+	foreignProbeRoundTripTimeP90 := utilities.CalculatePercentile(foreignProbeRoundTripTimes, 90)
+
+	downloadRoundTripTimes := utilities.Fmap(downloadDataCollectionResult.DataPoints, func(dcr rpm.DataPoint) float64 { return dcr.Duration.Seconds() })
+	uploadRoundTripTimes := utilities.Fmap(uploadDataCollectionResult.DataPoints, func(dcr rpm.DataPoint) float64 { return dcr.Duration.Seconds() })
+	selfProbeRoundTripTimes := append(downloadRoundTripTimes, uploadRoundTripTimes...)
+	totalSelfRoundTrips := len(selfProbeRoundTripTimes)
+	selfProbeRoundTripTimeP90 := utilities.CalculatePercentile(selfProbeRoundTripTimes, 90)
+
+	rpm := 60.0 / (float64(selfProbeRoundTripTimeP90+foreignProbeRoundTripTimeP90) / 2.0)
+
 	if *debugCliFlag {
 		fmt.Printf(
-			"Total New-Connection Round Trips: %d, Total New-Connection Round Trip Time: %f, Average New-Connection Round Trip Time (in seconds): %f\n",
-			totalNewConnectionRoundTrips,
-			totalNewConnectionRoundTripTime,
-			averageNewConnectionRoundTripTime,
+			"Total Load-Generating Round Trips: %d, Total New-Connection Round Trips: %d, P90 LG RTT: %f, P90 NC RTT: %f\n",
+			totalSelfRoundTrips,
+			totalForeignRoundTrips,
+			selfProbeRoundTripTimeP90,
+			foreignProbeRoundTripTimeP90,
 		)
-		fmt.Printf("(New-Connection) RPM: %f\n", newConnectionRpm)
 	}
 
-	totalLoadGeneratingRoundTripTime := float64(0)
-	totalLoadGeneratingRoundTrips := uint64(0)
-	for _, dp := range downloadDataCollectionResult.DataPoints {
-		totalLoadGeneratingRoundTripTime += dp.Duration.Seconds()
-		totalLoadGeneratingRoundTrips += uint64(dp.RoundTripCount)
-	}
-	for _, dp := range uploadDataCollectionResult.DataPoints {
-		totalLoadGeneratingRoundTripTime += dp.Duration.Seconds()
-		totalLoadGeneratingRoundTrips += uint64(dp.RoundTripCount)
-	}
-	averageLoadGeneratingRoundTripTime := totalLoadGeneratingRoundTripTime / float64(
-		totalLoadGeneratingRoundTrips,
-	)
-	loadGeneratingRPM := (1.0 / averageLoadGeneratingRoundTripTime) * 60.0
-	if *debugCliFlag {
-		fmt.Printf(
-			"Total Load-Generating Round Trips: %d, Total New-Connection Round Trip Time: %f, Average New-Connection Round Trip Time (in seconds): %f\n",
-			totalLoadGeneratingRoundTrips,
-			totalLoadGeneratingRoundTripTime,
-			averageLoadGeneratingRoundTripTime,
-		)
-		fmt.Printf("(Load-Generating) RPM: %f\n", loadGeneratingRPM)
-	}
-
-	rpm := (newConnectionRpm + loadGeneratingRPM) / 2.0
 	fmt.Printf("RPM: %5.0f\n", rpm)
 
 	if *calculateExtendedStats {
 		fmt.Println(extendedStats.Repr())
 	}
 
+	if !utilities.IsInterfaceNil(selfDataLogger) {
+		selfDataLogger.Export()
+		if *debugCliFlag {
+			fmt.Printf("Closing the self data logger.\n")
+		}
+		selfDataLogger.Close()
+	}
+
+	if !utilities.IsInterfaceNil(foreignDataLogger) {
+		foreignDataLogger.Export()
+		if *debugCliFlag {
+			fmt.Printf("Closing the foreign data logger.\n")
+		}
+		foreignDataLogger.Close()
+	}
 	cancelOperatingCtx()
 	if *debugCliFlag {
 		fmt.Printf("In debugging mode, we will cool down.\n")

@@ -20,6 +20,8 @@ import (
 	"math/rand"
 	"os"
 	"reflect"
+	"sort"
+	"strings"
 	"sync/atomic"
 	"time"
 )
@@ -128,4 +130,57 @@ func Max(x, y uint64) uint64 {
 		return x
 	}
 	return y
+}
+
+func ChannelToSlice[S any](channel <-chan S) (slice []S) {
+	slice = make([]S, 0)
+	for element := range channel {
+		slice = append(slice, element)
+	}
+	return
+}
+
+func Fmap[S any, F any](elements []S, mapper func(S) F) []F {
+	result := make([]F, 0)
+	for _, s := range elements {
+		result = append(result, mapper(s))
+	}
+	return result
+}
+
+func CalculatePercentile[S float32 | int32 | float64 | int64](elements []S, percentile int) S {
+	sort.Slice(elements, func(a, b int) bool { return elements[a] < elements[b] })
+	elementsCount := len(elements)
+	percentileIdx := elementsCount * (percentile / 100)
+	return elements[percentileIdx]
+}
+
+func OrTimeout(f func(), timeout time.Duration) {
+	completeChannel := func() chan interface{} {
+		completed := make(chan interface{})
+		go func() {
+			// This idea taken from https://stackoverflow.com/a/32843750.
+			// Closing the channel will let the read of it proceed immediately.
+			// Making that operation a defer ensures that it will happen even if
+			// the function f panics during its execution.
+			defer close(completed)
+			f()
+		}()
+		return completed
+	}()
+	select {
+	case _ = <-completeChannel:
+		break
+	case _ = <-time.After(timeout):
+		break
+	}
+}
+
+func FilenameAppend(filename, appendage string) string {
+	pieces := strings.SplitN(filename, ".", 2)
+	result := pieces[0] + appendage
+	if len(pieces) > 1 {
+		result = result + "." + strings.Join(pieces[1:], ".")
+	}
+	return result
 }

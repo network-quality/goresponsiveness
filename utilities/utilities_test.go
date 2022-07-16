@@ -37,3 +37,26 @@ func TestReadAfterCloseOnBufferedChannel(t *testing.T) {
 		t.Fatalf("Did not read all sent items from a buffered channel after channel.")
 	}
 }
+
+func TestOrTimeoutStopsInfiniteLoop(t *testing.T) {
+	const TimeoutTime = 2 * time.Second
+	infinity := func() {
+		for {
+		}
+	}
+	timeBefore := time.Now()
+	OrTimeout(infinity, TimeoutTime)
+	timeAfter := time.Now()
+	if timeAfter.Sub(timeBefore) < TimeoutTime {
+		t.Fatalf("OrTimeout failed to keep the infinite loop running for at least %v.", TimeoutTime)
+	}
+}
+
+func TestFilenameAppend(t *testing.T) {
+	const basename = "testing.csv"
+	const expected = "testing-appended.csv"
+	result := FilenameAppend(basename, "-appended")
+	if expected != result {
+		t.Fatalf("%s != %s for FilenameAppend.", expected, result)
+	}
+}
