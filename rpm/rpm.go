@@ -61,9 +61,9 @@ type ProbeConfiguration struct {
 }
 
 type DataPoint struct {
-	Time           time.Time     `Description:"Time of the generation of the data point."`
-	RoundTripCount uint64        `Description:"The number of round trips measured by this data point."`
-	Duration       time.Duration `Description:"The duration for this measurement."`
+	Time           time.Time     `Description:"Time of the generation of the data point." json:"CreationTime"`
+	RoundTripCount uint64        `Description:"The number of round trips measured by this data point." json:"RoundTripCount"`
+	Duration       time.Duration `Description:"The duration for this measurement." json:"Duration"`
 }
 
 type SelfDataCollectionResult struct {

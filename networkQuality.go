@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"runtime/pprof"
+	"strings"
 	"time"
 
 	"github.com/network-quality/goresponsiveness/ccw"
@@ -199,23 +200,46 @@ func main() {
 			*dataLoggerBaseFileName,
 			"-foreign-"+unique,
 		)
-		selfDataLogger, err = datalogger.CreateCSVDataLogger[rpm.DataPoint](dataLoggerSelfFilename)
-		if err != nil {
-			fmt.Printf(
-				"Warning: Could not create the file for storing self probe results (%s). Disabling functionality.\n",
-				dataLoggerSelfFilename,
-			)
-			selfDataLogger = nil
-		}
-		foreignDataLogger, err = datalogger.CreateCSVDataLogger[rpm.DataPoint](
-			dataLoggerForeignFilename,
-		)
-		if err != nil {
-			fmt.Printf(
-				"Warning: Could not create the file for storing foreign probe results (%s). Disabling functionality.\n",
+		if strings.HasSuffix(*dataLoggerBaseFileName, ".csv") {
+			selfDataLogger, err = datalogger.CreateCSVDataLogger[rpm.DataPoint](dataLoggerSelfFilename)
+			if err != nil {
+				fmt.Printf(
+					"Warning: Could not create the file for storing self probe results (%s). Disabling functionality.\n",
+					dataLoggerSelfFilename,
+				)
+				selfDataLogger = nil
+			}
+			foreignDataLogger, err = datalogger.CreateCSVDataLogger[rpm.DataPoint](
 				dataLoggerForeignFilename,
 			)
-			foreignDataLogger = nil
+			if err != nil {
+				fmt.Printf(
+					"Warning: Could not create the file for storing foreign probe results (%s). Disabling functionality.\n",
+					dataLoggerForeignFilename,
+				)
+				foreignDataLogger = nil
+			}
+		} else if strings.HasSuffix(*dataLoggerBaseFileName, ".json") {
+			selfDataLogger, err = datalogger.CreateJSONDataLogger[rpm.DataPoint](dataLoggerSelfFilename)
+			if err != nil {
+				fmt.Printf(
+					"Warning: Could not create the file for storing self probe results (%s). Disabling functionality.\n",
+					dataLoggerSelfFilename,
+				)
+				selfDataLogger = nil
+			}
+			foreignDataLogger, err = datalogger.CreateJSONDataLogger[rpm.DataPoint](
+				dataLoggerForeignFilename,
+			)
+			if err != nil {
+				fmt.Printf(
+					"Warning: Could not create the file for storing foreign probe results (%s). Disabling functionality.\n",
+					dataLoggerForeignFilename,
+				)
+				foreignDataLogger = nil
+			}
+		} else {
+			fmt.Printf("No writer for file extension.\n")
 		}
 	}
 
