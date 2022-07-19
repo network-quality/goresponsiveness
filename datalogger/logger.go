@@ -22,6 +22,10 @@ import (
 	"sync"
 )
 
+var (
+	JSONSpaces int = 4
+)
+
 type DataLogger[T any] interface {
 	LogRecord(record T)
 	Export() bool
@@ -29,6 +33,14 @@ type DataLogger[T any] interface {
 }
 
 type CSVDataLogger[T any] struct {
+	mut         *sync.Mutex
+	recordCount int
+	data        []T
+	isOpen      bool
+	destination io.WriteCloser
+}
+
+type JSONDataLogger[T any] struct {
 	mut         *sync.Mutex
 	recordCount int
 	data        []T
@@ -62,10 +74,10 @@ func (logger *CSVDataLogger[T]) Export() bool {
 		return false
 	}
 
-	t := new(T)
-	visibleFields := reflect.VisibleFields(reflect.TypeOf(t).Elem())
+	visibleFields := reflect.VisibleFields(reflect.TypeOf((*T)(nil)).Elem())
 	for _, v := range visibleFields {
 		description, success := v.Tag.Lookup("Description")
+		// If no Description tag default to field name.
 		columnName := fmt.Sprintf("%s", v.Name)
 		if success {
 			columnName = fmt.Sprintf("%s", description)
@@ -75,8 +87,8 @@ func (logger *CSVDataLogger[T]) Export() bool {
 	logger.destination.Write([]byte("\n"))
 
 	for _, d := range logger.data {
+		data := reflect.ValueOf(d)
 		for _, v := range visibleFields {
-			data := reflect.ValueOf(d)
 			toWrite := data.FieldByIndex(v.Index)
 			logger.destination.Write([]byte(fmt.Sprintf("%v, ", toWrite)))
 		}
@@ -86,6 +98,125 @@ func (logger *CSVDataLogger[T]) Export() bool {
 }
 
 func (logger *CSVDataLogger[T]) Close() bool {
+	logger.mut.Lock()
+	defer logger.mut.Unlock()
+	if !logger.isOpen {
+		return false
+	}
+	logger.destination.Close()
+	logger.isOpen = false
+	return true
+}
+
+func CreateJSONDataLogger[T any](filename string) (DataLogger[T], error) {
+	fmt.Printf("Creating a JSON data logger: %v!\n", filename)
+	data := make([]T, 0)
+	destination, err := os.Create(filename)
+	if err != nil {
+		return &JSONDataLogger[T]{&sync.Mutex{}, 0, data, true, destination}, err
+	}
+
+	result := JSONDataLogger[T]{&sync.Mutex{}, 0, data, true, destination}
+	return &result, nil
+}
+
+func (logger *JSONDataLogger[T]) LogRecord(record T) {
+	logger.mut.Lock()
+	defer logger.mut.Unlock()
+	logger.recordCount += 1
+	logger.data = append(logger.data, record)
+}
+
+func PrettyPrint(out string, spaces int) string {
+	return fmt.Sprintf("%*s%s\n", spaces, "", out)
+}
+
+// Key Value Pair Print
+func KVPPrint(key string, value any) string {
+	return fmt.Sprintf("\"%s\": \"%v\"", key, value)
+}
+
+func (logger *JSONDataLogger[T]) Export() bool {
+	logger.mut.Lock()
+	defer logger.mut.Unlock()
+	if !logger.isOpen {
+		return false
+	}
+
+	// The rest of the code is written with the assumption that the indexing stays the same
+	visibleFields := reflect.VisibleFields(reflect.TypeOf((*T)(nil)).Elem())
+
+	// Meta Data
+	keys := make([]string, 0)
+	descriptions := make([]string, 0)
+	for _, v := range visibleFields {
+		// Keys
+		key, keysuccess := v.Tag.Lookup("json")
+		if !keysuccess {
+			key = fmt.Sprintf("None for %s", v.Name)
+		}
+		keys = append(keys, key)
+
+		// Descriptions
+		description, success := v.Tag.Lookup("Description")
+		if !success {
+			description = fmt.Sprintf("None for %s", v.Name)
+		}
+		descriptions = append(descriptions, description)
+	}
+
+	spaces := int(0)
+
+	// Open
+	logger.destination.Write([]byte(PrettyPrint("{", spaces)))
+	spaces += JSONSpaces
+
+	// Write Meta Data
+	logger.destination.Write([]byte(PrettyPrint("\"[METADATA]\": {", spaces)))
+	spaces += JSONSpaces
+	for i, key := range keys {
+		if i == len(keys)-1 {
+			logger.destination.Write([]byte(PrettyPrint(KVPPrint(key, descriptions[i]), spaces)))
+		} else {
+			logger.destination.Write([]byte(PrettyPrint(KVPPrint(key, descriptions[i])+",", spaces)))
+		}
+	}
+	spaces -= JSONSpaces
+	logger.destination.Write([]byte(PrettyPrint("},", spaces)))
+
+	// Write Data
+	logger.destination.Write([]byte(PrettyPrint("\"Data\": [", spaces)))
+	spaces += JSONSpaces
+	for ix, d := range logger.data {
+		logger.destination.Write([]byte(PrettyPrint("{", spaces)))
+		spaces += JSONSpaces
+		data := reflect.ValueOf(d)
+		for i, v := range visibleFields {
+			toWrite := data.FieldByIndex(v.Index)
+			if i == len(keys)-1 {
+				logger.destination.Write([]byte(PrettyPrint(KVPPrint(keys[i], toWrite), spaces)))
+			} else {
+				logger.destination.Write([]byte(PrettyPrint(KVPPrint(keys[i], toWrite)+",", spaces)))
+			}
+		}
+		spaces -= JSONSpaces
+		if ix == len(logger.data)-1 {
+			logger.destination.Write([]byte(PrettyPrint("}", spaces)))
+		} else {
+			logger.destination.Write([]byte(PrettyPrint("},", spaces)))
+		}
+	}
+	spaces -= JSONSpaces
+	logger.destination.Write([]byte(PrettyPrint("]", spaces)))
+
+	// Close
+	spaces -= JSONSpaces
+	logger.destination.Write([]byte(PrettyPrint("}", spaces)))
+
+	return true
+}
+
+func (logger *JSONDataLogger[T]) Close() bool {
 	logger.mut.Lock()
 	defer logger.mut.Unlock()
 	if !logger.isOpen {

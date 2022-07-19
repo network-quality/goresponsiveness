@@ -77,7 +77,7 @@ $./networkQuality --help
   -sattimeout int
     	Maximum time to spend measuring saturation. (default 20)
   -rpmtimeout int
-      Maximum time to spend calculating RPM. (default 10)
+    	Maximum time to spend calculating RPM. (default 10)
 ```
 
 To facilitate testing, you may want to use the open-source RPM server available from [Apple on GitHub](https://github.com/network-quality/server/tree/main/go).
