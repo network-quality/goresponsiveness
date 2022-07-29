@@ -89,7 +89,7 @@ var (
 	dataLoggerBaseFileName = flag.String(
 		"logger-filename",
 		"",
-		"Store information about the results of each probe in files with this basename. Time and probe type will be appended (before the first .) to create two separate log files. Disabled by default.",
+		"Store granular information about tests results in files with this basename. Time and information type will be appended (before the first .) to create separate log files. Disabled by default.",
 	)
 )
 
@@ -188,18 +188,24 @@ func main() {
 		}
 	}
 
-	var selfDataLogger datalogger.DataLogger[rpm.DataPoint] = nil
-	var foreignDataLogger datalogger.DataLogger[rpm.DataPoint] = nil
+	var selfDataLogger datalogger.DataLogger[rpm.ProbeDataPoint] = nil
+	var foreignDataLogger datalogger.DataLogger[rpm.ProbeDataPoint] = nil
+	var downloadThroughputDataLogger datalogger.DataLogger[rpm.ThroughputDataPoint] = nil
+	var uploadThroughputDataLogger datalogger.DataLogger[rpm.ThroughputDataPoint] = nil
 	// User wants to log data from each probe!
 	if *dataLoggerBaseFileName != "" {
 		var err error = nil
 		unique := time.Now().UTC().Format("01-02-2006-15-04-05")
+
 		dataLoggerSelfFilename := utilities.FilenameAppend(*dataLoggerBaseFileName, "-self-"+unique)
 		dataLoggerForeignFilename := utilities.FilenameAppend(
 			*dataLoggerBaseFileName,
 			"-foreign-"+unique,
 		)
-		selfDataLogger, err = datalogger.CreateCSVDataLogger[rpm.DataPoint](dataLoggerSelfFilename)
+		dataLoggerDownloadThroughputFilename := utilities.FilenameAppend(*dataLoggerBaseFileName, "-throughput-download"+unique)
+		dataLoggerUploadThroughputFilename := utilities.FilenameAppend(*dataLoggerBaseFileName, "-throughput-upload"+unique)
+
+		selfDataLogger, err = datalogger.CreateCSVDataLogger[rpm.ProbeDataPoint](dataLoggerSelfFilename)
 		if err != nil {
 			fmt.Printf(
 				"Warning: Could not create the file for storing self probe results (%s). Disabling functionality.\n",
@@ -207,7 +213,8 @@ func main() {
 			)
 			selfDataLogger = nil
 		}
-		foreignDataLogger, err = datalogger.CreateCSVDataLogger[rpm.DataPoint](
+
+		foreignDataLogger, err = datalogger.CreateCSVDataLogger[rpm.ProbeDataPoint](
 			dataLoggerForeignFilename,
 		)
 		if err != nil {
@@ -216,6 +223,28 @@ func main() {
 				dataLoggerForeignFilename,
 			)
 			foreignDataLogger = nil
+		}
+
+		downloadThroughputDataLogger, err = datalogger.CreateCSVDataLogger[rpm.ThroughputDataPoint](
+			dataLoggerDownloadThroughputFilename,
+		)
+		if err != nil {
+			fmt.Printf(
+				"Warning: Could not create the file for storing download throughput results (%s). Disabling functionality.\n",
+				dataLoggerDownloadThroughputFilename,
+			)
+			downloadThroughputDataLogger = nil
+		}
+
+		uploadThroughputDataLogger, err = datalogger.CreateCSVDataLogger[rpm.ThroughputDataPoint](
+			dataLoggerUploadThroughputFilename,
+		)
+		if err != nil {
+			fmt.Printf(
+				"Warning: Could not create the file for storing upload throughput results (%s). Disabling functionality.\n",
+				dataLoggerUploadThroughputFilename,
+			)
+			uploadThroughputDataLogger = nil
 		}
 	}
 
@@ -265,6 +294,7 @@ func main() {
 		operatingCtx,
 		generate_lgd,
 		generateSelfProbeConfiguration,
+		downloadThroughputDataLogger,
 		downloadDebugging,
 	)
 	uploadDataCollectionChannel := rpm.LGCollectData(
@@ -272,6 +302,7 @@ func main() {
 		operatingCtx,
 		generate_lgu,
 		generateSelfProbeConfiguration,
+		uploadThroughputDataLogger,
 		uploadDebugging,
 	)
 
@@ -403,17 +434,17 @@ func main() {
 	totalForeignRoundTrips := len(foreignProbeDataPoints)
 	foreignProbeRoundTripTimes := utilities.Fmap(
 		foreignProbeDataPoints,
-		func(dp rpm.DataPoint) float64 { return dp.Duration.Seconds() },
+		func(dp rpm.ProbeDataPoint) float64 { return dp.Duration.Seconds() },
 	)
 	foreignProbeRoundTripTimeP90 := utilities.CalculatePercentile(foreignProbeRoundTripTimes, 90)
 
 	downloadRoundTripTimes := utilities.Fmap(
 		downloadDataCollectionResult.DataPoints,
-		func(dcr rpm.DataPoint) float64 { return dcr.Duration.Seconds() },
+		func(dcr rpm.ProbeDataPoint) float64 { return dcr.Duration.Seconds() },
 	)
 	uploadRoundTripTimes := utilities.Fmap(
 		uploadDataCollectionResult.DataPoints,
-		func(dcr rpm.DataPoint) float64 { return dcr.Duration.Seconds() },
+		func(dcr rpm.ProbeDataPoint) float64 { return dcr.Duration.Seconds() },
 	)
 	selfProbeRoundTripTimes := append(downloadRoundTripTimes, uploadRoundTripTimes...)
 	totalSelfRoundTrips := len(selfProbeRoundTripTimes)
@@ -452,6 +483,23 @@ func main() {
 		}
 		foreignDataLogger.Close()
 	}
+
+	if !utilities.IsInterfaceNil(downloadThroughputDataLogger) {
+		downloadThroughputDataLogger.Export()
+		if *debugCliFlag {
+			fmt.Printf("Closing the download throughput data logger.\n")
+		}
+		downloadThroughputDataLogger.Close()
+	}
+
+	if !utilities.IsInterfaceNil(uploadThroughputDataLogger) {
+		uploadThroughputDataLogger.Export()
+		if *debugCliFlag {
+			fmt.Printf("Closing the upload throughput data logger.\n")
+		}
+		uploadThroughputDataLogger.Close()
+	}
+
 	cancelOperatingCtx()
 	if *debugCliFlag {
 		fmt.Printf("In debugging mode, we will cool down.\n")

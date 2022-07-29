@@ -56,20 +56,25 @@ func addFlows(
 
 type ProbeConfiguration struct {
 	URL        string
-	DataLogger datalogger.DataLogger[DataPoint]
+	DataLogger datalogger.DataLogger[ProbeDataPoint]
 	Interval   time.Duration
 }
 
-type DataPoint struct {
-	Time           time.Time     `Description:"Time of the generation of the data point."`
+type ProbeDataPoint struct {
+	Time           time.Time     `Description:"Time of the generation of the data point." Formatter:"Format" FormatterArgument:"01-02-2006-15-04-05.000"`
 	RoundTripCount uint64        `Description:"The number of round trips measured by this data point."`
 	Duration       time.Duration `Description:"The duration for this measurement."`
+}
+
+type ThroughputDataPoint struct {
+	Time       time.Time `Description:"Time of the generation of the data point." Formatter:"Format" FormatterArgument:"01-02-2006-15-04-05.000"`
+	Throughput float64   `Description:"Instantaneous throughput (b/s)."`
 }
 
 type SelfDataCollectionResult struct {
 	RateBps    float64
 	LGCs       []lgc.LoadGeneratingConnection
-	DataPoints []DataPoint
+	DataPoints []ProbeDataPoint
 }
 
 type ProbeType int64
@@ -89,11 +94,11 @@ func (pt ProbeType) Value() string {
 func Probe(
 	parentProbeCtx context.Context,
 	waitGroup *sync.WaitGroup,
-	logger datalogger.DataLogger[DataPoint],
+	logger datalogger.DataLogger[ProbeDataPoint],
 	client *http.Client,
 	probeUrl string,
 	probeType ProbeType,
-	result *chan DataPoint,
+	result *chan ProbeDataPoint,
 	debugging *debug.DebugWithPrefix,
 ) error {
 
@@ -181,7 +186,7 @@ func Probe(
 			)
 		}
 	}()
-	dataPoint := DataPoint{Time: time.Now(), RoundTripCount: roundTripCount, Duration: totalDelay}
+	dataPoint := ProbeDataPoint{Time: time_before_probe, RoundTripCount: roundTripCount, Duration: totalDelay}
 	if !utilities.IsInterfaceNil(logger) {
 		logger.LogRecord(dataPoint)
 	}
@@ -194,8 +199,8 @@ func ForeignProber(
 	foreignProbeConfigurationGenerator func() ProbeConfiguration,
 	keyLogger io.Writer,
 	debugging *debug.DebugWithPrefix,
-) (points chan DataPoint) {
-	points = make(chan DataPoint)
+) (points chan ProbeDataPoint) {
+	points = make(chan ProbeDataPoint)
 
 	foreignProbeConfiguration := foreignProbeConfigurationGenerator()
 
@@ -272,8 +277,8 @@ func SelfProber(
 	altConnections *[]lgc.LoadGeneratingConnection,
 	selfProbeConfiguration ProbeConfiguration,
 	debugging *debug.DebugWithPrefix,
-) (points chan DataPoint) {
-	points = make(chan DataPoint)
+) (points chan ProbeDataPoint) {
+	points = make(chan ProbeDataPoint)
 
 	debugging = debug.NewDebugWithPrefix(debugging.Level, debugging.Prefix+" self probe")
 
@@ -321,6 +326,7 @@ func LGCollectData(
 	operatingCtx context.Context,
 	lgcGenerator func() lgc.LoadGeneratingConnection,
 	selfProbeConfigurationGenerator func() ProbeConfiguration,
+	throughputDataLogger datalogger.DataLogger[ThroughputDataPoint],
 	debugging *debug.DebugWithPrefix,
 ) (resulted chan SelfDataCollectionResult) {
 	resulted = make(chan SelfDataCollectionResult)
@@ -437,6 +443,10 @@ func LGCollectData(
 				previousMovingAverage,
 			)
 
+			if !utilities.IsInterfaceNil(throughputDataLogger) {
+				throughputDataLogger.LogRecord(ThroughputDataPoint{time.Now(), currentMovingAverage})
+			}
+
 			if debug.IsDebug(debugging.Level) {
 				fmt.Printf(
 					"%v: Instantaneous goodput: %f MB.\n",
@@ -517,7 +527,7 @@ func LGCollectData(
 
 		}
 		selfProbeCtxCancel()
-		selfProbeDataPoints := make([]DataPoint, 0)
+		selfProbeDataPoints := make([]ProbeDataPoint, 0)
 		for dataPoint := range probeDataPointsChannel {
 			selfProbeDataPoints = append(selfProbeDataPoints, dataPoint)
 		}

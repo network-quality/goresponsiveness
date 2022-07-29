@@ -11,7 +11,6 @@
  * You should have received a copy of the GNU General Public License along
  * with Go Responsiveness. If not, see <https://www.gnu.org/licenses/>.
  */
-
 package datalogger
 
 import (
@@ -20,6 +19,8 @@ import (
 	"os"
 	"reflect"
 	"sync"
+
+	"github.com/network-quality/goresponsiveness/utilities"
 )
 
 type DataLogger[T any] interface {
@@ -55,6 +56,33 @@ func (logger *CSVDataLogger[T]) LogRecord(record T) {
 	logger.data = append(logger.data, record)
 }
 
+func doCustomFormatting(value reflect.Value, tag reflect.StructTag) (string, error) {
+	if utilities.IsInterfaceNil(value) {
+		return "", fmt.Errorf("Cannot format an empty interface value")
+	}
+	formatMethodName, success := tag.Lookup("Formatter")
+	if !success {
+		return "", fmt.Errorf("Could not find the formatter name")
+	}
+	formatMethodArgument, success := tag.Lookup("FormatterArgument")
+	if !success {
+		return "", fmt.Errorf("Could not find the formatter name")
+	}
+
+	formatMethod := value.MethodByName(formatMethodName)
+	if formatMethod == reflect.ValueOf(0) {
+		return "", fmt.Errorf("Type %v does not support a method named %v", value.Type(), formatMethodName)
+	}
+
+	formatMethodArgumentUsable := make([]reflect.Value, 1)
+	formatMethodArgumentUsable[0] = reflect.ValueOf(formatMethodArgument)
+	result := formatMethod.Call(formatMethodArgumentUsable)
+	if len(result) == 1 {
+		return result[0].String(), nil
+	}
+	return "", fmt.Errorf("Too many results returned by the format method's invocation.")
+}
+
 func (logger *CSVDataLogger[T]) Export() bool {
 	logger.mut.Lock()
 	defer logger.mut.Unlock()
@@ -62,8 +90,7 @@ func (logger *CSVDataLogger[T]) Export() bool {
 		return false
 	}
 
-	t := new(T)
-	visibleFields := reflect.VisibleFields(reflect.TypeOf(t).Elem())
+	visibleFields := reflect.VisibleFields(reflect.TypeOf((*T)(nil)).Elem())
 	for _, v := range visibleFields {
 		description, success := v.Tag.Lookup("Description")
 		columnName := fmt.Sprintf("%s", v.Name)
@@ -78,7 +105,11 @@ func (logger *CSVDataLogger[T]) Export() bool {
 		for _, v := range visibleFields {
 			data := reflect.ValueOf(d)
 			toWrite := data.FieldByIndex(v.Index)
-			logger.destination.Write([]byte(fmt.Sprintf("%v, ", toWrite)))
+			if formattedToWrite, err := doCustomFormatting(toWrite, v.Tag); err == nil {
+				logger.destination.Write([]byte(fmt.Sprintf("%s,", formattedToWrite)))
+			} else {
+				logger.destination.Write([]byte(fmt.Sprintf("%v, ", toWrite)))
+			}
 		}
 		logger.destination.Write([]byte("\n"))
 	}
