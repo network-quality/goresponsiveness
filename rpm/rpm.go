@@ -62,10 +62,10 @@ type ProbeConfiguration struct {
 }
 
 type ProbeDataPoint struct {
-	Time           time.Time     `Description:"Time of the generation of the data point." Formatter:"Format" FormatterArgument:"01-02-2006-15-04-05.000"`
+	Time           time.Time     `Description:"Time of the generation of the data point."                    Formatter:"Format"  FormatterArgument:"01-02-2006-15-04-05.000"`
 	RoundTripCount uint64        `Description:"The number of round trips measured by this data point."`
-	Duration       time.Duration `Description:"The duration for this measurement." Formatter:"Seconds"`
-	TCPRtt         time.Duration `Description:"The underlying connection's RTT at probe time." Formatter:"Seconds"`
+	Duration       time.Duration `Description:"The duration for this measurement."                           Formatter:"Seconds"`
+	TCPRtt         time.Duration `Description:"The underlying connection's RTT at probe time."               Formatter:"Seconds"`
 	TCPCwnd        uint32        `Description:"The underlying connection's congestion window at probe time."`
 }
 
@@ -200,7 +200,13 @@ func Probe(
 			fmt.Printf("Warning: Could not fetch the extended stats for a probe: %v\n", err)
 		}
 	}
-	dataPoint := ProbeDataPoint{Time: time_before_probe, RoundTripCount: roundTripCount, Duration: totalDelay, TCPRtt: tcpRtt, TCPCwnd: tcpCwnd}
+	dataPoint := ProbeDataPoint{
+		Time:           time_before_probe,
+		RoundTripCount: roundTripCount,
+		Duration:       totalDelay,
+		TCPRtt:         tcpRtt,
+		TCPCwnd:        tcpCwnd,
+	}
 	if !utilities.IsInterfaceNil(logger) {
 		logger.LogRecord(dataPoint)
 	}
@@ -458,7 +464,9 @@ func LGCollectData(
 			)
 
 			if !utilities.IsInterfaceNil(throughputDataLogger) {
-				throughputDataLogger.LogRecord(ThroughputDataPoint{time.Now(), currentMovingAverage})
+				throughputDataLogger.LogRecord(
+					ThroughputDataPoint{time.Now(), currentMovingAverage},
+				)
 			}
 
 			if debug.IsDebug(debugging.Level) {

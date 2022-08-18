@@ -197,10 +197,18 @@ func main() {
 			*dataLoggerBaseFileName,
 			"-foreign-"+unique,
 		)
-		dataLoggerDownloadThroughputFilename := utilities.FilenameAppend(*dataLoggerBaseFileName, "-throughput-download"+unique)
-		dataLoggerUploadThroughputFilename := utilities.FilenameAppend(*dataLoggerBaseFileName, "-throughput-upload"+unique)
+		dataLoggerDownloadThroughputFilename := utilities.FilenameAppend(
+			*dataLoggerBaseFileName,
+			"-throughput-download"+unique,
+		)
+		dataLoggerUploadThroughputFilename := utilities.FilenameAppend(
+			*dataLoggerBaseFileName,
+			"-throughput-upload"+unique,
+		)
 
-		selfDataLogger, err = datalogger.CreateCSVDataLogger[rpm.ProbeDataPoint](dataLoggerSelfFilename)
+		selfDataLogger, err = datalogger.CreateCSVDataLogger[rpm.ProbeDataPoint](
+			dataLoggerSelfFilename,
+		)
 		if err != nil {
 			fmt.Printf(
 				"Warning: Could not create the file for storing self probe results (%s). Disabling functionality.\n",

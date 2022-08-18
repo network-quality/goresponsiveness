@@ -70,11 +70,18 @@ func doCustomFormatting(value reflect.Value, tag reflect.StructTag) (string, err
 
 	formatMethod := value.MethodByName(formatMethodName)
 	if formatMethod == reflect.ValueOf(0) {
-		return "", fmt.Errorf("Type %v does not support a method named %v", value.Type(), formatMethodName)
+		return "", fmt.Errorf(
+			"Type %v does not support a method named %v",
+			value.Type(),
+			formatMethodName,
+		)
 	}
 	var formatMethodArgumentUsable []reflect.Value = make([]reflect.Value, 0)
 	if formatMethodArgument != "" {
-		formatMethodArgumentUsable = append(formatMethodArgumentUsable, reflect.ValueOf(formatMethodArgument))
+		formatMethodArgumentUsable = append(
+			formatMethodArgumentUsable,
+			reflect.ValueOf(formatMethodArgument),
+		)
 	}
 	result := formatMethod.Call(formatMethodArgumentUsable)
 	if len(result) == 1 {
