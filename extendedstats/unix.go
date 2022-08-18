@@ -27,20 +27,8 @@ func ExtendedStatsAvailable() bool {
 	return true
 }
 
-func (es *ExtendedStats) IncorporateConnectionStats(rawConn net.Conn) error {
-	tlsConn, ok := rawConn.(*tls.Conn)
-	if !ok {
-		return fmt.Errorf(
-			"OOPS: Could not get the TCP info for the connection (not a TLS connection)",
-		)
-	}
-	tcpConn, ok := tlsConn.NetConn().(*net.TCPConn)
-	if !ok {
-		return fmt.Errorf(
-			"OOPS: Could not get the TCP info for the connection (not a TCP connection)",
-		)
-	}
-	if info, err := getTCPInfo(tcpConn); err != nil {
+func (es *ExtendedStats) IncorporateConnectionStats(basicConn net.Conn) error {
+	if info, err := GetTCPInfo(basicConn); err != nil {
 		return fmt.Errorf("OOPS: Could not get the TCP info for the connection: %v", err)
 	} else {
 		es.MaxPathMtu = utilities.Max(es.MaxPathMtu, uint64(info.Pmtu))
@@ -67,16 +55,21 @@ func (es *ExtendedStats) Repr() string {
 `, es.MaxPathMtu, es.MaxSendMss, es.MaxRecvMss, es.TotalRetransmissions, es.TotalReorderings, es.AverageRtt)
 }
 
-func getTCPInfo(connection net.Conn) (*unix.TCPInfo, error) {
-	tcpConn, ok := connection.(*net.TCPConn)
+func GetTCPInfo(basicConn net.Conn) (*unix.TCPInfo, error) {
+	tlsConn, ok := basicConn.(*tls.Conn)
 	if !ok {
-		return nil, fmt.Errorf("connection is not a net.TCPConn")
+		return nil, fmt.Errorf("OOPS: Outermost connection is not a TLS connection")
+	}
+	tcpConn, ok := tlsConn.NetConn().(*net.TCPConn)
+	if !ok {
+		return nil, fmt.Errorf(
+			"OOPS: Could not get the TCP info for the connection (not a TCP connection)",
+		)
 	}
 	rawConn, err := tcpConn.SyscallConn()
 	if err != nil {
 		return nil, err
 	}
-
 	var info *unix.TCPInfo = nil
 	rawConn.Control(func(fd uintptr) {
 		info, err = unix.GetsockoptTCPInfo(int(fd), unix.SOL_TCP, unix.TCP_INFO)

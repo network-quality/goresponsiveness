@@ -66,19 +66,20 @@ func doCustomFormatting(value reflect.Value, tag reflect.StructTag) (string, err
 	}
 	formatMethodArgument, success := tag.Lookup("FormatterArgument")
 	if !success {
-		return "", fmt.Errorf("Could not find the formatter name")
+		formatMethodArgument = ""
 	}
 
 	formatMethod := value.MethodByName(formatMethodName)
 	if formatMethod == reflect.ValueOf(0) {
 		return "", fmt.Errorf("Type %v does not support a method named %v", value.Type(), formatMethodName)
 	}
-
-	formatMethodArgumentUsable := make([]reflect.Value, 1)
-	formatMethodArgumentUsable[0] = reflect.ValueOf(formatMethodArgument)
+	var formatMethodArgumentUsable []reflect.Value = make([]reflect.Value, 0)
+	if formatMethodArgument != "" {
+		formatMethodArgumentUsable = append(formatMethodArgumentUsable, reflect.ValueOf(formatMethodArgument))
+	}
 	result := formatMethod.Call(formatMethodArgumentUsable)
 	if len(result) == 1 {
-		return result[0].String(), nil
+		return fmt.Sprintf("%v", result[0]), nil
 	}
 	return "", fmt.Errorf("Too many results returned by the format method's invocation.")
 }

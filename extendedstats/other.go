@@ -11,7 +11,7 @@ import (
 type ExtendedStats struct{}
 
 func (es *ExtendedStats) IncorporateConnectionStats(conn net.Conn) error {
-	return fmt.Errorf("OOPS: IncorporateConnectionStats is not supported on this platform")
+	return fmt.Errorf("IncorporateConnectionStats is not supported on this platform")
 }
 
 func (es *ExtendedStats) Repr() string {
@@ -20,4 +20,8 @@ func (es *ExtendedStats) Repr() string {
 
 func ExtendedStatsAvailable() bool {
 	return false
+}
+
+func GetTCPInfo(basicConn net.Conn) (interface, error) {
+	return nil, fmt.Errorf("GetTCPInfo is not supported on this platform")
 }

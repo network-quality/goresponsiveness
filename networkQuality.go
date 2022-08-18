@@ -406,7 +406,7 @@ func main() {
 			if err := extendedStats.IncorporateConnectionStats(downloadDataCollectionResult.LGCs[i].Stats().ConnInfo.Conn); err != nil {
 				fmt.Fprintf(
 					os.Stderr,
-					"Warning: Could not add extended stats for the connection: %v",
+					"Warning: Could not add extended stats for the connection: %v\n",
 					err,
 				)
 			}

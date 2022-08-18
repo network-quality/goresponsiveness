@@ -27,6 +27,7 @@ import (
 	"github.com/network-quality/goresponsiveness/constants"
 	"github.com/network-quality/goresponsiveness/datalogger"
 	"github.com/network-quality/goresponsiveness/debug"
+	"github.com/network-quality/goresponsiveness/extendedstats"
 	"github.com/network-quality/goresponsiveness/lgc"
 	"github.com/network-quality/goresponsiveness/ma"
 	"github.com/network-quality/goresponsiveness/stats"
@@ -63,7 +64,9 @@ type ProbeConfiguration struct {
 type ProbeDataPoint struct {
 	Time           time.Time     `Description:"Time of the generation of the data point." Formatter:"Format" FormatterArgument:"01-02-2006-15-04-05.000"`
 	RoundTripCount uint64        `Description:"The number of round trips measured by this data point."`
-	Duration       time.Duration `Description:"The duration for this measurement."`
+	Duration       time.Duration `Description:"The duration for this measurement." Formatter:"Seconds"`
+	TCPRtt         time.Duration `Description:"The underlying connection's RTT at probe time." Formatter:"Seconds"`
+	TCPCwnd        uint32        `Description:"The underlying connection's congestion window at probe time."`
 }
 
 type ThroughputDataPoint struct {
@@ -186,7 +189,18 @@ func Probe(
 			)
 		}
 	}()
-	dataPoint := ProbeDataPoint{Time: time_before_probe, RoundTripCount: roundTripCount, Duration: totalDelay}
+	tcpRtt := time.Duration(0 * time.Second)
+	tcpCwnd := uint32(0)
+	if extendedstats.ExtendedStatsAvailable() {
+		tcpInfo, err := extendedstats.GetTCPInfo(probeTracer.stats.ConnInfo.Conn)
+		if err == nil {
+			tcpRtt = time.Duration(tcpInfo.Rtt) * time.Microsecond
+			tcpCwnd = tcpInfo.Snd_cwnd
+		} else {
+			fmt.Printf("Warning: Could not fetch the extended stats for a probe: %v\n", err)
+		}
+	}
+	dataPoint := ProbeDataPoint{Time: time_before_probe, RoundTripCount: roundTripCount, Duration: totalDelay, TCPRtt: tcpRtt, TCPCwnd: tcpCwnd}
 	if !utilities.IsInterfaceNil(logger) {
 		logger.LogRecord(dataPoint)
 	}
