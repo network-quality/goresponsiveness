@@ -67,20 +67,47 @@ type TCPINFO_V1 struct {
 	SndLimBytesSnd  uint64
 }
 
-func (es *ExtendedStats) IncorporateConnectionStats(rawConn net.Conn) error {
-	tlsConn, ok := rawConn.(*tls.Conn)
-	if !ok {
-		return fmt.Errorf(
-			"OOPS: Could not get the TCP info for the connection (not a TLS connection)",
-		)
-	}
-	tcpConn, ok := tlsConn.NetConn().(*net.TCPConn)
-	if !ok {
-		return fmt.Errorf(
-			"OOPS: Could not get the TCP info for the connection (not a TCP connection)",
-		)
-	}
-	if info, err := getTCPInfo(tcpConn); err != nil {
+// https://pkg.go.dev/golang.org/x/sys/unix#TCPInfo
+// Used to allow access to TCPInfo in like manner to unix.
+type TCPInfo struct {
+	State          uint8
+	Ca_state       uint8
+	Retransmits    uint8
+	Probes         uint8
+	Backoff        uint8
+	Options        uint8
+	Rto            uint32
+	Ato            uint32
+	Snd_mss        uint32
+	Rcv_mss        uint32
+	Unacked        uint32
+	Sacked         uint32
+	Lost           uint32
+	Retrans        uint32
+	Fackets        uint32
+	Last_data_sent uint32
+	Last_ack_sent  uint32
+	Last_data_recv uint32
+	Last_ack_recv  uint32
+	Pmtu           uint32
+	Rcv_ssthresh   uint32
+	Rtt            uint32
+	Rttvar         uint32
+	Snd_ssthresh   uint32
+	Snd_cwnd       uint32
+	Advmss         uint32
+	Reordering     uint32
+	Rcv_rtt        uint32
+	Rcv_space      uint32
+	Total_retrans  uint32
+}
+
+func ExtendedStatsAvailable() bool {
+	return true
+}
+
+func (es *ExtendedStats) IncorporateConnectionStats(basicConn net.Conn) error {
+	if info, err := getTCPInfoRaw(basicConn); err != nil {
 		return fmt.Errorf("OOPS: Could not get the TCP info for the connection: %v", err)
 	} else {
 		es.MaxMss = utilities.Max(es.MaxMss, uint64(info.Mss))
@@ -107,14 +134,16 @@ func (es *ExtendedStats) Repr() string {
 `, es.MaxMss, es.TotalBytesRetransmitted, es.RetransmitRatio, es.TotalBytesReordered, es.AverageRtt)
 }
 
-func ExtendedStatsAvailable() bool {
-	return true
-}
-
-func getTCPInfo(connection net.Conn) (*TCPINFO_V1, error) {
-	tcpConn, ok := connection.(*net.TCPConn)
+func getTCPInfoRaw(basicConn net.Conn) (*TCPINFO_V1, error) {
+	tlsConn, ok := basicConn.(*tls.Conn)
 	if !ok {
-		return nil, fmt.Errorf("connection is not a net.TCPConn")
+		return nil, fmt.Errorf("OOPS: Outermost connection is not a TLS connection")
+	}
+	tcpConn, ok := tlsConn.NetConn().(*net.TCPConn)
+	if !ok {
+		return nil, fmt.Errorf(
+			"OOPS: Could not get the TCP info for the connection (not a TCP connection)",
+		)
 	}
 	rawConn, err := tcpConn.SyscallConn()
 	if err != nil {
@@ -159,4 +188,16 @@ func getTCPInfo(connection net.Conn) (*TCPINFO_V1, error) {
 		)
 	})
 	return &outbuf, err
+}
+
+func GetTCPInfo(connection net.Conn) (*TCPInfo, error) {
+	info, err := getTCPInfoRaw(connection)
+	if err != nil {
+		return nil, err
+	}
+	// Uncertain on all the statistic correlation so only transferring the needed
+	return &TCPInfo{
+		Rtt:      info.RttUs,
+		Snd_cwnd: info.Cwnd,
+	}, err
 }
