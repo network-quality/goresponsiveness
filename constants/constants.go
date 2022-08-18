@@ -30,7 +30,4 @@ var (
 	DefaultDebug bool = false
 	// The default URL for the config host.
 	DefaultConfigHost string = "networkquality.example.com"
-
-	// The default decision about whether to run the test in strict mode.
-	DefaultStrict bool = false
 )

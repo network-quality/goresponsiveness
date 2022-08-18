@@ -56,11 +56,6 @@ var (
 		constants.DefaultDebug,
 		"Enable debugging.",
 	)
-	strictFlag = flag.Bool(
-		"strict",
-		constants.DefaultStrict,
-		"Whether to run the test in strict mode (measure HTTP get time on load-generating connection)",
-	)
 	sattimeout = flag.Int(
 		"sattimeout",
 		constants.DefaultTestTime,
