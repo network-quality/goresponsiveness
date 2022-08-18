@@ -38,7 +38,6 @@ type CSVDataLogger[T any] struct {
 }
 
 func CreateCSVDataLogger[T any](filename string) (DataLogger[T], error) {
-	fmt.Printf("Creating a CSV data logger: %v!\n", filename)
 	data := make([]T, 0)
 	destination, err := os.Create(filename)
 	if err != nil {
