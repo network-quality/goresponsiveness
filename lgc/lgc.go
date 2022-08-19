@@ -306,11 +306,21 @@ func (lgd *LoadGeneratingConnectionDownload) doDownload(ctx context.Context) {
 		return
 	}
 
+	// Used to disable compression
+	request.Header.Set("Accept-Encoding", "identity")
+
 	lgd.downloadStartTime = time.Now()
 	lgd.lastIntervalEnd = 0
 
 	if get, err = lgd.client.Do(request); err != nil {
 		lgd.valid = false
+		return
+	}
+
+	// Header.Get returns "" when not set
+	if get.Header.Get("Content-Encoding") != "" {
+		lgd.valid = false
+		fmt.Printf("Content-Encoding header was set (compression not allowed)")
 		return
 	}
 	cr := &countingReader{n: &lgd.downloaded, ctx: ctx, readable: get.Body}
@@ -379,15 +389,29 @@ func (lgu *LoadGeneratingConnectionUpload) doUpload(ctx context.Context) bool {
 	lgu.uploaded = 0
 	s := &syntheticCountingReader{n: &lgu.uploaded, ctx: ctx}
 	var resp *http.Response = nil
+	var request *http.Request = nil
 	var err error
+
+	if request, err = http.NewRequest(
+		"POST",
+		lgu.Path,
+		s,
+	); err != nil {
+		lgu.valid = false
+		return false
+	}
+
+	// Used to disable compression
+	request.Header.Set("Accept-Encoding", "identity")
 
 	lgu.uploadStartTime = time.Now()
 	lgu.lastIntervalEnd = 0
 
-	if resp, err = lgu.client.Post(lgu.Path, "application/octet-stream", s); err != nil {
+	if resp, err = lgu.client.Do(request); err != nil {
 		lgu.valid = false
 		return false
 	}
+
 	resp.Body.Close()
 	if debug.IsDebug(lgu.debug) {
 		fmt.Printf("Ending a load-generating upload.\n")

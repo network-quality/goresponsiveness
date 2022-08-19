@@ -127,9 +127,17 @@ func Probe(
 		return err
 	}
 
+	// Used to disable compression
+	probe_req.Header.Set("Accept-Encoding", "identity")
+
 	probe_resp, err := client.Do(probe_req)
 	if err != nil {
 		return err
+	}
+
+	// Header.Get returns "" when not set
+	if probe_resp.Header.Get("Content-Encoding") != "" {
+		return fmt.Errorf("Content-Encoding header was set (compression not allowed)")
 	}
 
 	// TODO: Make this interruptable somehow by using _ctx_.
