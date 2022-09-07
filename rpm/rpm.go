@@ -190,10 +190,11 @@ func Probe(
 		isThreadPanicing := recover()
 		if isThreadPanicing != nil && debug.IsDebug(debugging.Level) {
 			fmt.Printf(
-				"(%s) (%s Probe %v) Probe attempted to write to the result channel after its invoker ended.\n",
+				"(%s) (%s Probe %v) Probe attempted to write to the result channel after its invoker ended (official reason: %v).\n",
 				debugging.Prefix,
 				probeType.Value(),
 				probeId,
+				isThreadPanicing,
 			)
 		}
 	}()
