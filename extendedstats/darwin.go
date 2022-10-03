@@ -12,7 +12,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-type ExtendedStats struct {
+type AggregateExtendedStats struct {
 	Maxseg               uint64
 	MaxSendMss           uint64
 	MaxRecvMss           uint64
@@ -38,7 +38,7 @@ type TCPInfo struct {
 	Snd_cwnd          uint32
 }
 
-func (es *ExtendedStats) IncorporateConnectionStats(basicConn net.Conn) error {
+func (es *AggregateExtendedStats) IncorporateConnectionStats(basicConn net.Conn) error {
 	if info, err := GetTCPInfo(basicConn); err != nil {
 		return fmt.Errorf("OOPS: Could not get the TCP info for the connection: %v", err)
 	} else {
@@ -54,7 +54,7 @@ func (es *ExtendedStats) IncorporateConnectionStats(basicConn net.Conn) error {
 	return nil
 }
 
-func (es *ExtendedStats) Repr() string {
+func (es *AggregateExtendedStats) Repr() string {
 	return fmt.Sprintf(`Extended Statistics:
 	Maximum Segment Size: %v
 	Total Bytes Retransmitted: %v
