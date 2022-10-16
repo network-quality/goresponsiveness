@@ -15,6 +15,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"flag"
 	"fmt"
@@ -93,6 +94,11 @@ var (
 		"probe-interval-time",
 		100,
 		"Time (in ms) between probes (foreign and self).",
+	)
+	prometheusStatsFilename = flag.String(
+		"prometheus-stats-filename",
+		"",
+		"If filename specified, prometheus stats will be written. If specified file exists, it will be overwritten.",
 	)
 )
 
@@ -704,4 +710,24 @@ Trimmed Mean Foreign RTT:     %f
 		fmt.Printf("Done cooling down.\n")
 	}
 
+	if len(*prometheusStatsFilename) > 0 {
+		var testStable int
+		if testRanToStability {
+			testStable = 1
+		}
+		var buffer bytes.Buffer
+		buffer.WriteString(fmt.Sprintf("networkquality_test_stable %d\n", testStable))
+		buffer.WriteString(fmt.Sprintf("networkquality_rpm_value %d\n", int64(p90Rpm)))
+		buffer.WriteString(fmt.Sprintf("networkquality_trimmed_rpm_value %d\n", int64(meanRpm))) //utilities.ToMbps(lastDownloadThroughputRate),
+
+		buffer.WriteString(fmt.Sprintf("networkquality_download_bits_per_second %d\n", int64(lastDownloadThroughputRate)))
+		buffer.WriteString(fmt.Sprintf("networkquality_download_connections %d\n", int64(lastDownloadThroughputOpenConnectionCount)))
+		buffer.WriteString(fmt.Sprintf("networkquality_upload_bits_per_second %d\n", int64(lastUploadThroughputRate)))
+		buffer.WriteString(fmt.Sprintf("networkquality_upload_connections %d\n", lastUploadThroughputOpenConnectionCount))
+
+		if err := os.WriteFile(*prometheusStatsFilename, buffer.Bytes(), 0644); err != nil {
+			fmt.Printf("could not write %s: %s", *prometheusStatsFilename, err)
+			os.Exit(1)
+		}
+	}
 }
