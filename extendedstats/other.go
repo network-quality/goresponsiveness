@@ -36,6 +36,6 @@ func ExtendedStatsAvailable() bool {
 	return false
 }
 
-func GetTCPInfo(basicConn net.Conn) (interface, error) {
+func GetTCPInfo(basicConn net.Conn) (interface{}, error) {
 	return nil, fmt.Errorf("GetTCPInfo is not supported on this platform")
 }
