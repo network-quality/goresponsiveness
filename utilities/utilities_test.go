@@ -14,10 +14,23 @@
 package utilities
 
 import (
+	"log"
 	"sync"
 	"testing"
 	"time"
 )
+
+func TestIota(t *testing.T) {
+	r := Iota(6, 15)
+
+	l := 6
+	for _, vr := range r {
+		if vr != l {
+			log.Fatalf("Iota failed: expected %d, got %d\n", l, vr)
+		}
+		l++
+	}
+}
 
 func TestReadAfterCloseOnBufferedChannel(t *testing.T) {
 	communication := make(chan int, 100)
