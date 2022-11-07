@@ -137,3 +137,7 @@ func (ma *MathematicalSeries[T]) IsNormallyDistributed() bool {
 func (ma *MathematicalSeries[T]) Values() []T {
 	return ma.elements
 }
+
+func (ma *MathematicalSeries[T]) Size() int {
+	return len(ma.elements)
+}

@@ -99,3 +99,19 @@ func Test_RotatingValues(test *testing.T) {
 		test.Fatalf("Adding values does not properly erase earlier values.")
 	}
 }
+func Test_Size(test *testing.T) {
+	series := NewMathematicalSeries[int](5)
+
+	series.AddElement(1)
+	series.AddElement(2)
+	series.AddElement(3)
+	series.AddElement(4)
+	series.AddElement(5)
+
+	series.AddElement(6)
+	series.AddElement(7)
+
+	if series.Size() != 5 {
+		test.Fatalf("Series size calculations failed.")
+	}
+}
