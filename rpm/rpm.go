@@ -319,6 +319,7 @@ func LoadGenerator(
 	networkActivityCtx context.Context, // Create all network connections in this context.
 	saturationCtx context.Context, // Continue logging, but stop adding flows when this context is canceled!
 	loadGeneratorCtx context.Context, // Stop our activity when we no longer need to generate load.
+	rampupInterval time.Duration,
 	lgcGenerator func() lgc.LoadGeneratingConnection, // Use this to generate a new load-generating connection.
 	throughputDataLogger datalogger.DataLogger[ThroughputDataPoint], // For logging data!
 	debugging *debug.DebugWithPrefix, // How can we forget debugging?
@@ -353,7 +354,7 @@ func LoadGenerator(
 		// the self probes use. Let's send it back to the caller so that they can pass it on if they need to.
 		probeConnectionCommunicationChannel <- lgcs[0]
 
-		nextSampleStartTime := time.Now().Add(time.Second)
+		nextSampleStartTime := time.Now().Add(rampupInterval)
 
 		for currentInterval := uint64(0); true; currentInterval++ {
 
