@@ -28,15 +28,13 @@ var (
 	InstantaneousThroughputMeasurementCount int = 4
 	InstantaneousProbeMeasurementCount      int = 1
 	// The number of instantaneous moving averages to consider when determining stability.
-	InstantaneousMovingAverageCount int = 4
+	InstantaneousMovingAverageStabilityCount int = 4
 	// The standard deviation cutoff used to determine stability among the K preceding moving averages
 	// of a measurement (as a percentage of the mean).
 	StabilityStandardDeviation float64 = 5.0
 
 	// The amount of time that the client will cooldown if it is in debug mode.
 	CooldownPeriod time.Duration = 4 * time.Second
-	// The number of probes to send when calculating RTT.
-	MeasurementProbeCount int = 5
 	// The amount of time that we give ourselves to calculate the RPM.
 	RPMCalculationTime int = 10
 

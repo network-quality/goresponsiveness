@@ -29,7 +29,9 @@ import (
 	"github.com/network-quality/goresponsiveness/debug"
 	"github.com/network-quality/goresponsiveness/extendedstats"
 	"github.com/network-quality/goresponsiveness/lgc"
+	"github.com/network-quality/goresponsiveness/ms"
 	"github.com/network-quality/goresponsiveness/rpm"
+	"github.com/network-quality/goresponsiveness/stabilizer"
 	"github.com/network-quality/goresponsiveness/timeoutat"
 	"github.com/network-quality/goresponsiveness/utilities"
 )
@@ -98,17 +100,24 @@ func main() {
 	// This is the overall operating context of the program. All other
 	// contexts descend from this one. Canceling this one cancels all
 	// the others.
-	operatingCtx, cancelOperatingCtx := context.WithCancel(context.Background())
+	operatingCtx, operatingCtxCancel := context.WithCancel(context.Background())
 
-	//
-	lgDataCollectionCtx, cancelLGDataCollectionCtx := context.WithCancel(operatingCtx)
+	// This context is used to control the load generators -- we cancel it when
+	// the system has completed its work. (i.e, rpm and saturation are stable).
+	// The *operator* contexts control stopping the goroutines that are running
+	// the process; the *throughput* contexts control whether the load generators
+	// continue to add new connections at every interval.
+	uploadLoadGeneratorOperatorCtx, uploadLoadGeneratorOperatorCtxCancel := context.WithCancel(operatingCtx)
+	downloadLoadGeneratorOperatorCtx, downloadLoadGeneratorOperatorCtxCancel := context.WithCancel(operatingCtx)
 
-	// This context is used to control the load-generating network activity (i.e., all
-	// the connections that are open to do load generation).
-	lgNetworkActivityCtx, cancelLgNetworkActivityCtx := context.WithCancel(operatingCtx)
+	// This context is used to control the load-generating network activity (i.e., it controls all
+	// the connections that are open to do load generation and probing). Cancelling this context will close
+	// all the network connections that are responsible for generating the load.
+	lgNetworkActivityCtx, lgNetworkActivityCtxCancel := context.WithCancel(operatingCtx)
 
-	// This context is used to control the activity of the foreign prober.
-	foreignProbertCtx, foreignProberCtxCancel := context.WithCancel(operatingCtx)
+	// This context is used to control the activity of the prober.
+	proberCtx, proberCtxCancel := context.WithCancel(operatingCtx)
+
 	config := &config.Config{}
 	var debugLevel debug.DebugLevel = debug.Error
 
@@ -191,10 +200,11 @@ func main() {
 		}
 	}
 
-	var selfDataLogger datalogger.DataLogger[rpm.ProbeDataPoint] = nil
-	var foreignDataLogger datalogger.DataLogger[rpm.ProbeDataPoint] = nil
+	var selfProbeDataLogger datalogger.DataLogger[rpm.ProbeDataPoint] = nil
+	var foreignProbeDataLogger datalogger.DataLogger[rpm.ProbeDataPoint] = nil
 	var downloadThroughputDataLogger datalogger.DataLogger[rpm.ThroughputDataPoint] = nil
 	var uploadThroughputDataLogger datalogger.DataLogger[rpm.ThroughputDataPoint] = nil
+
 	// User wants to log data from each probe!
 	if *dataLoggerBaseFileName != "" {
 		var err error = nil
@@ -214,7 +224,7 @@ func main() {
 			"-throughput-upload"+unique,
 		)
 
-		selfDataLogger, err = datalogger.CreateCSVDataLogger[rpm.ProbeDataPoint](
+		selfProbeDataLogger, err = datalogger.CreateCSVDataLogger[rpm.ProbeDataPoint](
 			dataLoggerSelfFilename,
 		)
 		if err != nil {
@@ -222,10 +232,10 @@ func main() {
 				"Warning: Could not create the file for storing self probe results (%s). Disabling functionality.\n",
 				dataLoggerSelfFilename,
 			)
-			selfDataLogger = nil
+			selfProbeDataLogger = nil
 		}
 
-		foreignDataLogger, err = datalogger.CreateCSVDataLogger[rpm.ProbeDataPoint](
+		foreignProbeDataLogger, err = datalogger.CreateCSVDataLogger[rpm.ProbeDataPoint](
 			dataLoggerForeignFilename,
 		)
 		if err != nil {
@@ -233,7 +243,7 @@ func main() {
 				"Warning: Could not create the file for storing foreign probe results (%s). Disabling functionality.\n",
 				dataLoggerForeignFilename,
 			)
-			foreignDataLogger = nil
+			foreignProbeDataLogger = nil
 		}
 
 		downloadThroughputDataLogger, err = datalogger.CreateCSVDataLogger[rpm.ThroughputDataPoint](
@@ -258,6 +268,20 @@ func main() {
 			uploadThroughputDataLogger = nil
 		}
 	}
+	// If, for some reason, the data loggers are nil, make them Null Data Loggers so that we don't have conditional
+	// code later.
+	if selfProbeDataLogger == nil {
+		selfProbeDataLogger = datalogger.CreateNullDataLogger[rpm.ProbeDataPoint]()
+	}
+	if foreignProbeDataLogger == nil {
+		foreignProbeDataLogger = datalogger.CreateNullDataLogger[rpm.ProbeDataPoint]()
+	}
+	if downloadThroughputDataLogger == nil {
+		downloadThroughputDataLogger = datalogger.CreateNullDataLogger[rpm.ThroughputDataPoint]()
+	}
+	if uploadThroughputDataLogger == nil {
+		uploadThroughputDataLogger = datalogger.CreateNullDataLogger[rpm.ThroughputDataPoint]()
+	}
 
 	/*
 	 * Create (and then, ironically, name) two anonymous functions that, when invoked,
@@ -278,194 +302,209 @@ func main() {
 
 	generateSelfProbeConfiguration := func() rpm.ProbeConfiguration {
 		return rpm.ProbeConfiguration{
-			URL:        config.Urls.SmallUrl,
-			DataLogger: selfDataLogger,
-			Interval:   100 * time.Millisecond,
+			URL: config.Urls.SmallUrl,
 		}
 	}
 
 	generateForeignProbeConfiguration := func() rpm.ProbeConfiguration {
 		return rpm.ProbeConfiguration{
-			URL:        config.Urls.SmallUrl,
-			DataLogger: foreignDataLogger,
-			Interval:   100 * time.Millisecond,
+			URL: config.Urls.SmallUrl,
 		}
 	}
 
 	var downloadDebugging *debug.DebugWithPrefix = debug.NewDebugWithPrefix(debugLevel, "download")
 	var uploadDebugging *debug.DebugWithPrefix = debug.NewDebugWithPrefix(debugLevel, "upload")
-	var foreignDebugging *debug.DebugWithPrefix = debug.NewDebugWithPrefix(debugLevel, "foreign probe")
+	var combinedProbeDebugging *debug.DebugWithPrefix = debug.NewDebugWithPrefix(debugLevel, "combined probe")
+
+	downloadLoadGeneratingConnectionCollection := lgc.NewLoadGeneratingConnectionCollection()
+	uploadLoadGeneratingConnectionCollection := lgc.NewLoadGeneratingConnectionCollection()
 
 	// TODO: Separate contexts for load generation and data collection. If we do that, if either of the two
 	// data collection go routines stops well before the other, they will continue to send probes and we can
 	// generate additional information!
 
-	downloadSaturationComplete, downloadDataCollectionChannel := rpm.LGCollectData(
-		lgDataCollectionCtx,
+	selfProbeConnectionCommunicationChannel, downloadThroughputChannel := rpm.LoadGenerator(
 		lgNetworkActivityCtx,
-		operatingCtx,
+		downloadLoadGeneratorOperatorCtx,
+		time.Second,
 		generate_lgd,
-		generateSelfProbeConfiguration,
-		downloadThroughputDataLogger,
+		&downloadLoadGeneratingConnectionCollection,
 		downloadDebugging,
 	)
-	uploadSaturationComplete, uploadDataCollectionChannel := rpm.LGCollectData(
-		lgDataCollectionCtx,
+	_, uploadThroughputChannel := rpm.LoadGenerator(
 		lgNetworkActivityCtx,
-		operatingCtx,
+		uploadLoadGeneratorOperatorCtx,
+		time.Second,
 		generate_lgu,
-		generateSelfProbeConfiguration,
-		uploadThroughputDataLogger,
+		&uploadLoadGeneratingConnectionCollection,
 		uploadDebugging,
 	)
 
-	foreignProbeDataPointsChannel := rpm.ForeignProber(
-		foreignProbertCtx,
+	// start here.
+
+	selfDownProbeConnection := <-selfDownProbeConnectionCommunicationChannel
+	selfUpProbeConnection := <-selfUpProbeConnectionCommunicationChannel
+
+	probeDataPointsChannel := rpm.CombinedProber(
+		proberCtx,
 		generateForeignProbeConfiguration,
+		generateSelfProbeConfiguration,
+		selfProbeConnection,
+		time.Millisecond*100,
 		sslKeyFileConcurrentWriter,
-		foreignDebugging,
+		combinedProbeDebugging,
 	)
 
-	dataCollectionTimeout := false
-	uploadDataGenerationComplete := false
-	downloadDataGenerationComplete := false
-	downloadDataCollectionResult := rpm.SelfDataCollectionResult{}
-	uploadDataCollectionResult := rpm.SelfDataCollectionResult{}
+	responsivenessIsStable := false
+	downloadThroughputIsStable := false
+	uploadThroughputIsStable := false
 
-	for !(uploadDataGenerationComplete && downloadDataGenerationComplete) {
+	// Test parameters:
+	// 1. I: The number of previous instantaneous measurements to consider when generating
+	//       the so-called instantaneous moving averages.
+	// 2. K: The number of instantaneous moving averages to consider when determining stability.
+	// 3: S: The standard deviation cutoff used to determine stability among the K preceding
+	//       moving averages of a measurement.
+
+	throughputI := constants.InstantaneousThroughputMeasurementCount
+	probeI := constants.InstantaneousProbeMeasurementCount
+	K := constants.InstantaneousMovingAverageStabilityCount
+	S := constants.StabilityStandardDeviation
+
+	downloadThroughputStabilizerDebugConfig := debug.NewDebugWithPrefix(debug.Debug, "Download Throughput Stabilizer")
+	downloadThroughputStabilizerDebugLevel := debug.Error
+	if *debugCliFlag {
+		downloadThroughputStabilizerDebugLevel = debug.Debug
+	}
+	downloadThroughputStabilizer := stabilizer.NewThroughputStabilizer(throughputI, K, S, downloadThroughputStabilizerDebugLevel, downloadThroughputStabilizerDebugConfig)
+
+	uploadThroughputStabilizerDebugConfig := debug.NewDebugWithPrefix(debug.Debug, "Upload Throughput Stabilizer")
+	uploadThroughputStabilizerDebugLevel := debug.Error
+	if *debugCliFlag {
+		uploadThroughputStabilizerDebugLevel = debug.Debug
+	}
+	uploadThroughputStabilizer := stabilizer.NewThroughputStabilizer(throughputI, K, S, uploadThroughputStabilizerDebugLevel, uploadThroughputStabilizerDebugConfig)
+
+	probeStabilizerDebugConfig := debug.NewDebugWithPrefix(debug.Debug, "Probe Stabilizer")
+	probeStabilizerDebugLevel := debug.Error
+	if *debugCliFlag {
+		probeStabilizerDebugLevel = debug.Debug
+	}
+	probeStabilizer := stabilizer.NewProbeStabilizer(probeI, K, S, probeStabilizerDebugLevel, probeStabilizerDebugConfig)
+
+	selfRtts := ms.NewInfiniteMathematicalSeries[float64]()
+	foreignRtts := ms.NewInfiniteMathematicalSeries[float64]()
+
+	// For later debugging output, record the last throughputs on load-generating connectings
+	// and the number of open connections.
+	lastUploadThroughputRate := float64(0)
+	lastUploadThroughputOpenConnectionCount := int(0)
+	lastDownloadThroughputRate := float64(0)
+	lastDownloadThroughputOpenConnectionCount := int(0)
+
+	// Every time that there is a new measurement, the possibility exists that the measurements become unstable.
+	// This allows us to continue pushing until *everything* is stable at the same time.
+timeout:
+	for !(responsivenessIsStable && downloadThroughputIsStable && uploadThroughputIsStable) {
 		select {
-		case fullyComplete := <-downloadSaturationComplete:
+
+		case downloadThroughputMeasurement := <-downloadThroughputChannel:
 			{
-				downloadDataGenerationComplete = true
+				downloadThroughputStabilizer.AddMeasurement(downloadThroughputMeasurement)
+				downloadThroughputIsStable = downloadThroughputStabilizer.IsStable()
 				if *debugCliFlag {
 					fmt.Printf(
-						"################# download load-generating data generation is %s complete!\n",
-						utilities.Conditional(fullyComplete, "", "(provisionally)"))
+						"################# Download is instantaneously %s.\n", utilities.Conditional(downloadThroughputIsStable, "stable", "unstable"))
 				}
+				downloadThroughputDataLogger.LogRecord(downloadThroughputMeasurement)
+
+				lastDownloadThroughputRate = downloadThroughputMeasurement.Throughput
+				lastDownloadThroughputOpenConnectionCount = downloadThroughputMeasurement.Connections
 			}
-		case fullyComplete := <-uploadSaturationComplete:
+
+		case uploadThroughputMeasurement := <-uploadThroughputChannel:
 			{
-				uploadDataGenerationComplete = true
+				uploadThroughputStabilizer.AddMeasurement(uploadThroughputMeasurement)
+				uploadThroughputIsStable = uploadThroughputStabilizer.IsStable()
 				if *debugCliFlag {
 					fmt.Printf(
-						"################# upload load-generating data generation is %s complete!\n",
-						utilities.Conditional(fullyComplete, "", "(provisionally)"))
+						"################# Upload is instantaneously %s.\n", utilities.Conditional(uploadThroughputIsStable, "stable", "unstable"))
 				}
+				uploadThroughputDataLogger.LogRecord(uploadThroughputMeasurement)
+
+				lastUploadThroughputRate = uploadThroughputMeasurement.Throughput
+				lastUploadThroughputOpenConnectionCount = uploadThroughputMeasurement.Connections
 			}
-		case <-timeoutChannel:
+		case probeMeasurement := <-probeDataPointsChannel:
 			{
-				if dataCollectionTimeout {
-					// We already timedout on data collection. This signal means that
-					// we are timedout on getting the provisional data collection. We
-					// will exit!
-					fmt.Fprint(
-						os.Stderr,
-						"Error: Load-Generating data collection could not be completed in time and no provisional data could be gathered. Test failed.\n",
-					)
-					cancelOperatingCtx()
-					if *debugCliFlag {
-						time.Sleep(constants.CooldownPeriod)
+				probeStabilizer.AddMeasurement(probeMeasurement)
+
+				// Check stabilization immediately -- this could change if we wait. Not sure if the immediacy
+				// is *actually* important, but it can't hurt?
+				responsivenessIsStable = probeStabilizer.IsStable()
+
+				if *debugCliFlag {
+					fmt.Printf(
+						"################# Responsiveness is instantaneously %s.\n", utilities.Conditional(responsivenessIsStable, "stable", "unstable"))
+				}
+				if probeMeasurement.Type == rpm.Foreign {
+					for range utilities.Iota(0, int(probeMeasurement.RoundTripCount)) {
+						foreignRtts.AddElement(probeMeasurement.Duration.Seconds() / float64(probeMeasurement.RoundTripCount))
+
 					}
-					return // Ends program
+				} else if probeMeasurement.Type == rpm.Self {
+					selfRtts.AddElement(probeMeasurement.Duration.Seconds())
 				}
-				dataCollectionTimeout = true
 
-				// We timed out attempting to collect data about the link. So, we will
-				// shut down the generators
-				cancelLGDataCollectionCtx()
-				// and then we will give ourselves some additional time in order
-				// to see if we can get some provisional data.
-				timeoutAbsoluteTime = time.Now().
-					Add(time.Second * time.Duration(*rpmtimeout))
-				timeoutChannel = timeoutat.TimeoutAt(
-					operatingCtx,
-					timeoutAbsoluteTime,
-					debugLevel,
-				)
-				if *debugCliFlag {
-					fmt.Printf(
-						"################# timeout collecting load-generating data!\n",
-					)
-				}
-			}
-		}
-	}
+				// There may be more than one round trip accumulated together. If that is the case,
+				// we will blow them apart in to three separate measurements and each one will just
+				// be 1 / measurement.RoundTripCount of the total length.
 
-	if *debugCliFlag {
-		fmt.Printf("Stopping all the load generating data generators.\n")
-	}
-	// Just cancel the data collection -- do *not* yet stop the actual load-generating
-	// network activity.
-	cancelLGDataCollectionCtx()
-
-	// Shutdown the foreign-connection prober!
-	if *debugCliFlag {
-		fmt.Printf("Stopping all foreign probers.\n")
-	}
-	foreignProberCtxCancel()
-
-	// Now that we stopped generation, let's give ourselves some time to collect
-	// all the data from our data generators.
-	timeoutAbsoluteTime = time.Now().
-		Add(time.Second * time.Duration(*rpmtimeout))
-	timeoutChannel = timeoutat.TimeoutAt(
-		operatingCtx,
-		timeoutAbsoluteTime,
-		debugLevel,
-	)
-
-	// Now that we have generated the data, let's collect it.
-	downloadDataCollectionComplete := false
-	uploadDataCollectionComplete := false
-	for !(downloadDataCollectionComplete && uploadDataCollectionComplete) {
-		select {
-		case downloadDataCollectionResult = <-downloadDataCollectionChannel:
-			{
-				downloadDataCollectionComplete = true
-				if *debugCliFlag {
-					fmt.Printf(
-						"################# download load-generating data collection is complete (%fMBps, %d flows)!\n",
-						utilities.ToMBps(downloadDataCollectionResult.RateBps),
-						len(downloadDataCollectionResult.LGCs),
-					)
-				}
-			}
-		case uploadDataCollectionResult = <-uploadDataCollectionChannel:
-			{
-				uploadDataCollectionComplete = true
-				if *debugCliFlag {
-					fmt.Printf(
-						"################# upload load-generating data collection is complete (%fMBps, %d flows)!\n",
-						utilities.ToMBps(uploadDataCollectionResult.RateBps),
-						len(uploadDataCollectionResult.LGCs),
-					)
+				if probeMeasurement.Type == rpm.Foreign {
+					foreignProbeDataLogger.LogRecord(probeMeasurement)
+				} else if probeMeasurement.Type == rpm.Self {
+					selfProbeDataLogger.LogRecord(probeMeasurement)
 				}
 			}
 		case <-timeoutChannel:
 			{
-				// This is just bad news -- we generated data but could not collect it. Let's just fail.
-
-				fmt.Fprint(
-					os.Stderr,
-					"Error: Load-Generating data collection could not be completed in time and no provisional data could be gathered. Test failed.\n",
-				)
-				return // Ends program
+				break timeout
 			}
 		}
 	}
 
-	// In the new version we are no longer going to wait to send probes until after
-	// saturation. When we get here we are now only going to compute the results
-	// and/or extended statistics!
+	// Did the test run to stability?
+	testRanToStability := (downloadThroughputIsStable && uploadThroughputIsStable && responsivenessIsStable)
+
+	if *debugCliFlag {
+		fmt.Printf("Stopping all the load generating data generators (stability: %s).\n", utilities.Conditional(testRanToStability, "success", "failure"))
+	}
+
+	/* At this point there are
+	1. Load generators running
+	-- uploadLoadGeneratorOperatorCtx
+	-- downloadLoadGeneratorOperatorCtx
+	2. Network connections opened by those load generators:
+	-- lgNetworkActivityCtx
+	3. Probes
+	-- proberCtx
+	*/
+
+	// First, stop the load generators and the probes
+	proberCtxCancel()
+	downloadLoadGeneratorOperatorCtxCancel()
+	uploadLoadGeneratorOperatorCtxCancel()
+
+	// Second, calculate the extended stats (if the user requested)
 
 	extendedStats := extendedstats.AggregateExtendedStats{}
-
 	if *calculateExtendedStats {
 		if extendedstats.ExtendedStatsAvailable() {
-			for i := 0; i < len(downloadDataCollectionResult.LGCs); i++ {
+			downloadLoadGeneratingConnectionCollection.Lock.Lock()
+			for i := 0; i < len(*downloadLoadGeneratingConnectionCollection.LGCs); i++ {
 				// Assume that extended statistics are available -- the check was done explicitly at
 				// program startup if the calculateExtendedStats flag was set by the user on the command line.
-				if err := extendedStats.IncorporateConnectionStats(downloadDataCollectionResult.LGCs[i].Stats().ConnInfo.Conn); err != nil {
+				if err := extendedStats.IncorporateConnectionStats((*downloadLoadGeneratingConnectionCollection.LGCs)[i].Stats().ConnInfo.Conn); err != nil {
 					fmt.Fprintf(
 						os.Stderr,
 						"Warning: Could not add extended stats for the connection: %v\n",
@@ -473,66 +512,39 @@ func main() {
 					)
 				}
 			}
+			downloadLoadGeneratingConnectionCollection.Lock.Unlock()
+
+			// We do not trace upload connections!
 		} else {
 			// TODO: Should we just log here?
 			panic("Extended stats are not available but the user requested their calculation.")
 		}
 	}
 
-	// And only now, when we are done getting the extended stats from the connections, can
-	// we actually shut down the load-generating network activity!
-	cancelLgNetworkActivityCtx()
+	// Third, stop the network connections opened by the load generators.
+	lgNetworkActivityCtxCancel()
 
-	fmt.Printf(
-		"Download: %7.3f Mbps (%7.3f MBps), using %d parallel connections.\n",
-		utilities.ToMbps(downloadDataCollectionResult.RateBps),
-		utilities.ToMBps(downloadDataCollectionResult.RateBps),
-		len(downloadDataCollectionResult.LGCs),
-	)
-	fmt.Printf(
-		"Upload:   %7.3f Mbps (%7.3f MBps), using %d parallel connections.\n",
-		utilities.ToMbps(uploadDataCollectionResult.RateBps),
-		utilities.ToMBps(uploadDataCollectionResult.RateBps),
-		len(uploadDataCollectionResult.LGCs),
-	)
+	// Finally, stop the world.
+	operatingCtxCancel()
 
-	foreignProbeDataPoints := utilities.ChannelToSlice(foreignProbeDataPointsChannel)
-	totalForeignRoundTrips := len(foreignProbeDataPoints)
+	// Calculate the RPM
+
+	selfProbeRoundTripTimeP90 := selfRtts.Percentile(90)
 	// The specification indicates that we want to calculate the foreign probes as such:
 	// 1/3*tcp_foreign + 1/3*tls_foreign + 1/3*http_foreign
 	// where tcp_foreign, tls_foreign, http_foreign are the P90 RTTs for the connection
 	// of the tcp, tls and http connections, respectively. However, we cannot break out
-	// the individual RTTs so we assume that they are roughly equal. Call that _foreign:
-	// 1/3*_foreign + 1/3*_foreign + 1/3*_foreign =
-	// 1/3*(3*_foreign) =
-	// _foreign
-	// So, there's no need to divide by the number of RTTs defined in the ProbeDataPoints
-	// in the individual results.
-	foreignProbeRoundTripTimes := utilities.Fmap(
-		foreignProbeDataPoints,
-		func(dp rpm.ProbeDataPoint) float64 { return dp.Duration.Seconds() },
-	)
-	foreignProbeRoundTripTimeP90 := utilities.CalculatePercentile(foreignProbeRoundTripTimes, 90)
-
-	downloadRoundTripTimes := utilities.Fmap(
-		downloadDataCollectionResult.ProbeDataPoints,
-		func(dcr rpm.ProbeDataPoint) float64 { return dcr.Duration.Seconds() },
-	)
-	uploadRoundTripTimes := utilities.Fmap(
-		uploadDataCollectionResult.ProbeDataPoints,
-		func(dcr rpm.ProbeDataPoint) float64 { return dcr.Duration.Seconds() },
-	)
-	selfProbeRoundTripTimes := append(downloadRoundTripTimes, uploadRoundTripTimes...)
-	totalSelfRoundTrips := len(selfProbeRoundTripTimes)
-	selfProbeRoundTripTimeP90 := utilities.CalculatePercentile(selfProbeRoundTripTimes, 90)
+	// the individual RTTs so we assume that they are roughly equal. The good news is that
+	// we already did that roughly-equal split up when we added them to the foreignRtts IMS.
+	foreignProbeRoundTripTimeP90 := foreignRtts.Percentile(90)
 
 	rpm := 60.0 / (float64(selfProbeRoundTripTimeP90+foreignProbeRoundTripTimeP90) / 2.0)
 
 	if *debugCliFlag {
 		fmt.Printf(
 			"Total Load-Generating Round Trips: %d, Total New-Connection Round Trips: %d, P90 LG RTT: %f, P90 NC RTT: %f\n",
-			totalSelfRoundTrips,
-			totalForeignRoundTrips,
+			selfRtts.Size(),
+			foreignRtts.Size(),
 			selfProbeRoundTripTimeP90,
 			foreignProbeRoundTripTimeP90,
 		)
@@ -544,42 +556,47 @@ func main() {
 		fmt.Println(extendedStats.Repr())
 	}
 
-	if !utilities.IsInterfaceNil(selfDataLogger) {
-		selfDataLogger.Export()
-		if *debugCliFlag {
-			fmt.Printf("Closing the self data logger.\n")
-		}
-		selfDataLogger.Close()
+	selfProbeDataLogger.Export()
+	if *debugCliFlag {
+		fmt.Printf("Closing the self data logger.\n")
 	}
+	selfProbeDataLogger.Close()
 
-	if !utilities.IsInterfaceNil(foreignDataLogger) {
-		foreignDataLogger.Export()
-		if *debugCliFlag {
-			fmt.Printf("Closing the foreign data logger.\n")
-		}
-		foreignDataLogger.Close()
+	foreignProbeDataLogger.Export()
+	if *debugCliFlag {
+		fmt.Printf("Closing the foreign data logger.\n")
 	}
+	foreignProbeDataLogger.Close()
 
-	if !utilities.IsInterfaceNil(downloadThroughputDataLogger) {
-		downloadThroughputDataLogger.Export()
-		if *debugCliFlag {
-			fmt.Printf("Closing the download throughput data logger.\n")
-		}
-		downloadThroughputDataLogger.Close()
+	downloadThroughputDataLogger.Export()
+	if *debugCliFlag {
+		fmt.Printf("Closing the download throughput data logger.\n")
 	}
+	downloadThroughputDataLogger.Close()
 
-	if !utilities.IsInterfaceNil(uploadThroughputDataLogger) {
-		uploadThroughputDataLogger.Export()
-		if *debugCliFlag {
-			fmt.Printf("Closing the upload throughput data logger.\n")
-		}
-		uploadThroughputDataLogger.Close()
+	uploadThroughputDataLogger.Export()
+	if *debugCliFlag {
+		fmt.Printf("Closing the upload throughput data logger.\n")
 	}
+	uploadThroughputDataLogger.Close()
 
-	cancelOperatingCtx()
+	fmt.Printf(
+		"Download: %7.3f Mbps (%7.3f MBps), using %d parallel connections.\n",
+		utilities.ToMbps(lastDownloadThroughputRate),
+		utilities.ToMBps(lastDownloadThroughputRate),
+		lastDownloadThroughputOpenConnectionCount,
+	)
+	fmt.Printf(
+		"Upload:   %7.3f Mbps (%7.3f MBps), using %d parallel connections.\n",
+		utilities.ToMbps(lastUploadThroughputRate),
+		utilities.ToMBps(lastUploadThroughputRate),
+		lastUploadThroughputOpenConnectionCount,
+	)
+
 	if *debugCliFlag {
 		fmt.Printf("In debugging mode, we will cool down.\n")
 		time.Sleep(constants.CooldownPeriod)
 		fmt.Printf("Done cooling down.\n")
 	}
+
 }
