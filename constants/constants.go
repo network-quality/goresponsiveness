@@ -17,17 +17,21 @@ package constants
 import "time"
 
 var (
-	// The initial number of connections on a LBC.
-	StartingNumberOfLoadGeneratingConnections uint64 = 4
-	// The number of intervals for which to account in a moving-average
-	// calculation.
-	MovingAverageIntervalCount int = 4
-	// The number of intervals across which to consider a moving average stable.
-	MovingAverageStabilitySpan uint64 = 4
-	// The number of connections to add to a LBC when unsaturated.
-	AdditiveNumberOfLoadGeneratingConnections uint64 = 4
-	// The cutoff of the percent difference that defines instability.
-	InstabilityDelta float64 = 5
+	// The initial number of load-generating connections when attempting to saturate the network.
+	StartingNumberOfLoadGeneratingConnections uint64 = 1
+	// The number of load-generating connections to add at each interval while attempting to
+	// saturate the network.
+	AdditiveNumberOfLoadGeneratingConnections uint64 = 1
+
+	// The number of previous instantaneous measurements to consider when generating the so-called
+	// instantaneous moving averages of a measurement.
+	InstantaneousThroughputMeasurementCount int = 4
+	InstantaneousProbeMeasurementCount      int = 1
+	// The number of instantaneous moving averages to consider when determining stability.
+	InstantaneousMovingAverageCount int = 4
+	// The standard deviation cutoff used to determine stability among the K preceding moving averages
+	// of a measurement (as a percentage of the mean).
+	StabilityStandardDeviation float64 = 5.0
 
 	// The amount of time that the client will cooldown if it is in debug mode.
 	CooldownPeriod time.Duration = 4 * time.Second
