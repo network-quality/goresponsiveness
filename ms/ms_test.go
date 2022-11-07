@@ -67,7 +67,7 @@ func Test_SequentialIncreasesAlwaysLessThanWithWraparoundInverse(test *testing.T
 	}
 }
 
-func Test_StandardDeviationLessThan_Float(test *testing.T) {
+func Test_StandardDeviationCalculation(test *testing.T) {
 	series := NewMathematicalSeries[float64](5)
 	// 5.7, 1.0, 8.6, 7.4, 2.2
 	series.AddElement(5.7)
@@ -76,7 +76,7 @@ func Test_StandardDeviationLessThan_Float(test *testing.T) {
 	series.AddElement(7.4)
 	series.AddElement(2.2)
 
-	if islt, sd := series.StandardDeviationLessThan(2.94); !islt {
+	if _, sd := series.StandardDeviation(); !utilities.ApproximatelyEqual(2.93, sd, 0.01) {
 		test.Fatalf("Standard deviation max calculation failed: %v.", sd)
 	} else {
 		test.Logf("Standard deviation calculation result: %v", sd)

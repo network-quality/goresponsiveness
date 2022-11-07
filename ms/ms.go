@@ -80,7 +80,7 @@ func (ma *MathematicalSeries[T]) AllSequentialIncreasesLessThan(limit float64) (
 /*
  * N.B.: Overflow is possible -- use at your discretion!
  */
-func (ma *MathematicalSeries[T]) StandardDeviationLessThan(limit T) (bool, T) {
+func (ma *MathematicalSeries[T]) StandardDeviation() (bool, T) {
 
 	// If we have not yet accumulated a complete set of intervals,
 	// we are always false.
@@ -117,11 +117,16 @@ func (ma *MathematicalSeries[T]) StandardDeviationLessThan(limit T) (bool, T) {
 	sd := T(math.Sqrt(variance))
 	//sd := T(variance)
 
-	return T(sd) < limit, sd
+	return true, sd
 }
 
 func (ma *MathematicalSeries[T]) IsNormallyDistributed() bool {
-	_, stddev := ma.StandardDeviationLessThan(0.0)
+	valid, stddev := ma.StandardDeviation()
+	// If there are not enough values in our series to generate a standard
+	// deviation, then we cannot do this calculation either.
+	if !valid {
+		return false
+	}
 	avg := float64(ma.CalculateAverage())
 
 	fstddev := float64(stddev)
