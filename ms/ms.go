@@ -77,6 +77,9 @@ func (ma *MathematicalSeries[T]) AllSequentialIncreasesLessThan(limit float64) (
 	return true, maximumSequentialIncrease
 }
 
+/*
+ * N.B.: Overflow is possible -- use at your discretion!
+ */
 func (ma *MathematicalSeries[T]) StandardDeviationLessThan(limit T) (bool, T) {
 
 	// If we have not yet accumulated a complete set of intervals,
@@ -112,6 +115,25 @@ func (ma *MathematicalSeries[T]) StandardDeviationLessThan(limit T) (bool, T) {
 	// Finally, the standard deviation is the square root
 	// of the variance.
 	sd := T(math.Sqrt(variance))
+	//sd := T(variance)
 
 	return T(sd) < limit, sd
+}
+
+func (ma *MathematicalSeries[T]) IsNormallyDistributed() bool {
+	_, stddev := ma.StandardDeviationLessThan(0.0)
+	avg := float64(ma.CalculateAverage())
+
+	fstddev := float64(stddev)
+	within := float64(0)
+	for _, v := range ma.Values() {
+		if (avg-fstddev) <= float64(v) && float64(v) <= (avg+fstddev) {
+			within++
+		}
+	}
+	return within/float64(ma.divisor.Value()) >= 0.68
+}
+
+func (ma *MathematicalSeries[T]) Values() []T {
+	return ma.elements
 }

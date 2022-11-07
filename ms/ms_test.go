@@ -1,6 +1,7 @@
 package ms
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/network-quality/goresponsiveness/utilities"
@@ -79,5 +80,22 @@ func Test_StandardDeviationLessThan_Float(test *testing.T) {
 		test.Fatalf("Standard deviation max calculation failed: %v.", sd)
 	} else {
 		test.Logf("Standard deviation calculation result: %v", sd)
+	}
+}
+
+func Test_RotatingValues(test *testing.T) {
+	series := NewMathematicalSeries[int](5)
+
+	series.AddElement(1)
+	series.AddElement(2)
+	series.AddElement(3)
+	series.AddElement(4)
+	series.AddElement(5)
+
+	series.AddElement(6)
+	series.AddElement(7)
+
+	if !reflect.DeepEqual([]int{6, 7, 3, 4, 5}, series.Values()) {
+		test.Fatalf("Adding values does not properly erase earlier values.")
 	}
 }
