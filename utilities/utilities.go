@@ -195,3 +195,11 @@ func FilenameAppend(filename, appendage string) string {
 	}
 	return result
 }
+
+func ApproximatelyEqual[T float32 | float64](truth T, maybe T, fudge T) bool {
+	bTruth := float64(truth)
+	bMaybe := float64(maybe)
+	bFudge := float64(fudge)
+	diff := math.Abs((bTruth - bMaybe))
+	return diff < bFudge
+}
