@@ -38,6 +38,16 @@ type CSVDataLogger[T any] struct {
 	destination io.WriteCloser
 }
 
+type NullDataLogger[T any] struct{}
+
+func CreateNullDataLogger[T any]() DataLogger[T] {
+	return &NullDataLogger[T]{}
+}
+
+func (_ *NullDataLogger[T]) LogRecord(_ T) {}
+func (_ *NullDataLogger[T]) Export() bool  { return true }
+func (_ *NullDataLogger[T]) Close() bool   { return true }
+
 func CreateCSVDataLogger[T any](filename string) (DataLogger[T], error) {
 	data := make([]T, 0)
 	destination, err := os.Create(filename)
