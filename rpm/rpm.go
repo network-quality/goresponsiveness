@@ -68,8 +68,9 @@ type ProbeDataPoint struct {
 }
 
 type ThroughputDataPoint struct {
-	Time       time.Time `Description:"Time of the generation of the data point." Formatter:"Format" FormatterArgument:"01-02-2006-15-04-05.000"`
-	Throughput float64   `Description:"Instantaneous throughput (b/s)."`
+	Time        time.Time `Description:"Time of the generation of the data point." Formatter:"Format" FormatterArgument:"01-02-2006-15-04-05.000"`
+	Throughput  float64   `Description:"Instantaneous throughput (b/s)."`
+	Connections int       `Description: Number of parallel connections."`
 }
 
 type SelfDataCollectionResult struct {
@@ -427,7 +428,7 @@ func LoadGenerator(
 			}
 
 			// We have generated a throughput calculation -- let's send it back to the coordinator
-			throughputDataPoint := ThroughputDataPoint{time.Now(), instantaneousTotalThroughput}
+			throughputDataPoint := ThroughputDataPoint{time.Now(), instantaneousTotalThroughput, len(*loadGeneratingConnections.LGCs)}
 			throughputCalculations <- throughputDataPoint
 
 			// Log that, if we are configured for logging.
