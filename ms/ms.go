@@ -34,6 +34,114 @@ type MathematicalSeries[T constraints.Float | constraints.Integer] interface {
 	Percentile(int) T
 }
 
+func calculateAverage[T constraints.Integer | constraints.Float](elements []T) float64 {
+	total := T(0)
+	for i := 0; i < len(elements); i++ {
+		total += elements[i]
+	}
+	return float64(total) / float64(len(elements))
+}
+
+func calculatePercentile[T constraints.Integer | constraints.Float](elements []T, p int) (result T) {
+	result = T(0)
+	if p < 0 || p > 100 {
+		return
+	}
+
+	sort.Slice(elements, func(l int, r int) bool { return elements[l] < elements[r] })
+	pindex := int64((float64(p) / float64(100)) * float64(len(elements)))
+	result = elements[pindex]
+	return
+}
+func NewInfiniteMathematicalSeries[T constraints.Float | constraints.Integer]() MathematicalSeries[T] {
+	return &InfiniteMathematicalSeries[T]{}
+}
+
+type InfiniteMathematicalSeries[T constraints.Float | constraints.Integer] struct {
+	elements []T
+}
+
+func (ims *InfiniteMathematicalSeries[T]) AddElement(element T) {
+	ims.elements = append(ims.elements, element)
+}
+
+func (ims *InfiniteMathematicalSeries[T]) CalculateAverage() float64 {
+	return calculateAverage(ims.elements)
+}
+
+func (ims *InfiniteMathematicalSeries[T]) AllSequentialIncreasesLessThan(limit float64) (bool, float64) {
+	if len(ims.elements) < 2 {
+		return false, 0.0
+	}
+
+	maximumSequentialIncrease := float64(0)
+	for i := 1; i < len(ims.elements); i++ {
+		current := ims.elements[i]
+		previous := ims.elements[i-1]
+		percentChange := utilities.SignedPercentDifference(current, previous)
+		if percentChange > limit {
+			return false, percentChange
+		}
+		if percentChange > float64(maximumSequentialIncrease) {
+			maximumSequentialIncrease = percentChange
+		}
+	}
+	return true, maximumSequentialIncrease
+}
+
+/*
+ * N.B.: Overflow is possible -- use at your discretion!
+ */
+func (ims *InfiniteMathematicalSeries[T]) StandardDeviation() (bool, T) {
+
+	// From https://www.mathsisfun.com/data/standard-deviation-calculator.html
+	// Yes, for real!
+
+	// Calculate the average of the numbers ...
+	average := ims.CalculateAverage()
+
+	// Calculate the square of each of the elements' differences from the mean.
+	differences_squared := make([]float64, len(ims.elements))
+	for index, value := range ims.elements {
+		differences_squared[index] = math.Pow(float64(value-T(average)), 2)
+	}
+
+	// The variance is the average of the squared differences.
+	// So, we need to ...
+
+	// Accumulate all those squared differences.
+	sds := float64(0)
+	for _, dss := range differences_squared {
+		sds += dss
+	}
+
+	// And then divide that total by the number of elements
+	variance := sds / float64(len(ims.elements))
+
+	// Finally, the standard deviation is the square root
+	// of the variance.
+	sd := T(math.Sqrt(variance))
+	//sd := T(variance)
+
+	return true, sd
+}
+
+func (ims *InfiniteMathematicalSeries[T]) IsNormallyDistributed() bool {
+	return false
+}
+
+func (ims *InfiniteMathematicalSeries[T]) Size() int {
+	return len(ims.elements)
+}
+
+func (ims *InfiniteMathematicalSeries[T]) Values() []T {
+	return ims.elements
+}
+
+func (ims *InfiniteMathematicalSeries[T]) Percentile(p int) T {
+	return calculatePercentile(ims.elements, p)
+}
+
 type CappedMathematicalSeries[T constraints.Float | constraints.Integer] struct {
 	elements_count int
 	elements       []T
@@ -58,11 +166,10 @@ func (ma *CappedMathematicalSeries[T]) AddElement(measurement T) {
 }
 
 func (ma *CappedMathematicalSeries[T]) CalculateAverage() float64 {
-	total := T(0)
-	for i := 0; i < ma.elements_count; i++ {
-		total += ma.elements[i]
-	}
-	return float64(total) / float64(ma.divisor.Value())
+	// If we do not yet have all the values, then we know that the values
+	// exist between 0 and ma.divisor.Value(). If we do have all the values,
+	// we know that they, too, exist between 0 and ma.divisor.Value().
+	return calculateAverage(ma.elements[0:ma.divisor.Value()])
 }
 
 func (ma *CappedMathematicalSeries[T]) AllSequentialIncreasesLessThan(limit float64) (_ bool, maximumSequentialIncrease float64) {
@@ -160,10 +267,9 @@ func (ma *CappedMathematicalSeries[T]) Size() int {
 	return len(ma.elements)
 }
 
-func (ma *CappedMathematicalSeries[T]) Percentile(p int) (result T) {
-	result = T(0)
+func (ma *CappedMathematicalSeries[T]) Percentile(p int) T {
 	if p < 0 || p > 100 {
-		return
+		return 0
 	}
 
 	// Because we need to sort the list to perform the percentile calculation,
@@ -172,8 +278,5 @@ func (ma *CappedMathematicalSeries[T]) Percentile(p int) (result T) {
 
 	kopy := make([]T, len(ma.elements))
 	copy(kopy, ma.elements)
-	sort.Slice(kopy, func(l int, r int) bool { return kopy[l] < kopy[r] })
-	pindex := int64((float64(p) / float64(100)) * float64(ma.elements_count))
-	result = kopy[pindex]
-	return
+	return calculatePercentile(kopy, p)
 }
