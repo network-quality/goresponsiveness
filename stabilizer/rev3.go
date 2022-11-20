@@ -11,8 +11,8 @@ import (
 )
 
 type DataPointStabilizer struct {
-	instantaneousMeasurements  *ms.MathematicalSeries[float64]
-	movingAverages             *ms.MathematicalSeries[float64]
+	instantaneousMeasurements  ms.MathematicalSeries[float64]
+	movingAverages             ms.MathematicalSeries[float64]
 	stabilityStandardDeviation float64
 	m                          sync.Mutex
 	dbgLevel                   debug.DebugLevel
@@ -30,8 +30,8 @@ type ThroughputStabilizer DataPointStabilizer
 //       moving averages of a measurement.
 
 func NewProbeStabilizer(i int, k int, s float64, debugLevel debug.DebugLevel, debug *debug.DebugWithPrefix) ProbeStabilizer {
-	return ProbeStabilizer{instantaneousMeasurements: ms.NewMathematicalSeries[float64](i),
-		movingAverages:             ms.NewMathematicalSeries[float64](k),
+	return ProbeStabilizer{instantaneousMeasurements: ms.NewCappedMathematicalSeries[float64](i),
+		movingAverages:             ms.NewCappedMathematicalSeries[float64](k),
 		stabilityStandardDeviation: s,
 		dbgConfig:                  debug,
 		dbgLevel:                   debugLevel}
@@ -97,8 +97,8 @@ func (r3 *ProbeStabilizer) IsStable() bool {
 }
 
 func NewThroughputStabilizer(i int, k int, s float64, debugLevel debug.DebugLevel, debug *debug.DebugWithPrefix) ThroughputStabilizer {
-	return ThroughputStabilizer{instantaneousMeasurements: ms.NewMathematicalSeries[float64](i),
-		movingAverages:             ms.NewMathematicalSeries[float64](k),
+	return ThroughputStabilizer{instantaneousMeasurements: ms.NewCappedMathematicalSeries[float64](i),
+		movingAverages:             ms.NewCappedMathematicalSeries[float64](k),
 		stabilityStandardDeviation: s,
 		dbgConfig:                  debug,
 		dbgLevel:                   debugLevel}

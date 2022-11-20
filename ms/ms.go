@@ -16,35 +16,48 @@ package ms
 
 import (
 	"math"
+	"sort"
 
 	"github.com/network-quality/goresponsiveness/saturating"
 	"github.com/network-quality/goresponsiveness/utilities"
 	"golang.org/x/exp/constraints"
 )
 
-type MathematicalSeries[T constraints.Float | constraints.Integer] struct {
+type MathematicalSeries[T constraints.Float | constraints.Integer] interface {
+	AddElement(T)
+	CalculateAverage() float64
+	AllSequentialIncreasesLessThan(float64) (bool, float64)
+	StandardDeviation() (bool, T)
+	IsNormallyDistributed() bool
+	Size() int
+	Values() []T
+	Percentile(int) T
+}
+
+type CappedMathematicalSeries[T constraints.Float | constraints.Integer] struct {
 	elements_count int
 	elements       []T
 	index          int
 	divisor        *saturating.SaturatingInt
 }
 
-func NewMathematicalSeries[T constraints.Float | constraints.Integer](instants_count int) *MathematicalSeries[T] {
-	return &MathematicalSeries[T]{
+func NewCappedMathematicalSeries[T constraints.Float | constraints.Integer](instants_count int) MathematicalSeries[T] {
+	return &CappedMathematicalSeries[T]{
 		elements:       make([]T, instants_count),
 		elements_count: instants_count,
 		divisor:        saturating.NewSaturatingInt(instants_count),
+		index:          0,
 	}
 }
 
-func (ma *MathematicalSeries[T]) AddElement(measurement T) {
+func (ma *CappedMathematicalSeries[T]) AddElement(measurement T) {
 	ma.elements[ma.index] = measurement
 	ma.divisor.Add(1)
 	// Invariant: ma.index always points to the oldest measurement
 	ma.index = (ma.index + 1) % ma.elements_count
 }
 
-func (ma *MathematicalSeries[T]) CalculateAverage() float64 {
+func (ma *CappedMathematicalSeries[T]) CalculateAverage() float64 {
 	total := T(0)
 	for i := 0; i < ma.elements_count; i++ {
 		total += ma.elements[i]
@@ -52,7 +65,7 @@ func (ma *MathematicalSeries[T]) CalculateAverage() float64 {
 	return float64(total) / float64(ma.divisor.Value())
 }
 
-func (ma *MathematicalSeries[T]) AllSequentialIncreasesLessThan(limit float64) (_ bool, maximumSequentialIncrease float64) {
+func (ma *CappedMathematicalSeries[T]) AllSequentialIncreasesLessThan(limit float64) (_ bool, maximumSequentialIncrease float64) {
 
 	// If we have not yet accumulated a complete set of intervals,
 	// this is false.
@@ -80,7 +93,7 @@ func (ma *MathematicalSeries[T]) AllSequentialIncreasesLessThan(limit float64) (
 /*
  * N.B.: Overflow is possible -- use at your discretion!
  */
-func (ma *MathematicalSeries[T]) StandardDeviation() (bool, T) {
+func (ma *CappedMathematicalSeries[T]) StandardDeviation() (bool, T) {
 
 	// If we have not yet accumulated a complete set of intervals,
 	// we are always false.
@@ -120,7 +133,7 @@ func (ma *MathematicalSeries[T]) StandardDeviation() (bool, T) {
 	return true, sd
 }
 
-func (ma *MathematicalSeries[T]) IsNormallyDistributed() bool {
+func (ma *CappedMathematicalSeries[T]) IsNormallyDistributed() bool {
 	valid, stddev := ma.StandardDeviation()
 	// If there are not enough values in our series to generate a standard
 	// deviation, then we cannot do this calculation either.
@@ -139,10 +152,28 @@ func (ma *MathematicalSeries[T]) IsNormallyDistributed() bool {
 	return within/float64(ma.divisor.Value()) >= 0.68
 }
 
-func (ma *MathematicalSeries[T]) Values() []T {
+func (ma *CappedMathematicalSeries[T]) Values() []T {
 	return ma.elements
 }
 
-func (ma *MathematicalSeries[T]) Size() int {
+func (ma *CappedMathematicalSeries[T]) Size() int {
 	return len(ma.elements)
+}
+
+func (ma *CappedMathematicalSeries[T]) Percentile(p int) (result T) {
+	result = T(0)
+	if p < 0 || p > 100 {
+		return
+	}
+
+	// Because we need to sort the list to perform the percentile calculation,
+	// we have to make a copy of the list so that we don't disturb
+	// the time-relative ordering of the elements.
+
+	kopy := make([]T, len(ma.elements))
+	copy(kopy, ma.elements)
+	sort.Slice(kopy, func(l int, r int) bool { return kopy[l] < kopy[r] })
+	pindex := int64((float64(p) / float64(100)) * float64(ma.elements_count))
+	result = kopy[pindex]
+	return
 }
