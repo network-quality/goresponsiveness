@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptrace"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -39,6 +40,15 @@ type LoadGeneratingConnection interface {
 	IsValid() bool
 	ClientId() uint64
 	Stats() *stats.TraceStats
+}
+
+type LoadGeneratingConnectionCollection struct {
+	Lock sync.Mutex
+	LGCs *[]LoadGeneratingConnection
+}
+
+func NewLoadGeneratingConnectionCollection() LoadGeneratingConnectionCollection {
+	return LoadGeneratingConnectionCollection{LGCs: new([]LoadGeneratingConnection)}
 }
 
 // TODO: All 64-bit fields that are accessed atomically must
