@@ -68,10 +68,18 @@ type ProbeDataPoint struct {
 	Type           ProbeType     `Description:"The type of the probe."                                       Formatter:"Value"`
 }
 
+type GranularThroughputDataPoint struct {
+	Time       time.Time `Description:"Time of the generation of the data point." Formatter:"Format" FormatterArgument:"01-02-2006-15-04-05.000"`
+	Throughput float64   `Description:"Instantaneous throughput (B/s)."`
+	ConnID     uint32    `Description:"Position of connection (ID)."`
+	Direction  string    `Description:"Direction of Throughput."`
+}
+
 type ThroughputDataPoint struct {
-	Time        time.Time `Description:"Time of the generation of the data point." Formatter:"Format" FormatterArgument:"01-02-2006-15-04-05.000"`
-	Throughput  float64   `Description:"Instantaneous throughput (b/s)."`
-	Connections int       `Description: Number of parallel connections."`
+	Time                         time.Time                     `Description:"Time of the generation of the data point." Formatter:"Format" FormatterArgument:"01-02-2006-15-04-05.000"`
+	Throughput                   float64                       `Description:"Instantaneous throughput (B/s)."`
+	Connections                  int                           `Description:"Number of parallel connections."`
+	GranularThroughputDataPoints []GranularThroughputDataPoint `Description:"[OMIT]"`
 }
 
 type SelfDataCollectionResult struct {
@@ -84,13 +92,16 @@ type SelfDataCollectionResult struct {
 type ProbeType int64
 
 const (
-	Self ProbeType = iota
+	SelfUp ProbeType = iota
+	SelfDown
 	Foreign
 )
 
 func (pt ProbeType) Value() string {
-	if pt == Self {
-		return "Self"
+	if pt == SelfUp {
+		return "SelfUp"
+	} else if pt == SelfDown {
+		return "SelfDown"
 	}
 	return "Foreign"
 }
@@ -164,7 +175,7 @@ func Probe(
 	) + probeTracer.GetTCPDelta()
 
 	// We must have reused the connection if we are a self probe!
-	if probeType == Self && !probeTracer.stats.ConnectionReused {
+	if (probeType == SelfUp || probeType == SelfDown) && !probeTracer.stats.ConnectionReused {
 		panic(!probeTracer.stats.ConnectionReused)
 	}
 
@@ -226,7 +237,8 @@ func CombinedProber(
 	proberCtx context.Context,
 	foreignProbeConfigurationGenerator func() ProbeConfiguration,
 	selfProbeConfigurationGenerator func() ProbeConfiguration,
-	selfProbeConnection lgc.LoadGeneratingConnection,
+	selfDownProbeConnection lgc.LoadGeneratingConnection,
+	selfUpProbeConnection lgc.LoadGeneratingConnection,
 	probeInterval time.Duration,
 	keyLogger io.Writer,
 	debugging *debug.DebugWithPrefix,
@@ -289,10 +301,11 @@ func CombinedProber(
 				debugging,
 			)
 
+			// Start Download Connection Prober
 			go Probe(
 				proberCtx,
 				&wg,
-				selfProbeConnection.Client(),
+				selfDownProbeConnection.Client(),
 				selfProbeConfiguration.URL,
 				SelfDown,
 				&dataPoints,
@@ -390,6 +403,8 @@ func LoadGenerator(
 			// Compute "instantaneous aggregate" goodput which is the number of
 			// bytes transferred within the last second.
 			var instantaneousTotalThroughput float64 = 0
+			granularThroughputDatapoints := make([]GranularThroughputDataPoint, 0)
+			now = time.Now() // Used to align granular throughput data
 			allInvalid := true
 			for i := range *loadGeneratingConnections.LGCs {
 				if !(*loadGeneratingConnections.LGCs)[i].IsValid() {
@@ -400,6 +415,8 @@ func LoadGenerator(
 							(*loadGeneratingConnections.LGCs)[i].ClientId(),
 						)
 					}
+					// TODO: Do we add null connection to throughput? and how do we define it? Throughput -1 or 0?
+					granularThroughputDatapoints = append(granularThroughputDatapoints, GranularThroughputDataPoint{now, 0, uint32(i), ""})
 					continue
 				}
 				allInvalid = false
@@ -411,6 +428,7 @@ func LoadGenerator(
 					currentInterval.Seconds(),
 				)
 				instantaneousTotalThroughput += instantaneousConnectionThroughput
+				granularThroughputDatapoints = append(granularThroughputDatapoints, GranularThroughputDataPoint{now, instantaneousConnectionThroughput, uint32(i), ""})
 			}
 
 			// For some reason, all the lgcs are invalid. This likely means that
@@ -426,7 +444,7 @@ func LoadGenerator(
 			}
 
 			// We have generated a throughput calculation -- let's send it back to the coordinator
-			throughputDataPoint := ThroughputDataPoint{time.Now(), instantaneousTotalThroughput, len(*loadGeneratingConnections.LGCs)}
+			throughputDataPoint := ThroughputDataPoint{time.Now(), instantaneousTotalThroughput, len(*loadGeneratingConnections.LGCs), granularThroughputDatapoints}
 			throughputCalculations <- throughputDataPoint
 
 			// Just add another constants.AdditiveNumberOfLoadGeneratingConnections flows -- that's our only job now!
@@ -647,7 +665,7 @@ func (probe *ProbeTracer) SetGotConnTimeInfo(
 	probe.stats.GetConnectionDoneTime = now
 	probe.stats.ConnInfo = gotConnInfo
 	probe.stats.ConnectionReused = gotConnInfo.Reused
-	if probe.probeType == Self && !gotConnInfo.Reused {
+	if (probe.probeType == SelfUp || probe.probeType == SelfDown) && !gotConnInfo.Reused {
 		fmt.Fprintf(
 			os.Stderr,
 			"A self probe sent used a new connection!\n",

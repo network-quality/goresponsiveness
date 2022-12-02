@@ -204,8 +204,9 @@ func main() {
 	var foreignProbeDataLogger datalogger.DataLogger[rpm.ProbeDataPoint] = nil
 	var downloadThroughputDataLogger datalogger.DataLogger[rpm.ThroughputDataPoint] = nil
 	var uploadThroughputDataLogger datalogger.DataLogger[rpm.ThroughputDataPoint] = nil
+	var granularThroughputDataLogger datalogger.DataLogger[rpm.GranularThroughputDataPoint] = nil
 
-	// User wants to log data from each probe!
+	// User wants to log data
 	if *dataLoggerBaseFileName != "" {
 		var err error = nil
 		unique := time.Now().UTC().Format("01-02-2006-15-04-05")
@@ -217,11 +218,15 @@ func main() {
 		)
 		dataLoggerDownloadThroughputFilename := utilities.FilenameAppend(
 			*dataLoggerBaseFileName,
-			"-throughput-download"+unique,
+			"-throughput-download-"+unique,
 		)
 		dataLoggerUploadThroughputFilename := utilities.FilenameAppend(
 			*dataLoggerBaseFileName,
-			"-throughput-upload"+unique,
+			"-throughput-upload-"+unique,
+		)
+		dataLoggerGranularThroughputFilename := utilities.FilenameAppend(
+			*dataLoggerBaseFileName,
+			"-throughput-granular-"+unique,
 		)
 
 		selfProbeDataLogger, err = datalogger.CreateCSVDataLogger[rpm.ProbeDataPoint](
@@ -267,6 +272,17 @@ func main() {
 			)
 			uploadThroughputDataLogger = nil
 		}
+
+		granularThroughputDataLogger, err = datalogger.CreateCSVDataLogger[rpm.GranularThroughputDataPoint](
+			dataLoggerGranularThroughputFilename,
+		)
+		if err != nil {
+			fmt.Printf(
+				"Warning: Could not create the file for storing granular throughput results (%s). Disabling functionality.\n",
+				dataLoggerGranularThroughputFilename,
+			)
+			granularThroughputDataLogger = nil
+		}
 	}
 	// If, for some reason, the data loggers are nil, make them Null Data Loggers so that we don't have conditional
 	// code later.
@@ -281,6 +297,9 @@ func main() {
 	}
 	if uploadThroughputDataLogger == nil {
 		uploadThroughputDataLogger = datalogger.CreateNullDataLogger[rpm.ThroughputDataPoint]()
+	}
+	if granularThroughputDataLogger == nil {
+		granularThroughputDataLogger = datalogger.CreateNullDataLogger[rpm.GranularThroughputDataPoint]()
 	}
 
 	/*
@@ -323,7 +342,7 @@ func main() {
 	// data collection go routines stops well before the other, they will continue to send probes and we can
 	// generate additional information!
 
-	selfProbeConnectionCommunicationChannel, downloadThroughputChannel := rpm.LoadGenerator(
+	selfDownProbeConnectionCommunicationChannel, downloadThroughputChannel := rpm.LoadGenerator(
 		lgNetworkActivityCtx,
 		downloadLoadGeneratorOperatorCtx,
 		time.Second,
@@ -331,7 +350,7 @@ func main() {
 		&downloadLoadGeneratingConnectionCollection,
 		downloadDebugging,
 	)
-	_, uploadThroughputChannel := rpm.LoadGenerator(
+	selfUpProbeConnectionCommunicationChannel, uploadThroughputChannel := rpm.LoadGenerator(
 		lgNetworkActivityCtx,
 		uploadLoadGeneratorOperatorCtx,
 		time.Second,
@@ -340,8 +359,6 @@ func main() {
 		uploadDebugging,
 	)
 
-	// start here.
-
 	selfDownProbeConnection := <-selfDownProbeConnectionCommunicationChannel
 	selfUpProbeConnection := <-selfUpProbeConnectionCommunicationChannel
 
@@ -349,7 +366,8 @@ func main() {
 		proberCtx,
 		generateForeignProbeConfiguration,
 		generateSelfProbeConfiguration,
-		selfProbeConnection,
+		selfDownProbeConnection,
+		selfUpProbeConnection,
 		time.Millisecond*100,
 		sslKeyFileConcurrentWriter,
 		combinedProbeDebugging,
@@ -417,6 +435,11 @@ timeout:
 						"################# Download is instantaneously %s.\n", utilities.Conditional(downloadThroughputIsStable, "stable", "unstable"))
 				}
 				downloadThroughputDataLogger.LogRecord(downloadThroughputMeasurement)
+				for i := range downloadThroughputMeasurement.GranularThroughputDataPoints {
+					datapoint := downloadThroughputMeasurement.GranularThroughputDataPoints[i]
+					datapoint.Direction = "Download"
+					granularThroughputDataLogger.LogRecord(datapoint)
+				}
 
 				lastDownloadThroughputRate = downloadThroughputMeasurement.Throughput
 				lastDownloadThroughputOpenConnectionCount = downloadThroughputMeasurement.Connections
@@ -431,6 +454,11 @@ timeout:
 						"################# Upload is instantaneously %s.\n", utilities.Conditional(uploadThroughputIsStable, "stable", "unstable"))
 				}
 				uploadThroughputDataLogger.LogRecord(uploadThroughputMeasurement)
+				for i := range uploadThroughputMeasurement.GranularThroughputDataPoints {
+					datapoint := uploadThroughputMeasurement.GranularThroughputDataPoints[i]
+					datapoint.Direction = "Upload"
+					granularThroughputDataLogger.LogRecord(datapoint)
+				}
 
 				lastUploadThroughputRate = uploadThroughputMeasurement.Throughput
 				lastUploadThroughputOpenConnectionCount = uploadThroughputMeasurement.Connections
@@ -452,7 +480,7 @@ timeout:
 						foreignRtts.AddElement(probeMeasurement.Duration.Seconds() / float64(probeMeasurement.RoundTripCount))
 
 					}
-				} else if probeMeasurement.Type == rpm.Self {
+				} else if probeMeasurement.Type == rpm.SelfDown || probeMeasurement.Type == rpm.SelfUp {
 					selfRtts.AddElement(probeMeasurement.Duration.Seconds())
 				}
 
@@ -462,7 +490,7 @@ timeout:
 
 				if probeMeasurement.Type == rpm.Foreign {
 					foreignProbeDataLogger.LogRecord(probeMeasurement)
-				} else if probeMeasurement.Type == rpm.Self {
+				} else if probeMeasurement.Type == rpm.SelfDown || probeMeasurement.Type == rpm.SelfUp {
 					selfProbeDataLogger.LogRecord(probeMeasurement)
 				}
 			}
@@ -472,6 +500,8 @@ timeout:
 			}
 		}
 	}
+
+	// TODO: Reset timeout to RPM timeout stat?
 
 	// Did the test run to stability?
 	testRanToStability := (downloadThroughputIsStable && uploadThroughputIsStable && responsivenessIsStable)
@@ -538,6 +568,7 @@ timeout:
 	// we already did that roughly-equal split up when we added them to the foreignRtts IMS.
 	foreignProbeRoundTripTimeP90 := foreignRtts.Percentile(90)
 
+	// This is 60 because we measure in seconds not ms
 	rpm := 60.0 / (float64(selfProbeRoundTripTimeP90+foreignProbeRoundTripTimeP90) / 2.0)
 
 	if *debugCliFlag {
@@ -550,7 +581,23 @@ timeout:
 		)
 	}
 
+	if !testRanToStability {
+		fmt.Printf("Test did not run to stability, these results are estimates:\n")
+	}
 	fmt.Printf("RPM: %5.0f\n", rpm)
+
+	fmt.Printf(
+		"Download: %7.3f Mbps (%7.3f MBps), using %d parallel connections.\n",
+		utilities.ToMbps(lastDownloadThroughputRate),
+		utilities.ToMBps(lastDownloadThroughputRate),
+		lastDownloadThroughputOpenConnectionCount,
+	)
+	fmt.Printf(
+		"Upload:   %7.3f Mbps (%7.3f MBps), using %d parallel connections.\n",
+		utilities.ToMbps(lastUploadThroughputRate),
+		utilities.ToMBps(lastUploadThroughputRate),
+		lastUploadThroughputOpenConnectionCount,
+	)
 
 	if *calculateExtendedStats {
 		fmt.Println(extendedStats.Repr())
@@ -580,18 +627,11 @@ timeout:
 	}
 	uploadThroughputDataLogger.Close()
 
-	fmt.Printf(
-		"Download: %7.3f Mbps (%7.3f MBps), using %d parallel connections.\n",
-		utilities.ToMbps(lastDownloadThroughputRate),
-		utilities.ToMBps(lastDownloadThroughputRate),
-		lastDownloadThroughputOpenConnectionCount,
-	)
-	fmt.Printf(
-		"Upload:   %7.3f Mbps (%7.3f MBps), using %d parallel connections.\n",
-		utilities.ToMbps(lastUploadThroughputRate),
-		utilities.ToMBps(lastUploadThroughputRate),
-		lastUploadThroughputOpenConnectionCount,
-	)
+	granularThroughputDataLogger.Export()
+	if *debugCliFlag {
+		fmt.Printf("Closing the granular throughput data logger.\n")
+	}
+	granularThroughputDataLogger.Close()
 
 	if *debugCliFlag {
 		fmt.Printf("In debugging mode, we will cool down.\n")

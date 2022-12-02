@@ -108,16 +108,26 @@ func (logger *CSVDataLogger[T]) Export() bool {
 		return false
 	}
 
+	toOmit := make([]int, 0)
 	visibleFields := reflect.VisibleFields(reflect.TypeOf((*T)(nil)).Elem())
-	for _, v := range visibleFields {
+	for i, v := range visibleFields {
 		description, success := v.Tag.Lookup("Description")
 		columnName := fmt.Sprintf("%s", v.Name)
 		if success {
+			if description == "[OMIT]" {
+				toOmit = append(toOmit, i)
+				continue
+			}
 			columnName = fmt.Sprintf("%s", description)
 		}
 		logger.destination.Write([]byte(fmt.Sprintf("%s, ", columnName)))
 	}
 	logger.destination.Write([]byte("\n"))
+
+	// Remove the Omitted fields
+	for _, i := range toOmit {
+		visibleFields = append(visibleFields[:i], visibleFields[i+1:]...)
+	}
 
 	for _, d := range logger.data {
 		for _, v := range visibleFields {
