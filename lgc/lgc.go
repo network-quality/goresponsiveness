@@ -255,6 +255,7 @@ func (lgd *LoadGeneratingConnectionDownload) Start(
 	debugLevel debug.DebugLevel,
 ) bool {
 	lgd.downloaded = 0
+	lgd.debug = debugLevel
 	lgd.clientId = utilities.GenerateUniqueId()
 	transport := http2.Transport{}
 	transport.TLSClientConfig = &tls.Config{}
@@ -278,7 +279,6 @@ func (lgd *LoadGeneratingConnectionDownload) Start(
 	transport.TLSClientConfig.InsecureSkipVerify = true
 
 	lgd.client = &http.Client{Transport: &transport}
-	lgd.debug = debugLevel
 	lgd.valid = true
 	lgd.tracer = traceable.GenerateHttpTimingTracer(lgd, lgd.debug)
 
