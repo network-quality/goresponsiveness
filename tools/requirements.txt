@@ -1,0 +1,2 @@
+pandas==1.5.2       # need >1.5 because of "step" in rolling() mean
+matplotlib==3.5.1
