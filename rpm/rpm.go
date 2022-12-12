@@ -56,7 +56,8 @@ func addFlows(
 }
 
 type ProbeConfiguration struct {
-	URL string
+	URL  string
+	Host string
 }
 
 type ProbeDataPoint struct {
@@ -111,6 +112,7 @@ func Probe(
 	waitGroup *sync.WaitGroup,
 	client *http.Client,
 	probeUrl string,
+	probeHost string, // optional: for use with a test_endpoint
 	probeType ProbeType,
 	result *chan ProbeDataPoint,
 	debugging *debug.DebugWithPrefix,
@@ -138,6 +140,10 @@ func Probe(
 		return err
 	}
 
+	// To support test_endpoint
+	if len(probeHost) != 0 {
+		probe_req.Host = probeHost
+	}
 	// Used to disable compression
 	probe_req.Header.Set("Accept-Encoding", "identity")
 
@@ -296,6 +302,7 @@ func CombinedProber(
 				&wg,
 				foreignProbeClient,
 				foreignProbeConfiguration.URL,
+				foreignProbeConfiguration.Host,
 				Foreign,
 				&dataPoints,
 				debugging,
@@ -307,6 +314,7 @@ func CombinedProber(
 				&wg,
 				selfDownProbeConnection.Client(),
 				selfProbeConfiguration.URL,
+				selfProbeConfiguration.Host,
 				SelfDown,
 				&dataPoints,
 				debugging,
@@ -318,6 +326,7 @@ func CombinedProber(
 				&wg,
 				selfUpProbeConnection.Client(),
 				selfProbeConfiguration.URL,
+				selfProbeConfiguration.Host,
 				SelfUp,
 				&dataPoints,
 				debugging,

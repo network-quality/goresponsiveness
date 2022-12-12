@@ -57,6 +57,7 @@ type LoadGeneratingConnectionDownload struct {
 	downloaded        uint64
 	lastIntervalEnd   int64
 	Path              string
+	Host              string
 	downloadStartTime time.Time
 	lastDownloaded    uint64
 	client            *http.Client
@@ -316,6 +317,17 @@ func (lgd *LoadGeneratingConnectionDownload) doDownload(ctx context.Context) {
 		return
 	}
 
+	// To support test_endpoint
+	if len(lgd.Host) != 0 {
+		if debug.IsDebug(lgd.debug) {
+			fmt.Printf(
+				"Because of a test_endpoint in the config, there is a special Host set for this connection: %s\n",
+				lgd.Host,
+			)
+		}
+		request.Host = lgd.Host
+	}
+
 	// Used to disable compression
 	request.Header.Set("Accept-Encoding", "identity")
 
@@ -347,6 +359,7 @@ type LoadGeneratingConnectionUpload struct {
 	uploaded        uint64
 	lastIntervalEnd int64
 	Path            string
+	Host            string
 	uploadStartTime time.Time
 	lastUploaded    uint64
 	client          *http.Client
@@ -409,6 +422,17 @@ func (lgu *LoadGeneratingConnectionUpload) doUpload(ctx context.Context) bool {
 	); err != nil {
 		lgu.valid = false
 		return false
+	}
+
+	// To support test_endpoint
+	if len(lgu.Host) != 0 {
+		if debug.IsDebug(lgu.debug) {
+			fmt.Printf(
+				"Because of a test_endpoint in the config, there is a special Host set for this connection: %s\n",
+				lgu.Host,
+			)
+		}
+		request.Host = lgu.Host
 	}
 
 	// Used to disable compression

@@ -132,7 +132,26 @@ func main() {
 		)
 	}
 
-	if err := config.Get(configHostPort, *configPath); err != nil {
+	var sslKeyFileConcurrentWriter *ccw.ConcurrentWriter = nil
+	if *sslKeyFileName != "" {
+		if sslKeyFileHandle, err := os.OpenFile(*sslKeyFileName, os.O_RDWR|os.O_CREATE, os.FileMode(0600)); err != nil {
+			fmt.Printf("Could not open the keyfile for writing: %v!\n", err)
+			sslKeyFileConcurrentWriter = nil
+		} else {
+			if err = utilities.SeekForAppend(sslKeyFileHandle); err != nil {
+				fmt.Printf("Could not seek to the end of the key file: %v!\n", err)
+				sslKeyFileConcurrentWriter = nil
+			} else {
+				if debug.IsDebug(debugLevel) {
+					fmt.Printf("Doing SSL key logging through file %v\n", *sslKeyFileName)
+				}
+				sslKeyFileConcurrentWriter = ccw.NewConcurrentFileWriter(sslKeyFileHandle)
+				defer sslKeyFileHandle.Close()
+			}
+		}
+	}
+
+	if err := config.Get(configHostPort, *configPath, sslKeyFileConcurrentWriter); err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		return
 	}
@@ -180,26 +199,6 @@ func main() {
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
 	}
-
-	var sslKeyFileConcurrentWriter *ccw.ConcurrentWriter = nil
-	if *sslKeyFileName != "" {
-		if sslKeyFileHandle, err := os.OpenFile(*sslKeyFileName, os.O_RDWR|os.O_CREATE, os.FileMode(0600)); err != nil {
-			fmt.Printf("Could not open the keyfile for writing: %v!\n", err)
-			sslKeyFileConcurrentWriter = nil
-		} else {
-			if err = utilities.SeekForAppend(sslKeyFileHandle); err != nil {
-				fmt.Printf("Could not seek to the end of the key file: %v!\n", err)
-				sslKeyFileConcurrentWriter = nil
-			} else {
-				if debug.IsDebug(debugLevel) {
-					fmt.Printf("Doing SSL key logging through file %v\n", *sslKeyFileName)
-				}
-				sslKeyFileConcurrentWriter = ccw.NewConcurrentFileWriter(sslKeyFileHandle)
-				defer sslKeyFileHandle.Close()
-			}
-		}
-	}
-
 	var selfProbeDataLogger datalogger.DataLogger[rpm.ProbeDataPoint] = nil
 	var foreignProbeDataLogger datalogger.DataLogger[rpm.ProbeDataPoint] = nil
 	var downloadThroughputDataLogger datalogger.DataLogger[rpm.ThroughputDataPoint] = nil
@@ -309,25 +308,29 @@ func main() {
 	generate_lgd := func() lgc.LoadGeneratingConnection {
 		return &lgc.LoadGeneratingConnectionDownload{
 			Path:      config.Urls.LargeUrl,
+			Host:      config.Urls.LargeUrlHost,
 			KeyLogger: sslKeyFileConcurrentWriter,
 		}
 	}
 	generate_lgu := func() lgc.LoadGeneratingConnection {
 		return &lgc.LoadGeneratingConnectionUpload{
 			Path:      config.Urls.UploadUrl,
+			Host:      config.Urls.UploadUrlHost,
 			KeyLogger: sslKeyFileConcurrentWriter,
 		}
 	}
 
 	generateSelfProbeConfiguration := func() rpm.ProbeConfiguration {
 		return rpm.ProbeConfiguration{
-			URL: config.Urls.SmallUrl,
+			URL:  config.Urls.SmallUrl,
+			Host: config.Urls.SmallUrlHost,
 		}
 	}
 
 	generateForeignProbeConfiguration := func() rpm.ProbeConfiguration {
 		return rpm.ProbeConfiguration{
-			URL: config.Urls.SmallUrl,
+			URL:  config.Urls.SmallUrl,
+			Host: config.Urls.SmallUrlHost,
 		}
 	}
 
