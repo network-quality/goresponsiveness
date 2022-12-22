@@ -362,15 +362,26 @@ func main() {
 		uploadDebugging,
 	)
 
-	selfDownProbeConnection := <-selfDownProbeConnectionCommunicationChannel
-	selfUpProbeConnection := <-selfUpProbeConnectionCommunicationChannel
+	// selfDownProbeConnection := <-selfDownProbeConnectionCommunicationChannel
+	// selfUpProbeConnection := <-selfUpProbeConnectionCommunicationChannel
+
+	// probeDataPointsChannel := rpm.CombinedProber(
+	// 	proberCtx,
+	// 	generateForeignProbeConfiguration,
+	// 	generateSelfProbeConfiguration,
+	// 	selfDownProbeConnection,
+	// 	selfUpProbeConnection,
+	// 	time.Millisecond*100,
+	// 	sslKeyFileConcurrentWriter,
+	// 	combinedProbeDebugging,
+	// )
 
 	probeDataPointsChannel := rpm.CombinedProber(
 		proberCtx,
 		generateForeignProbeConfiguration,
 		generateSelfProbeConfiguration,
-		selfDownProbeConnection,
-		selfUpProbeConnection,
+		selfDownProbeConnectionCommunicationChannel,
+		selfUpProbeConnectionCommunicationChannel,
 		time.Millisecond*100,
 		sslKeyFileConcurrentWriter,
 		combinedProbeDebugging,

@@ -40,6 +40,7 @@ func addFlows(
 	lgcc *lgc.LoadGeneratingConnectionCollection,
 	lgcGenerator func() lgc.LoadGeneratingConnection,
 	debug debug.DebugLevel,
+	connectionsCommunicationChannel chan lgc.LoadGeneratingConnection,
 ) {
 	lgcc.Lock.Lock()
 	defer lgcc.Lock.Unlock()
@@ -51,6 +52,8 @@ func addFlows(
 				(*lgcc.LGCs)[len(*lgcc.LGCs)-1].ClientId(),
 			)
 			return
+		} else {
+			connectionsCommunicationChannel <- (*lgcc.LGCs)[len(*lgcc.LGCs)-1]
 		}
 	}
 }
@@ -67,6 +70,7 @@ type ProbeDataPoint struct {
 	TCPRtt         time.Duration `Description:"The underlying connection's RTT at probe time."               Formatter:"Seconds"`
 	TCPCwnd        uint32        `Description:"The underlying connection's congestion window at probe time."`
 	Type           ProbeType     `Description:"The type of the probe."                                       Formatter:"Value"`
+	ConnectionID   uint32        `Description:"The underlying connection of the probe."`
 }
 
 type GranularThroughputDataPoint struct {
@@ -114,6 +118,7 @@ func Probe(
 	probeUrl string,
 	probeHost string, // optional: for use with a test_endpoint
 	probeType ProbeType,
+	connID uint32,
 	result *chan ProbeDataPoint,
 	debugging *debug.DebugWithPrefix,
 ) error {
@@ -234,6 +239,7 @@ func Probe(
 		TCPRtt:         tcpRtt,
 		TCPCwnd:        tcpCwnd,
 		Type:           probeType,
+		ConnectionID:   connID,
 	}
 	*result <- dataPoint
 	return nil
@@ -243,8 +249,8 @@ func CombinedProber(
 	proberCtx context.Context,
 	foreignProbeConfigurationGenerator func() ProbeConfiguration,
 	selfProbeConfigurationGenerator func() ProbeConfiguration,
-	selfDownProbeConnection lgc.LoadGeneratingConnection,
-	selfUpProbeConnection lgc.LoadGeneratingConnection,
+	selfDownProbeConnectionChannel chan lgc.LoadGeneratingConnection, // Changed to Channel
+	selfUpProbeConnectionChannel chan lgc.LoadGeneratingConnection, // Changed to Channel
 	probeInterval time.Duration,
 	keyLogger io.Writer,
 	debugging *debug.DebugWithPrefix,
@@ -255,6 +261,21 @@ func CombinedProber(
 	dataPoints = make(chan ProbeDataPoint)
 
 	go func() {
+		downConnections := make([]lgc.LoadGeneratingConnection, 0)
+		upConnections := make([]lgc.LoadGeneratingConnection, 0)
+		go func() {
+			for connection := range selfDownProbeConnectionChannel {
+				time.Sleep(time.Millisecond * 100)
+				downConnections = append(downConnections, connection)
+			}
+		}()
+		go func() {
+			for connection := range selfUpProbeConnectionChannel {
+				time.Sleep(time.Millisecond * 100)
+				upConnections = append(upConnections, connection)
+			}
+		}()
+
 		wg := sync.WaitGroup{}
 		probeCount := 0
 
@@ -304,33 +325,46 @@ func CombinedProber(
 				foreignProbeConfiguration.URL,
 				foreignProbeConfiguration.Host,
 				Foreign,
+				uint32(0),
 				&dataPoints,
 				debugging,
 			)
 
-			// Start Download Connection Prober
-			go Probe(
-				proberCtx,
-				&wg,
-				selfDownProbeConnection.Client(),
-				selfProbeConfiguration.URL,
-				selfProbeConfiguration.Host,
-				SelfDown,
-				&dataPoints,
-				debugging,
-			)
+			go func() {
+				for i := range downConnections {
+					// Start Download Connection Prober
+					go Probe(
+						proberCtx,
+						&wg,
+						downConnections[i].Client(),
+						selfProbeConfiguration.URL,
+						selfProbeConfiguration.Host,
+						SelfDown,
+						uint32(i),
+						&dataPoints,
+						debugging,
+					)
 
-			// Start Upload Connection Prober
-			go Probe(
-				proberCtx,
-				&wg,
-				selfUpProbeConnection.Client(),
-				selfProbeConfiguration.URL,
-				selfProbeConfiguration.Host,
-				SelfUp,
-				&dataPoints,
-				debugging,
-			)
+				}
+			}()
+
+			go func() {
+				for i := range upConnections {
+					// Start Upload Connection Prober
+					go Probe(
+						proberCtx,
+						&wg,
+						upConnections[i].Client(),
+						selfProbeConfiguration.URL,
+						selfProbeConfiguration.Host,
+						SelfUp,
+						uint32(i),
+						&dataPoints,
+						debugging,
+					)
+				}
+			}()
+
 		}
 		if debug.IsDebug(debugging.Level) {
 			fmt.Printf(
@@ -365,7 +399,7 @@ func LoadGenerator(
 	// The channel that we are going to use to send back the connection to use for probing may not immediately
 	// be read by the caller. We don't want to wait around until they are ready before we start doing our work.
 	// So, we'll make it buffered.
-	probeConnectionCommunicationChannel = make(chan lgc.LoadGeneratingConnection, 1)
+	probeConnectionCommunicationChannel = make(chan lgc.LoadGeneratingConnection, 10)
 
 	go func() {
 
@@ -377,12 +411,14 @@ func LoadGenerator(
 			loadGeneratingConnections,
 			lgcGenerator,
 			debugging.Level,
+			probeConnectionCommunicationChannel,
 		)
 		flowsCreated += constants.StartingNumberOfLoadGeneratingConnections
 
+		// Removed and added to addFlows
 		// We have at least a single load-generating channel. This channel will be the one that
 		// the self probes use. Let's send it back to the caller so that they can pass it on if they need to.
-		probeConnectionCommunicationChannel <- (*loadGeneratingConnections.LGCs)[0]
+		// probeConnectionCommunicationChannel <- (*loadGeneratingConnections.LGCs)[0]
 
 		nextSampleStartTime := time.Now().Add(rampupInterval)
 
@@ -463,6 +499,7 @@ func LoadGenerator(
 				loadGeneratingConnections,
 				lgcGenerator,
 				debugging.Level,
+				probeConnectionCommunicationChannel,
 			)
 
 			flowsCreated += constants.AdditiveNumberOfLoadGeneratingConnections

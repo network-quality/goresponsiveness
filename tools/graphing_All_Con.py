@@ -90,7 +90,7 @@ def time_since_start(dfs, start, column_name="TimeSinceStart"):
 
 def probeClean(df):
     # ConnRTT and ConnCongestionWindow refer to Underlying Connection
-    df.columns = ["CreationTime", "NumRTT", "Duration", "ConnRTT", "ConnCongestionWindow", "Type", "Empty"]
+    df.columns = ["CreationTime", "NumRTT", "Duration", "ConnRTT", "ConnCongestionWindow", "Type", "ConnID", "Empty"]
     df = df.drop(columns=["Empty"])
     df["CreationTime"] = pd.to_datetime(df["CreationTime"], format="%m-%d-%Y-%H-%M-%S.%f")
     df["Type"] = df["Type"].apply(str.strip)
@@ -256,12 +256,34 @@ def graph_normal_ms(dfs, xcolumn, ax, title):
     # ax.plot(dfs["selfUp"][xcolumn], dfs["selfUp"]["ADJ_Duration"], "r.", label="selfUP")
     # ax.plot(dfs["selfDown"][xcolumn], dfs["selfDown"]["ADJ_Duration"], "c.", label="selfDOWN")
     dfs["foreign"]["DurationMA10ms"] = dfs["foreign"]["ADJ_Duration"].rolling(window=10, step=10).mean() * 1000
+
+    selfUpDFS = {}
+    for i in dfs["selfUp"]["ConnID"].unique():
+        selfUpDFS[i] = dfs["selfUp"][dfs["selfUp"]["ConnID"]==i][["ADJ_Duration"]]
+        selfUpDFS[i]["DurationMA10ms"] = selfUpDFS[i]["ADJ_Duration"].rolling(window=10, step=10).mean() * 1000
+        selfUpDFS[i][xcolumn] = dfs["selfUp"][dfs["selfUp"]["ConnID"]==i][xcolumn]
+
+    selfDownDFS = {}
+    for i in dfs["selfDown"]["ConnID"].unique():
+        selfDownDFS[i] = dfs["selfDown"][dfs["selfDown"]["ConnID"]==i][["ADJ_Duration"]]
+        selfDownDFS[i]["DurationMA10ms"] = selfDownDFS[i]["ADJ_Duration"].rolling(window=10, step=10).mean() * 1000
+        selfDownDFS[i][xcolumn] = dfs["selfDown"][dfs["selfDown"]["ConnID"]==i][xcolumn]
+
     dfs["selfUp"]["DurationMA10ms"] = dfs["selfUp"]["ADJ_Duration"].rolling(window=10, step=10).mean() * 1000
     dfs["selfDown"]["DurationMA10ms"] = dfs["selfDown"]["ADJ_Duration"].rolling(window=10, step=10).mean() * 1000
+    
     # Plot lines
     ax.plot(dfs["foreign"][xcolumn][dfs["foreign"]["DurationMA10ms"].notnull()], dfs["foreign"]["DurationMA10ms"][dfs["foreign"]["DurationMA10ms"].notnull()], "--", linewidth=2, color=__LINECOLOR__["foreign"], label="foreignMA10 (ms)")
-    ax.plot(dfs["selfUp"][xcolumn][dfs["selfUp"]["DurationMA10ms"].notnull()], dfs["selfUp"]["DurationMA10ms"][dfs["selfUp"]["DurationMA10ms"].notnull()], "--", linewidth=2, color=__LINECOLOR__["selfUp"], label="selfUpMA10 (ms)")
-    ax.plot(dfs["selfDown"][xcolumn][dfs["selfDown"]["DurationMA10ms"].notnull()], dfs["selfDown"]["DurationMA10ms"][dfs["selfDown"]["DurationMA10ms"].notnull()], "--", linewidth=2, color=__LINECOLOR__["selfDown"], label="selfDownMA10 (ms)")
+    
+    for i in selfUpDFS:
+        df = selfUpDFS[i]
+        ax.plot(df[xcolumn][df["DurationMA10ms"].notnull()], df["DurationMA10ms"][df["DurationMA10ms"].notnull()], ":", linewidth=2, label=f"selfUpMA10 Conn{i} (ms)")
+
+    for i in selfDownDFS:
+        df = selfDownDFS[i]
+        ax.plot(df[xcolumn][df["DurationMA10ms"].notnull()], df["DurationMA10ms"][df["DurationMA10ms"].notnull()], "--", linewidth=2, label=f"selfDownMA10 Conn{i} (ms)")
+    
+    
     ax.set_ylim([0, max(dfs["foreign"]["DurationMA10ms"].max(), dfs["selfUp"]["DurationMA10ms"].max(), dfs["selfDown"]["DurationMA10ms"].max()) * 1.01])
     ax.set_ylabel("RTT (ms)")
     ax.legend(loc="upper left", title="Probes")
