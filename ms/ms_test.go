@@ -106,6 +106,44 @@ func Test_Infinite50_percentile_jumbled(test *testing.T) {
 	}
 }
 
+func Test_InfiniteDoubleSidedTrimmedMean_jumbled(test *testing.T) {
+	series := NewInfiniteMathematicalSeries[int64]()
+	series.AddElement(7)
+	series.AddElement(2)
+	series.AddElement(15)
+	series.AddElement(27)
+	series.AddElement(5)
+	series.AddElement(5)
+	series.AddElement(52)
+	series.AddElement(18)
+	series.AddElement(23)
+	series.AddElement(11)
+	series.AddElement(22)
+	series.AddElement(17)
+	series.AddElement(14)
+	series.AddElement(9)
+	series.AddElement(100)
+	series.AddElement(72)
+	series.AddElement(91)
+	series.AddElement(43)
+	series.AddElement(37)
+	series.AddElement(62)
+
+	trimmed := series.DoubleSidedTrim(10)
+
+	if trimmed.Len() != 16 {
+		test.Fatalf("Capped series is not of the proper size. Expected %v and got %v", 16, trimmed.Len())
+	}
+
+	prev := int64(0)
+	for _, v := range trimmed.Values() {
+		if !(prev <= v) {
+			test.Fatalf("Not sorted: %v is not less than or equal to %v\n", prev, v)
+		}
+		prev = v
+	}
+}
+
 func Test_CappedSequentialIncreasesAlwaysLessThan(test *testing.T) {
 	series := NewCappedMathematicalSeries[float64](40)
 	previous := float64(1.0)
@@ -190,7 +228,7 @@ func Test_CappedRotatingValues(test *testing.T) {
 		test.Fatalf("Adding values does not properly erase earlier values.")
 	}
 }
-func Test_CappedSize(test *testing.T) {
+func Test_CappedLen(test *testing.T) {
 	series := NewCappedMathematicalSeries[int](5)
 
 	series.AddElement(1)
@@ -202,7 +240,7 @@ func Test_CappedSize(test *testing.T) {
 	series.AddElement(6)
 	series.AddElement(7)
 
-	if series.Size() != 5 {
+	if series.Len() != 5 {
 		test.Fatalf("Series size calculations failed.")
 	}
 }
@@ -270,5 +308,34 @@ func Test_Capped50_percentile_jumbled(test *testing.T) {
 
 	if series.Percentile(50) != 15 {
 		test.Fatalf("Series 50 percentile of a jumble of numbers failed: Expected 15 got %v.", series.Percentile(50))
+	}
+}
+
+func Test_CappedDoubleSidedTrimmedMean_jumbled(test *testing.T) {
+	series := NewCappedMathematicalSeries[int64](10)
+	series.AddElement(7)
+	series.AddElement(2)
+	series.AddElement(15)
+	series.AddElement(27)
+	series.AddElement(5)
+	series.AddElement(5)
+	series.AddElement(52)
+	series.AddElement(18)
+	series.AddElement(23)
+	series.AddElement(11)
+	series.AddElement(12)
+
+	trimmed := series.DoubleSidedTrim(10)
+
+	if trimmed.Len() != 8 {
+		test.Fatalf("Capped series is not of the proper size. Expected %v and got %v", 8, trimmed.Len())
+	}
+
+	prev := int64(0)
+	for _, v := range trimmed.Values() {
+		if !(prev <= v) {
+			test.Fatalf("Not sorted: %v is not less than or equal to %v\n", prev, v)
+		}
+		prev = v
 	}
 }

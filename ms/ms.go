@@ -15,6 +15,7 @@
 package ms
 
 import (
+	"fmt"
 	"math"
 	"sort"
 
@@ -29,9 +30,12 @@ type MathematicalSeries[T constraints.Float | constraints.Integer] interface {
 	AllSequentialIncreasesLessThan(float64) (bool, float64)
 	StandardDeviation() (bool, T)
 	IsNormallyDistributed() bool
-	Size() int
+	Len() int
 	Values() []T
 	Percentile(int) T
+	DoubleSidedTrim(uint32) MathematicalSeries[T]
+	Less(int, int) bool
+	Swap(int, int)
 }
 
 func calculateAverage[T constraints.Integer | constraints.Float](elements []T) float64 {
@@ -53,12 +57,45 @@ func calculatePercentile[T constraints.Integer | constraints.Float](elements []T
 	result = elements[pindex]
 	return
 }
+
+type InfiniteMathematicalSeries[T constraints.Float | constraints.Integer] struct {
+	elements []T
+}
+
 func NewInfiniteMathematicalSeries[T constraints.Float | constraints.Integer]() MathematicalSeries[T] {
 	return &InfiniteMathematicalSeries[T]{}
 }
 
-type InfiniteMathematicalSeries[T constraints.Float | constraints.Integer] struct {
-	elements []T
+func (ims *InfiniteMathematicalSeries[T]) Swap(i, j int) {
+	ims.elements[i], ims.elements[j] = ims.elements[j], ims.elements[i]
+}
+
+func (ims *InfiniteMathematicalSeries[T]) Less(i, j int) bool {
+	return ims.elements[i] < ims.elements[j]
+}
+
+func (ims *InfiniteMathematicalSeries[T]) DoubleSidedTrim(percent uint32) MathematicalSeries[T] {
+	if percent >= 100 {
+		panic(fmt.Sprintf("Cannot perform double-sided trim for an invalid percentage: %d", percent))
+	}
+
+	trimmed := &InfiniteMathematicalSeries[T]{}
+	trimmed.elements = make([]T, ims.Len())
+	copy(trimmed.elements, ims.elements)
+
+	sort.Sort(trimmed)
+
+	elementsToTrim := uint64(float32(ims.Len()) * ((float32(percent)) / float32(100.0)))
+	trimmed.elements = trimmed.elements[elementsToTrim : len(trimmed.elements)-int(elementsToTrim)]
+
+	return trimmed
+}
+
+func (ims *InfiniteMathematicalSeries[T]) Copy() MathematicalSeries[T] {
+	newIms := InfiniteMathematicalSeries[T]{}
+	newIms.elements = make([]T, ims.Len())
+	copy(newIms.elements, ims.elements)
+	return &newIms
 }
 
 func (ims *InfiniteMathematicalSeries[T]) AddElement(element T) {
@@ -130,7 +167,7 @@ func (ims *InfiniteMathematicalSeries[T]) IsNormallyDistributed() bool {
 	return false
 }
 
-func (ims *InfiniteMathematicalSeries[T]) Size() int {
+func (ims *InfiniteMathematicalSeries[T]) Len() int {
 	return len(ims.elements)
 }
 
@@ -143,17 +180,17 @@ func (ims *InfiniteMathematicalSeries[T]) Percentile(p int) T {
 }
 
 type CappedMathematicalSeries[T constraints.Float | constraints.Integer] struct {
-	elements_count int
+	elements_count uint64
 	elements       []T
-	index          int
-	divisor        *saturating.SaturatingInt
+	index          uint64
+	divisor        *saturating.Saturating[uint64]
 }
 
-func NewCappedMathematicalSeries[T constraints.Float | constraints.Integer](instants_count int) MathematicalSeries[T] {
+func NewCappedMathematicalSeries[T constraints.Float | constraints.Integer](instants_count uint64) MathematicalSeries[T] {
 	return &CappedMathematicalSeries[T]{
 		elements:       make([]T, instants_count),
 		elements_count: instants_count,
-		divisor:        saturating.NewSaturatingInt(instants_count),
+		divisor:        saturating.NewSaturating(instants_count),
 		index:          0,
 	}
 }
@@ -185,7 +222,7 @@ func (ma *CappedMathematicalSeries[T]) AllSequentialIncreasesLessThan(limit floa
 	oldestIndex := ma.index
 	previous := ma.elements[oldestIndex]
 	maximumSequentialIncrease = 0
-	for i := 1; i < ma.elements_count; i++ {
+	for i := uint64(1); i < ma.elements_count; i++ {
 		currentIndex := (oldestIndex + i) % ma.elements_count
 		current := ma.elements[currentIndex]
 		percentChange := utilities.SignedPercentDifference(current, previous)
@@ -263,7 +300,10 @@ func (ma *CappedMathematicalSeries[T]) Values() []T {
 	return ma.elements
 }
 
-func (ma *CappedMathematicalSeries[T]) Size() int {
+func (ma *CappedMathematicalSeries[T]) Len() int {
+	if uint64(len(ma.elements)) != ma.elements_count {
+		panic(fmt.Sprintf("Error: A capped mathematical series' metadata is invalid: the length of its element array/slice does not match element_count! (%v vs %v)", ma.elements_count, len(ma.elements)))
+	}
 	return len(ma.elements)
 }
 
@@ -279,4 +319,37 @@ func (ma *CappedMathematicalSeries[T]) Percentile(p int) T {
 	kopy := make([]T, len(ma.elements))
 	copy(kopy, ma.elements)
 	return calculatePercentile(kopy, p)
+}
+
+func (ims *CappedMathematicalSeries[T]) Swap(i, j int) {
+	ims.elements[i], ims.elements[j] = ims.elements[j], ims.elements[i]
+}
+
+func (ims *CappedMathematicalSeries[T]) Less(i, j int) bool {
+	return ims.elements[i] < ims.elements[j]
+}
+
+func (ims *CappedMathematicalSeries[T]) DoubleSidedTrim(percent uint32) MathematicalSeries[T] {
+	if percent >= 100 {
+		panic(fmt.Sprintf("Cannot perform double-sided trim for an invalid percentage: %d", percent))
+	}
+
+	trimmed := &CappedMathematicalSeries[T]{elements_count: uint64(ims.Len())}
+	trimmed.elements = make([]T, ims.Len())
+	copy(trimmed.elements, ims.elements)
+	sort.Sort(trimmed)
+
+	elementsToTrim := uint64(float32(ims.Len()) * ((float32(percent)) / float32(100.0)))
+	trimmed.elements = trimmed.elements[elementsToTrim : len(trimmed.elements)-int(elementsToTrim)]
+
+	trimmed.elements_count -= (elementsToTrim * 2)
+
+	return trimmed
+}
+
+func (ims *CappedMathematicalSeries[T]) Copy() MathematicalSeries[T] {
+	newCms := CappedMathematicalSeries[T]{}
+	newCms.elements = make([]T, ims.Len())
+	copy(newCms.elements, ims.elements)
+	return &newCms
 }
