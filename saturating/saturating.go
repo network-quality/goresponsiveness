@@ -14,24 +14,28 @@
 
 package saturating
 
-type SaturatingInt struct {
-	max       int
-	value     int
+type Saturatable interface {
+	~uint | ~uint32 | ~uint64
+}
+
+type Saturating[T Saturatable] struct {
+	max       T
+	value     T
 	saturated bool
 }
 
-func NewSaturatingInt(max int) *SaturatingInt {
-	return &SaturatingInt{max: max, value: 0, saturated: false}
+func NewSaturating[T Saturatable](max T) *Saturating[T] {
+	return &Saturating[T]{max: max, value: 0, saturated: false}
 }
 
-func (s *SaturatingInt) Value() int {
+func (s *Saturating[T]) Value() T {
 	if s.saturated {
 		return s.max
 	}
 	return s.value
 }
 
-func (s *SaturatingInt) Add(operand int) {
+func (s *Saturating[T]) Add(operand T) {
 	if !s.saturated {
 		s.value += operand
 		if s.value >= s.max {
