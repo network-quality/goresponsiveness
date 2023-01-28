@@ -29,7 +29,19 @@ type ThroughputStabilizer DataPointStabilizer
 // 3: S: The standard deviation cutoff used to determine stability among the K preceding
 //       moving averages of a measurement.
 
-func NewProbeStabilizer(i int, k int, s float64, debugLevel debug.DebugLevel, debug *debug.DebugWithPrefix) ProbeStabilizer {
+// Rev3 Stabilizer Algorithm:
+// Stabilization is achieved when the standard deviation of a given number of the most recent moving averages of
+// instantaneous measurements is within an upper bound.
+//
+// Yes, that *is* a little confusing:
+// The user will deliver us a steady diet of so-called instantaneous measurements. We will keep the I most recent
+// of those measurements. Every time that we get a new instantaneous measurement, we will recalculate the moving
+// average of the I most instantaneous measurements. We will call that an instantaneous moving average. We keep the K
+// most recent instantaneous moving averages. Every time that we calculate a new instantaneous moving average, we will
+// calculate the standard deviation of those values. If the calculated standard deviation is less than S, we declare
+// stability.
+
+func NewProbeStabilizer(i uint64, k uint64, s float64, debugLevel debug.DebugLevel, debug *debug.DebugWithPrefix) ProbeStabilizer {
 	return ProbeStabilizer{instantaneousMeasurements: ms.NewCappedMathematicalSeries[float64](i),
 		movingAverages:             ms.NewCappedMathematicalSeries[float64](k),
 		stabilityStandardDeviation: s,
@@ -57,7 +69,7 @@ func (r3 *ProbeStabilizer) AddMeasurement(measurement rpm.ProbeDataPoint) {
 			"%s: MA: %f ns (previous %d intervals).\n",
 			r3.dbgConfig.String(),
 			r3.movingAverages.CalculateAverage(),
-			r3.movingAverages.Size(),
+			r3.movingAverages.Len(),
 		)
 	}
 }
@@ -96,7 +108,7 @@ func (r3 *ProbeStabilizer) IsStable() bool {
 	return isStable
 }
 
-func NewThroughputStabilizer(i int, k int, s float64, debugLevel debug.DebugLevel, debug *debug.DebugWithPrefix) ThroughputStabilizer {
+func NewThroughputStabilizer(i uint64, k uint64, s float64, debugLevel debug.DebugLevel, debug *debug.DebugWithPrefix) ThroughputStabilizer {
 	return ThroughputStabilizer{instantaneousMeasurements: ms.NewCappedMathematicalSeries[float64](i),
 		movingAverages:             ms.NewCappedMathematicalSeries[float64](k),
 		stabilityStandardDeviation: s,
@@ -118,7 +130,7 @@ func (r3 *ThroughputStabilizer) AddMeasurement(measurement rpm.ThroughputDataPoi
 			"%s: MA: %f Mbps (previous %d intervals).\n",
 			r3.dbgConfig.String(),
 			r3.movingAverages.CalculateAverage(),
-			r3.movingAverages.Size(),
+			r3.movingAverages.Len(),
 		)
 	}
 }

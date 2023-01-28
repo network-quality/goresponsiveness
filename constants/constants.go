@@ -25,10 +25,10 @@ var (
 
 	// The number of previous instantaneous measurements to consider when generating the so-called
 	// instantaneous moving averages of a measurement.
-	InstantaneousThroughputMeasurementCount int = 4
-	InstantaneousProbeMeasurementCount      int = 1
+	InstantaneousThroughputMeasurementCount uint64 = 4
+	InstantaneousProbeMeasurementCount      uint64 = 1
 	// The number of instantaneous moving averages to consider when determining stability.
-	InstantaneousMovingAverageStabilityCount int = 4
+	InstantaneousMovingAverageStabilityCount uint64 = 4
 	// The standard deviation cutoff used to determine stability among the K preceding moving averages
 	// of a measurement (as a percentage of the mean).
 	StabilityStandardDeviation float64 = 5.0

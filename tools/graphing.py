@@ -108,7 +108,7 @@ def throughputClean(df):
 
 
 def granularClean(df):
-    df.columns = ["CreationTime", "Throughput", "ID", "Type", "Empty"]
+    df.columns = ["CreationTime", "Throughput", "ID", "RTT", "Cwnd", "Type", "Empty"]
     df = df.drop(columns=["Empty"])
     df["CreationTime"] = pd.to_datetime(df["CreationTime"], format="%m-%d-%Y-%H-%M-%S.%f")
     df["Type"] = df["Type"].apply(str.strip)
