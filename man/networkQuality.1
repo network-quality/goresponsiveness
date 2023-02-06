@@ -1,0 +1,116 @@
+.\" This file is part of Go Responsiveness.
+.\"
+.\" Go Responsiveness is free software: you can redistribute it and/or modify it under
+\" the terms of the GNU General Public License as published by the Free Software Foundation,
+.\" either version 2 of the License, or (at your option) any later version.
+.\" Go Responsiveness is distributed in the hope that it will be useful, but WITHOUT ANY
+.\" WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+.\" PARTICULAR PURPOSE. See the GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public License along
+.\" with Go Responsiveness. If not, see <https://www.gnu.org/licenses/>.
+.TH networkQuality 1 2022-02-03 "Linux"
+.SH NAME
+networkQuality \- Test the responsivess of a network connection under working conditions
+.SH SYNOPSIS
+.B networkQuality
+[\fB-config\fR \fIADDRESS\fR]
+[\fB-path\fR \fIPATH\fR]
+[\fB-port\fR \fIPORT\fR]
+.SH DESCRIPTION
+.B networkQuality
+tests the responsivess of a network connection under working conditions using
+the methodology standardized by [1]. The methodology
+uses common protocols and mechanisms to measure user experience specifically when
+the network is under working conditions.
+The measurement is expressed as ``Round-trips Per Minute'' (RPM).
+The higher the RPM, the more responsive the network connection will be under the conditions
+a user will experience in everyday use.
+
+Configuration options allow the user to test against a server of their choosing (using the
+.B \-config
+command-line parameter). The user can also select to gather granular statistics about the test (using the
+.B \-extended-stats
+and
+.B \-logger-filename
+command-line parameters). Because the test uses HTTP2 connections (over SSL), the user will need
+cryptographic key information to dissect the network traffic the tests generate. The user can
+use the 
+.B \-ssl-key-file
+option to save these keys.
+
+.SH OPTIONS
+.TP
+.BR \-config " " \fIADDRESS\fR
+.IP
+Set the name/IP of responsiveness configuration server. Default is "networkquality.example.com".
+.TP
+.BR \-debug
+.IP
+Enable debugging.
+.TP
+.BR \-extended-stats
+.IP
+Enable the collection and display of extended statistics \-\- may not
+be available on certain platforms.
+.TP
+.BR \-logger-filename " " \fIFILE\fR
+.IP
+Enables capture of granular information about tests results in files
+with \fIFILE\fR basename. Time and information type will be appended
+(before the first \.) to create separate log files. Disabled by default.
+.TP
+.BR \-path " " \fIPATH\fR
+.IP
+Sets the path on the server of the configuration endpoint. Default is "config".
+.TP
+.BR \-port " " \fIPORT\fR
+.IP
+Set the port number to access responsiveness configuration server. Default is 4043.
+.TP
+.BR \-probe-interval-time " " \fIMS\fR
+.IP
+Set the time (in ms) between probes (foreign and self). Default is 100.
+.TP
+.TP
+.BR \-profile " " \fIPATH\fR
+.IP
+Enables the capture of client runtime profile information to \fIPATH\fR. Disabled by default.
+.TP
+.BR \-rpmtimeout " " \fISECONDS\fR
+.IP
+Set the Maximum time (in seconds) to spend calculating RPM (i.e., total test time.). Default is 10.
+.TP
+.BR \-ssl-key-file " " \fIPATH\fR
+.IP
+Enable storage of per-session SSL keys in this file.
+.SH EXIT STATUS
+TBD
+.SH CONFORMING TO
+The in-progress IETF RFC [1].
+.SH EXAMPLES
+Use 
+.PP
+.nf
+.ft B
+networkQuality -config rpm.obs.cr -path config -port 4043 -debug
+.ft R
+.fi
+.PP
+to test responsiveness between a client and the host 
+.BR rpm.obs.cr
+with a server running on port 
+.BR 4043
+and the configuration path 
+.BR config.
+.SH SEE ALSO
+[1] C. Paasch, ``Responsiveness under Working Conditions,'' RFC Editor, RFC, Oct. 2022. [Online]. Available: https://github.com/network-quality/draft-ietf-ippm-responsiveness
+.SH AUTHORS
+Jeroen Shickendantz, Will Hawkins and Community. See \fBhttps://github.com/network-quality/goresponsiveness/graphs/contributors\fR for additional information.
+.SH REPORTING BUGS
+Please submit bugs to \fBhttps://github.com/network-quality/goresponsiveness/issues\fR.
+.SH COPYRIGHT
+Go Responsiveness is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 2 of the License, or (at your option) any later version. 
+Go Responsiveness is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with Go Responsiveness. If not, see <https://www.gnu.org/licenses/>.
