@@ -18,6 +18,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
 	"runtime/pprof"
 	"time"
@@ -52,6 +53,11 @@ var (
 		"path",
 		"config",
 		"path on the server to the configuration endpoint.",
+	)
+	configURL = flag.String(
+		"url",
+		"",
+		"configuration URL (takes precedence over other configuration parts)",
 	)
 	debugCliFlag = flag.Bool(
 		"debug",
@@ -95,7 +101,24 @@ func main() {
 
 	timeoutDuration := time.Second * time.Duration(*rpmtimeout)
 	timeoutAbsoluteTime := time.Now().Add(timeoutDuration)
-	configHostPort := fmt.Sprintf("%s:%d", *configHost, *configPort)
+
+	var configHostPort string
+
+	// if user specified a full URL, use that and set the various parts we need out of it
+	if len(*configURL) > 0 {
+		parsedURL, err := url.ParseRequestURI(*configURL)
+		if err != nil {
+			fmt.Printf("Error: Could not parse %q: %s", *configURL, err)
+			os.Exit(1)
+		}
+
+		*configHost = parsedURL.Hostname()
+		*configPath = parsedURL.Path
+		// We don't explicitly care about configuring the *configPort.
+		configHostPort = parsedURL.Host // host or host:port
+	} else {
+		configHostPort = fmt.Sprintf("%s:%d", *configHost, *configPort)
+	}
 
 	// This is the overall operating context of the program. All other
 	// contexts descend from this one. Canceling this one cancels all
