@@ -25,7 +25,7 @@ To install Go, follow the excellent documentation [online](https://go.dev/doc/in
 
 To get the source code, 
 
-```
+```console
 $ git clone https://github.com/network-quality/goresponsiveness.git
 ```
 
@@ -34,12 +34,12 @@ For the remainder of the instructions, we will assume that `${RSPVNSS_SOURCE_DIR
 ### Build
 
 From `${RSPVNSS_SOURCE_DIR}` grab all the required modules:
-```
+```console
 $ go mod download
 ```
 
 And then build:
-```
+```console
 $ go build networkQuality.go
 ```
 
@@ -49,14 +49,14 @@ That will create an executable in `${RSPVNSS_SOURCE_DIR}` named `networkQuality`
 
 From `${RSPVNSS_SOURCE_DIR}`, running the client is straightforward. Simply 
 
-```
+```console
 $ ./networkQuality
 ```
 
 Without any options, the tool will attempt to contact `networkquality.example.com` on port 4043 to conduct a measurement. That's likely *not* what you intended. To find out all the options for configuring the execution of the tool, specify the `--help` option:
 
-```
-$./networkQuality --help
+```console
+$ ./networkQuality --help
 ```
 
 `networkQuality` with the `-help` option will generate the following output:
@@ -84,7 +84,7 @@ To facilitate testing, you may want to use the open-source RPM server available 
 
 You can also test against the Apple infrastructure using:
 
-```
+```console
 $ ./networkQuality --config mensura.cdn-apple.com --port 443 --path /api/v1/gm/config
 ```
 
@@ -94,7 +94,7 @@ This repo contains a Dockerfile for running the binary so you
 don't have to install any languages or build tools.
 To use it:
 
-```
+```bash
 # build the container
 docker build -t goresp .   
 
@@ -109,14 +109,20 @@ docker run --rm goresp --config mensura.cdn-apple.com --port 443 --path /api/v1/
 
 We *love* contributions. Before submitting a patch, first format your code with `go fmt`. Then, run `golines`:
 
-```
+```console
 $ golines -w .
 ```
 
 You can easily install `golines` in to your `${GOPATH}` with
 
-```
+```console
 $ go install github.com/segmentio/golines@latest
+```
+
+As a bonus, there are unit tests to check for regressions:
+
+```console
+$ go test ./timeoutat ./ms ./utilities  ./traceable
 ```
 
 ## References
