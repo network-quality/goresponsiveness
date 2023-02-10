@@ -572,11 +572,6 @@ timeout:
 	// Calculate the RPM
 
 	// First, let's do a double-sided trim of the top/bottom 10% of our measurements.
-
-	if *debugCliFlag {
-		fmt.Printf("")
-	}
-
 	selfRttsTotalCount := selfRtts.Len()
 	foreignRttsTotalCount := foreignRtts.Len()
 
@@ -590,14 +585,15 @@ timeout:
 	selfProbeRoundTripTimeMean := selfRttsTrimmed.CalculateAverage()
 	foreignProbeRoundTripTimeMean := foreignRttsTrimmed.CalculateAverage()
 
+	// Second, let's do the P90 calculations.
 	selfProbeRoundTripTimeP90 := selfRtts.Percentile(90)
-	// The specification indicates that we want to calculate the foreign probes as such:
+	foreignProbeRoundTripTimeP90 := foreignRtts.Percentile(90)
+
+	// Note: The specification indicates that we want to calculate the foreign probes as such:
 	// 1/3*tcp_foreign + 1/3*tls_foreign + 1/3*http_foreign
 	// where tcp_foreign, tls_foreign, http_foreign are the P90 RTTs for the connection
 	// of the tcp, tls and http connections, respectively. However, we cannot break out
-	// the individual RTTs so we assume that they are roughly equal. The good news is that
-	// we already did that roughly-equal split up when we added them to the foreignRtts IMS.
-	foreignProbeRoundTripTimeP90 := foreignRtts.Percentile(90)
+	// the individual RTTs so we assume that they are roughly equal.
 
 	// This is 60 because we measure in seconds not ms
 	p90Rpm := 60.0 / (float64(selfProbeRoundTripTimeP90+foreignProbeRoundTripTimeP90) / 2.0)
@@ -605,10 +601,14 @@ timeout:
 
 	if *debugCliFlag {
 		fmt.Printf(
-			`Total Self Probes: %d, Total Foreign Probes: %d
-Trimmed Self Probes Count: %d, Trimmed Foreign Probes Count: %d
-P90 Self RTT: %f, P90 Foreign RTT: %f
-Trimmed Mean Self RTT: %f, Trimmed Mean Foreign RTT: %f
+			`Total Self Probes:            %d
+Total Foreign Probes:         %d
+Trimmed Self Probes Count:    %d
+Trimmed Foreign Probes Count: %d
+P90 Self RTT:                 %f
+P90 Foreign RTT:              %f
+Trimmed Mean Self RTT:        %f
+Trimmed Mean Foreign RTT:     %f
 `,
 			selfRttsTotalCount,
 			foreignRttsTotalCount,
@@ -624,8 +624,9 @@ Trimmed Mean Self RTT: %f, Trimmed Mean Foreign RTT: %f
 	if !testRanToStability {
 		fmt.Printf("Test did not run to stability, these results are estimates:\n")
 	}
-	fmt.Printf("P90 RPM: %5.0f\n", p90Rpm)
-	fmt.Printf("Trimmed Mean RPM: %5.0f\n", meanRpm)
+
+	fmt.Printf("RPM: %5.0f (P90)\n", p90Rpm)
+	fmt.Printf("RPM: %5.0f (Double-Sided 10%% Trimmed Mean)\n", meanRpm)
 
 	fmt.Printf(
 		"Download: %7.3f Mbps (%7.3f MBps), using %d parallel connections.\n",

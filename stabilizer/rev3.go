@@ -85,7 +85,7 @@ func (r3 *ProbeStabilizer) IsStable() bool {
 	}
 
 	// Stability is determined by whether or not the standard deviation of the values
-	// is within 5% of the average.
+	// is within some percentage of the average.
 	stabilityCutoff := r3.movingAverages.CalculateAverage() * (r3.stabilityStandardDeviation / 100.0)
 	isStable := stddev <= stabilityCutoff
 
@@ -145,7 +145,7 @@ func (r3 *ThroughputStabilizer) IsStable() bool {
 	}
 
 	// Stability is determined by whether or not the standard deviation of the values
-	// is within 5% of the average.
+	// is within some percentage of the average.
 	stabilityCutoff := r3.movingAverages.CalculateAverage() * (r3.stabilityStandardDeviation / 100.0)
 	isStable := stddev <= stabilityCutoff
 
