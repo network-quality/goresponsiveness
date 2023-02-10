@@ -41,7 +41,13 @@ type ThroughputStabilizer DataPointStabilizer
 // calculate the standard deviation of those values. If the calculated standard deviation is less than S, we declare
 // stability.
 
-func NewProbeStabilizer(i uint64, k uint64, s float64, debugLevel debug.DebugLevel, debug *debug.DebugWithPrefix) ProbeStabilizer {
+func NewProbeStabilizer(
+	i uint64,
+	k uint64,
+	s float64,
+	debugLevel debug.DebugLevel,
+	debug *debug.DebugWithPrefix,
+) ProbeStabilizer {
 	return ProbeStabilizer{instantaneousMeasurements: ms.NewCappedMathematicalSeries[float64](i),
 		movingAverages:             ms.NewCappedMathematicalSeries[float64](k),
 		stabilityStandardDeviation: s,
@@ -58,7 +64,9 @@ func (r3 *ProbeStabilizer) AddMeasurement(measurement rpm.ProbeDataPoint) {
 	// be 1 / measurement.RoundTripCount of the total length.
 	for range utilities.Iota(0, int(measurement.RoundTripCount)) {
 		// Add this instantaneous measurement to the mix of the I previous instantaneous measurements.
-		r3.instantaneousMeasurements.AddElement(measurement.Duration.Seconds() / float64(measurement.RoundTripCount))
+		r3.instantaneousMeasurements.AddElement(
+			measurement.Duration.Seconds() / float64(measurement.RoundTripCount),
+		)
 	}
 	// Calculate the moving average of the I previous instantaneous measurements and add it to
 	// the mix of K previous moving averages.
@@ -108,12 +116,20 @@ func (r3 *ProbeStabilizer) IsStable() bool {
 	return isStable
 }
 
-func NewThroughputStabilizer(i uint64, k uint64, s float64, debugLevel debug.DebugLevel, debug *debug.DebugWithPrefix) ThroughputStabilizer {
-	return ThroughputStabilizer{instantaneousMeasurements: ms.NewCappedMathematicalSeries[float64](i),
+func NewThroughputStabilizer(
+	i uint64,
+	k uint64,
+	s float64,
+	debugLevel debug.DebugLevel,
+	debug *debug.DebugWithPrefix,
+) ThroughputStabilizer {
+	return ThroughputStabilizer{
+		instantaneousMeasurements:  ms.NewCappedMathematicalSeries[float64](i),
 		movingAverages:             ms.NewCappedMathematicalSeries[float64](k),
 		stabilityStandardDeviation: s,
 		dbgConfig:                  debug,
-		dbgLevel:                   debugLevel}
+		dbgLevel:                   debugLevel,
+	}
 }
 
 func (r3 *ThroughputStabilizer) AddMeasurement(measurement rpm.ThroughputDataPoint) {

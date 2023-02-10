@@ -29,14 +29,19 @@ func Test_InfiniteSequentialIncreasesAlwaysLessThan(test *testing.T) {
 		series.AddElement(float64(previous))
 	}
 	if islt, maxSeqIncrease := series.AllSequentialIncreasesLessThan(6.0); !islt {
-		test.Fatalf("(infinite) Sequential increases are not always less than 6.0 (%f).", maxSeqIncrease)
+		test.Fatalf(
+			"(infinite) Sequential increases are not always less than 6.0 (%f).",
+			maxSeqIncrease,
+		)
 	}
 }
 func Test_CappedTooFewInstantsSequentialIncreasesLessThanAlwaysFalse(test *testing.T) {
 	series := NewCappedMathematicalSeries[float64](500)
 	series.AddElement(0.0)
 	if islt, _ := series.AllSequentialIncreasesLessThan(6.0); islt {
-		test.Fatalf("(infinite) 0 elements in a series should always yield false when asking if sequential increases are less than a value.")
+		test.Fatalf(
+			"(infinite) 0 elements in a series should always yield false when asking if sequential increases are less than a value.",
+		)
 	}
 }
 
@@ -66,7 +71,10 @@ func Test_Infinite90_percentile(test *testing.T) {
 	series.AddElement(1)
 
 	if series.Percentile(90) != 10 {
-		test.Fatalf("(infinite) Series 90th percentile of 0 ... 10 failed: Expected 10 got %v.", series.Percentile(90))
+		test.Fatalf(
+			"(infinite) Series 90th percentile of 0 ... 10 failed: Expected 10 got %v.",
+			series.Percentile(90),
+		)
 	}
 }
 
@@ -84,7 +92,10 @@ func Test_Infinite90_percentile_reversed(test *testing.T) {
 	series.AddElement(10)
 
 	if series.Percentile(90) != 10 {
-		test.Fatalf("(infinite) Series 90th percentile of 0 ... 10 failed: Expected 10 got %v.", series.Percentile(90))
+		test.Fatalf(
+			"(infinite) Series 90th percentile of 0 ... 10 failed: Expected 10 got %v.",
+			series.Percentile(90),
+		)
 	}
 }
 
@@ -102,7 +113,10 @@ func Test_Infinite50_percentile_jumbled(test *testing.T) {
 	series.AddElement(12)
 
 	if series.Percentile(50) != 15 {
-		test.Fatalf("(infinite) Series 50 percentile of a jumble of numbers failed: Expected 15 got %v.", series.Percentile(50))
+		test.Fatalf(
+			"(infinite) Series 50 percentile of a jumble of numbers failed: Expected 15 got %v.",
+			series.Percentile(50),
+		)
 	}
 }
 
@@ -132,7 +146,11 @@ func Test_InfiniteDoubleSidedTrimmedMean_jumbled(test *testing.T) {
 	trimmed := series.DoubleSidedTrim(10)
 
 	if trimmed.Len() != 16 {
-		test.Fatalf("Capped series is not of the proper size. Expected %v and got %v", 16, trimmed.Len())
+		test.Fatalf(
+			"Capped series is not of the proper size. Expected %v and got %v",
+			16,
+			trimmed.Len(),
+		)
 	}
 
 	prev := int64(0)
@@ -172,7 +190,10 @@ func Test_CappedSequentialIncreasesAlwaysLessThanWithWraparound(test *testing.T)
 	}
 
 	if islt, maxSeqIncrease := series.AllSequentialIncreasesLessThan(11.0); !islt {
-		test.Fatalf("Sequential increases are not always less than 11.0 in wraparound situation (%f v 11.0).", maxSeqIncrease)
+		test.Fatalf(
+			"Sequential increases are not always less than 11.0 in wraparound situation (%f v 11.0).",
+			maxSeqIncrease,
+		)
 	}
 }
 
@@ -192,7 +213,10 @@ func Test_CappedSequentialIncreasesAlwaysLessThanWithWraparoundInverse(test *tes
 	}
 
 	if islt, maxSeqIncrease := series.AllSequentialIncreasesLessThan(11.0); islt {
-		test.Fatalf("Sequential increases are (unexpectedly) always less than 11.0 in wraparound situation: %f v 11.0.", maxSeqIncrease)
+		test.Fatalf(
+			"Sequential increases are (unexpectedly) always less than 11.0 in wraparound situation: %f v 11.0.",
+			maxSeqIncrease,
+		)
 	}
 }
 
@@ -271,7 +295,10 @@ func Test_Capped90_percentile(test *testing.T) {
 	series.AddElement(1)
 
 	if series.Percentile(90) != 10 {
-		test.Fatalf("Series 90th percentile of 0 ... 10 failed: Expected 10 got %v.", series.Percentile(90))
+		test.Fatalf(
+			"Series 90th percentile of 0 ... 10 failed: Expected 10 got %v.",
+			series.Percentile(90),
+		)
 	}
 }
 
@@ -289,7 +316,10 @@ func Test_Capped90_percentile_reversed(test *testing.T) {
 	series.AddElement(10)
 
 	if series.Percentile(90) != 10 {
-		test.Fatalf("Series 90th percentile of 0 ... 10 failed: Expected 10 got %v.", series.Percentile(90))
+		test.Fatalf(
+			"Series 90th percentile of 0 ... 10 failed: Expected 10 got %v.",
+			series.Percentile(90),
+		)
 	}
 }
 
@@ -307,7 +337,10 @@ func Test_Capped50_percentile_jumbled(test *testing.T) {
 	series.AddElement(12)
 
 	if series.Percentile(50) != 15 {
-		test.Fatalf("Series 50 percentile of a jumble of numbers failed: Expected 15 got %v.", series.Percentile(50))
+		test.Fatalf(
+			"Series 50 percentile of a jumble of numbers failed: Expected 15 got %v.",
+			series.Percentile(50),
+		)
 	}
 }
 
@@ -328,7 +361,11 @@ func Test_CappedDoubleSidedTrimmedMean_jumbled(test *testing.T) {
 	trimmed := series.DoubleSidedTrim(10)
 
 	if trimmed.Len() != 8 {
-		test.Fatalf("Capped series is not of the proper size. Expected %v and got %v", 8, trimmed.Len())
+		test.Fatalf(
+			"Capped series is not of the proper size. Expected %v and got %v",
+			8,
+			trimmed.Len(),
+		)
 	}
 
 	prev := int64(0)

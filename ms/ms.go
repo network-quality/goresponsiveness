@@ -46,7 +46,10 @@ func calculateAverage[T constraints.Integer | constraints.Float](elements []T) f
 	return float64(total) / float64(len(elements))
 }
 
-func calculatePercentile[T constraints.Integer | constraints.Float](elements []T, p int) (result T) {
+func calculatePercentile[T constraints.Integer | constraints.Float](
+	elements []T,
+	p int,
+) (result T) {
 	result = T(0)
 	if p < 0 || p > 100 {
 		return
@@ -76,7 +79,9 @@ func (ims *InfiniteMathematicalSeries[T]) Less(i, j int) bool {
 
 func (ims *InfiniteMathematicalSeries[T]) DoubleSidedTrim(percent uint32) MathematicalSeries[T] {
 	if percent >= 100 {
-		panic(fmt.Sprintf("Cannot perform double-sided trim for an invalid percentage: %d", percent))
+		panic(
+			fmt.Sprintf("Cannot perform double-sided trim for an invalid percentage: %d", percent),
+		)
 	}
 
 	trimmed := &InfiniteMathematicalSeries[T]{}
@@ -106,7 +111,9 @@ func (ims *InfiniteMathematicalSeries[T]) CalculateAverage() float64 {
 	return calculateAverage(ims.elements)
 }
 
-func (ims *InfiniteMathematicalSeries[T]) AllSequentialIncreasesLessThan(limit float64) (bool, float64) {
+func (ims *InfiniteMathematicalSeries[T]) AllSequentialIncreasesLessThan(
+	limit float64,
+) (bool, float64) {
 	if len(ims.elements) < 2 {
 		return false, 0.0
 	}
@@ -186,7 +193,9 @@ type CappedMathematicalSeries[T constraints.Float | constraints.Integer] struct 
 	divisor        *saturating.Saturating[uint64]
 }
 
-func NewCappedMathematicalSeries[T constraints.Float | constraints.Integer](instants_count uint64) MathematicalSeries[T] {
+func NewCappedMathematicalSeries[T constraints.Float | constraints.Integer](
+	instants_count uint64,
+) MathematicalSeries[T] {
 	return &CappedMathematicalSeries[T]{
 		elements:       make([]T, instants_count),
 		elements_count: instants_count,
@@ -209,7 +218,9 @@ func (ma *CappedMathematicalSeries[T]) CalculateAverage() float64 {
 	return calculateAverage(ma.elements[0:ma.divisor.Value()])
 }
 
-func (ma *CappedMathematicalSeries[T]) AllSequentialIncreasesLessThan(limit float64) (_ bool, maximumSequentialIncrease float64) {
+func (ma *CappedMathematicalSeries[T]) AllSequentialIncreasesLessThan(
+	limit float64,
+) (_ bool, maximumSequentialIncrease float64) {
 
 	// If we have not yet accumulated a complete set of intervals,
 	// this is false.
@@ -302,7 +313,13 @@ func (ma *CappedMathematicalSeries[T]) Values() []T {
 
 func (ma *CappedMathematicalSeries[T]) Len() int {
 	if uint64(len(ma.elements)) != ma.elements_count {
-		panic(fmt.Sprintf("Error: A capped mathematical series' metadata is invalid: the length of its element array/slice does not match element_count! (%v vs %v)", ma.elements_count, len(ma.elements)))
+		panic(
+			fmt.Sprintf(
+				"Error: A capped mathematical series' metadata is invalid: the length of its element array/slice does not match element_count! (%v vs %v)",
+				ma.elements_count,
+				len(ma.elements),
+			),
+		)
 	}
 	return len(ma.elements)
 }
@@ -331,7 +348,9 @@ func (ims *CappedMathematicalSeries[T]) Less(i, j int) bool {
 
 func (ims *CappedMathematicalSeries[T]) DoubleSidedTrim(percent uint32) MathematicalSeries[T] {
 	if percent >= 100 {
-		panic(fmt.Sprintf("Cannot perform double-sided trim for an invalid percentage: %d", percent))
+		panic(
+			fmt.Sprintf("Cannot perform double-sided trim for an invalid percentage: %d", percent),
+		)
 	}
 
 	trimmed := &CappedMathematicalSeries[T]{elements_count: uint64(ims.Len())}

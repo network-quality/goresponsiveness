@@ -447,7 +447,10 @@ func LoadGenerator(
 						)
 					}
 					// TODO: Do we add null connection to throughput? and how do we define it? Throughput -1 or 0?
-					granularThroughputDatapoints = append(granularThroughputDatapoints, GranularThroughputDataPoint{now, 0, uint32(i), 0, 0, ""})
+					granularThroughputDatapoints = append(
+						granularThroughputDatapoints,
+						GranularThroughputDataPoint{now, 0, uint32(i), 0, 0, ""},
+					)
 					continue
 				}
 				allInvalid = false
@@ -473,7 +476,17 @@ func LoadGenerator(
 						}
 					}
 				}
-				granularThroughputDatapoints = append(granularThroughputDatapoints, GranularThroughputDataPoint{now, instantaneousConnectionThroughput, uint32(i), tcpRtt, tcpCwnd, ""})
+				granularThroughputDatapoints = append(
+					granularThroughputDatapoints,
+					GranularThroughputDataPoint{
+						now,
+						instantaneousConnectionThroughput,
+						uint32(i),
+						tcpRtt,
+						tcpCwnd,
+						"",
+					},
+				)
 			}
 
 			// For some reason, all the lgcs are invalid. This likely means that
@@ -489,7 +502,12 @@ func LoadGenerator(
 			}
 
 			// We have generated a throughput calculation -- let's send it back to the coordinator
-			throughputDataPoint := ThroughputDataPoint{time.Now(), instantaneousTotalThroughput, len(*loadGeneratingConnections.LGCs), granularThroughputDatapoints}
+			throughputDataPoint := ThroughputDataPoint{
+				time.Now(),
+				instantaneousTotalThroughput,
+				len(*loadGeneratingConnections.LGCs),
+				granularThroughputDatapoints,
+			}
 			throughputCalculations <- throughputDataPoint
 
 			// Just add another constants.AdditiveNumberOfLoadGeneratingConnections flows -- that's our only job now!
