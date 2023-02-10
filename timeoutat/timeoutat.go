@@ -29,19 +29,17 @@ func TimeoutAt(
 ) (response chan interface{}) {
 	response = make(chan interface{})
 	go func(ctx context.Context) {
-		go func() {
-			if debug.IsDebug(debugLevel) {
-				fmt.Printf("Timeout expected to end at %v\n", when)
-			}
-			select {
-			case <-time.After(when.Sub(time.Now())):
-			case <-ctx.Done():
-			}
-			response <- struct{}{}
-			if debug.IsDebug(debugLevel) {
-				fmt.Printf("Timeout ended at %v\n", time.Now())
-			}
-		}()
+		if debug.IsDebug(debugLevel) {
+			fmt.Printf("Timeout expected to end at %v\n", when)
+		}
+		select {
+		case <-time.After(when.Sub(time.Now())):
+		case <-ctx.Done():
+		}
+		response <- struct{}{}
+		if debug.IsDebug(debugLevel) {
+			fmt.Printf("Timeout ended at %v\n", time.Now())
+		}
 	}(ctx)
 	return
 }
