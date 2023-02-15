@@ -45,6 +45,8 @@ $ go build networkQuality.go
 
 That will create an executable in `${RSPVNSS_SOURCE_DIR}` named `networkQuality`.
 
+> As a bonus, there are now `make`able targets (`all`, `build`, `test`, `clean`) in case that's easier to remember!
+
 ### Run
 
 From `${RSPVNSS_SOURCE_DIR}`, running the client is straightforward. Simply 
