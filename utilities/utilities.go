@@ -28,6 +28,11 @@ import (
 	"golang.org/x/exp/constraints"
 )
 
+var (
+	// GitVersion is the Git revision hash
+	GitVersion = "dev"
+)
+
 func Iota(low int, high int) (made []int) {
 
 	made = make([]int, high-low)
@@ -46,9 +51,6 @@ func SignedPercentDifference[T constraints.Float | constraints.Integer](
 	current T,
 	previous T,
 ) (difference float64) {
-	//return ((current - previous) / (float64(current+previous) / 2.0)) * float64(
-	//100,
-	//	)
 	fCurrent := float64(current)
 	fPrevious := float64(previous)
 	return ((fCurrent - fPrevious) / fPrevious) * 100.0
@@ -202,4 +204,8 @@ func ApproximatelyEqual[T float32 | float64](truth T, maybe T, fudge T) bool {
 	bFudge := float64(fudge)
 	diff := math.Abs((bTruth - bMaybe))
 	return diff < bFudge
+}
+
+func UserAgent() string {
+	return fmt.Sprintf("goresponsiveness/%s", GitVersion)
 }

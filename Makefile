@@ -1,6 +1,10 @@
+PKG          := github.com/network-quality/goresponsiveness
+GIT_VERSION  := $(shell git describe --always --long)
+LDFLAGS      := -ldflags "-X $(PKG)/utilities.GitVersion=$(GIT_VERSION)"
+
 all: build test
 build:
-	go build networkQuality.go
+	go build $(LDFLAGS) networkQuality.go
 test:
 	go test ./timeoutat/ ./traceable/ ./ms/ ./utilities/
 golines:

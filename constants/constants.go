@@ -46,4 +46,6 @@ var (
 	DefaultDebug bool = false
 	// The default URL for the config host.
 	DefaultConfigHost string = "networkquality.example.com"
+	// The default determination of whether to verify server certificates
+	DefaultInsecureSkipVerify bool = true
 )

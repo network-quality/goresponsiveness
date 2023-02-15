@@ -32,7 +32,6 @@ import (
 	"github.com/network-quality/goresponsiveness/stats"
 	"github.com/network-quality/goresponsiveness/traceable"
 	"github.com/network-quality/goresponsiveness/utilities"
-	"golang.org/x/net/http2"
 )
 
 func addFlows(
@@ -61,8 +60,10 @@ func addFlows(
 }
 
 type ProbeConfiguration struct {
-	URL  string
-	Host string
+	ConnectToAddr      string
+	URL                string
+	Host               string
+	InsecureSkipVerify bool
 }
 
 type ProbeDataPoint struct {
@@ -157,12 +158,9 @@ func Probe(
 		return err
 	}
 
-	// To support test_endpoint
-	if len(probeHost) != 0 {
-		probe_req.Host = probeHost
-	}
 	// Used to disable compression
 	probe_req.Header.Set("Accept-Encoding", "identity")
+	probe_req.Header.Set("User-Agent", utilities.UserAgent())
 
 	probe_resp, err := client.Do(probe_req)
 	if err != nil {
@@ -292,8 +290,9 @@ func CombinedProber(
 					probeCount+1,
 				)
 			}
-			transport := http2.Transport{}
+			transport := &http.Transport{}
 			transport.TLSClientConfig = &tls.Config{}
+			transport.Proxy = http.ProxyFromEnvironment
 
 			if !utilities.IsInterfaceNil(keyLogger) {
 				if debug.IsDebug(debugging.Level) {
@@ -311,9 +310,12 @@ func CombinedProber(
 				// https://github.com/golang/go/blob/7ca6902c171b336d98adbb103d701a013229c806/src/net/http/transport.go#L74
 				transport.TLSClientConfig.KeyLogWriter = keyLogger
 			}
-			transport.TLSClientConfig.InsecureSkipVerify = true
 
-			foreignProbeClient := &http.Client{Transport: &transport}
+			transport.TLSClientConfig.InsecureSkipVerify = foreignProbeConfiguration.InsecureSkipVerify
+
+			utilities.OverrideHostTransport(transport, foreignProbeConfiguration.ConnectToAddr)
+
+			foreignProbeClient := &http.Client{Transport: transport}
 
 			// Start Foreign Connection Prober
 			probeCount++

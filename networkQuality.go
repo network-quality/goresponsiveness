@@ -95,15 +95,35 @@ var (
 		100,
 		"Time (in ms) between probes (foreign and self).",
 	)
+	connectToAddr = flag.String(
+		"connect-to",
+		"",
+		"address (hostname or IP) to connect to (overriding DNS). Disabled by default.",
+	)
+	insecureSkipVerify = flag.Bool(
+		"insecure-skip-verify",
+		constants.DefaultInsecureSkipVerify,
+		"Enable server certificate validation.",
+	)
 	prometheusStatsFilename = flag.String(
 		"prometheus-stats-filename",
 		"",
 		"If filename specified, prometheus stats will be written. If specified file exists, it will be overwritten.",
 	)
+	showVersion = flag.Bool(
+		"version",
+		false,
+		"Show version.",
+	)
 )
 
 func main() {
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Fprintf(os.Stdout, "goresponsiveness %s\n", utilities.GitVersion)
+		os.Exit(0)
+	}
 
 	timeoutDuration := time.Second * time.Duration(*rpmtimeout)
 	timeoutAbsoluteTime := time.Now().Add(timeoutDuration)
@@ -143,7 +163,9 @@ func main() {
 	// all the network connections that are responsible for generating the load.
 	networkActivityCtx, networkActivityCtxCancel := context.WithCancel(operatingCtx)
 
-	config := &config.Config{}
+	config := &config.Config{
+		ConnectToAddr: *connectToAddr,
+	}
 	var debugLevel debug.DebugLevel = debug.Error
 
 	if *debugCliFlag {
@@ -176,9 +198,9 @@ func main() {
 		}
 	}
 
-	if err := config.Get(configHostPort, *configPath, sslKeyFileConcurrentWriter); err != nil {
+	if err := config.Get(configHostPort, *configPath, *insecureSkipVerify, sslKeyFileConcurrentWriter); err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
-		return
+		os.Exit(1)
 	}
 	if err := config.IsValid(); err != nil {
 		fmt.Fprintf(
@@ -187,7 +209,7 @@ func main() {
 			config.Source,
 			err,
 		)
-		return
+		os.Exit(1)
 	}
 	if debug.IsDebug(debugLevel) {
 		fmt.Printf("Configuration: %s\n", config)
@@ -219,7 +241,7 @@ func main() {
 				*profile,
 				err,
 			)
-			return
+			os.Exit(1)
 		}
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
@@ -332,31 +354,34 @@ func main() {
 	 */
 	generate_lgd := func() lgc.LoadGeneratingConnection {
 		return &lgc.LoadGeneratingConnectionDownload{
-			Path:      config.Urls.LargeUrl,
-			Host:      config.Urls.LargeUrlHost,
-			KeyLogger: sslKeyFileConcurrentWriter,
+			URL:                config.Urls.LargeUrl,
+			KeyLogger:          sslKeyFileConcurrentWriter,
+			ConnectToAddr:      config.ConnectToAddr,
+			InsecureSkipVerify: *insecureSkipVerify,
 		}
 	}
 
 	generate_lgu := func() lgc.LoadGeneratingConnection {
 		return &lgc.LoadGeneratingConnectionUpload{
-			Path:      config.Urls.UploadUrl,
-			Host:      config.Urls.UploadUrlHost,
-			KeyLogger: sslKeyFileConcurrentWriter,
+			URL:           config.Urls.UploadUrl,
+			KeyLogger:     sslKeyFileConcurrentWriter,
+			ConnectToAddr: config.ConnectToAddr,
 		}
 	}
 
 	generateSelfProbeConfiguration := func() rpm.ProbeConfiguration {
 		return rpm.ProbeConfiguration{
-			URL:  config.Urls.SmallUrl,
-			Host: config.Urls.SmallUrlHost,
+			URL:                config.Urls.SmallUrl,
+			ConnectToAddr:      config.ConnectToAddr,
+			InsecureSkipVerify: *insecureSkipVerify,
 		}
 	}
 
 	generateForeignProbeConfiguration := func() rpm.ProbeConfiguration {
 		return rpm.ProbeConfiguration{
-			URL:  config.Urls.SmallUrl,
-			Host: config.Urls.SmallUrlHost,
+			URL:                config.Urls.SmallUrl,
+			ConnectToAddr:      config.ConnectToAddr,
+			InsecureSkipVerify: *insecureSkipVerify,
 		}
 	}
 

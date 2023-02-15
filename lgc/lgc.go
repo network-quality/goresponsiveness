@@ -29,7 +29,6 @@ import (
 	"github.com/network-quality/goresponsiveness/stats"
 	"github.com/network-quality/goresponsiveness/traceable"
 	"github.com/network-quality/goresponsiveness/utilities"
-	"golang.org/x/net/http2"
 )
 
 type LoadGeneratingConnection interface {
@@ -53,19 +52,20 @@ func NewLoadGeneratingConnectionCollection() LoadGeneratingConnectionCollection 
 // TODO: All 64-bit fields that are accessed atomically must
 // appear at the top of this struct.
 type LoadGeneratingConnectionDownload struct {
-	downloaded        uint64
-	lastIntervalEnd   int64
-	Path              string
-	Host              string
-	downloadStartTime time.Time
-	lastDownloaded    uint64
-	client            *http.Client
-	debug             debug.DebugLevel
-	valid             bool
-	KeyLogger         io.Writer
-	clientId          uint64
-	tracer            *httptrace.ClientTrace
-	stats             stats.TraceStats
+	downloaded         uint64
+	lastIntervalEnd    int64
+	ConnectToAddr      string
+	URL                string
+	downloadStartTime  time.Time
+	lastDownloaded     uint64
+	client             *http.Client
+	debug              debug.DebugLevel
+	valid              bool
+	InsecureSkipVerify bool
+	KeyLogger          io.Writer
+	clientId           uint64
+	tracer             *httptrace.ClientTrace
+	stats              stats.TraceStats
 }
 
 func (lgd *LoadGeneratingConnectionDownload) SetDnsStartTimeInfo(
@@ -257,8 +257,13 @@ func (lgd *LoadGeneratingConnectionDownload) Start(
 	lgd.downloaded = 0
 	lgd.debug = debugLevel
 	lgd.clientId = utilities.GenerateUniqueId()
-	transport := http2.Transport{}
-	transport.TLSClientConfig = &tls.Config{}
+
+	transport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: lgd.InsecureSkipVerify,
+		},
+	}
 
 	if !utilities.IsInterfaceNil(lgd.KeyLogger) {
 		if debug.IsDebug(lgd.debug) {
@@ -276,9 +281,11 @@ func (lgd *LoadGeneratingConnectionDownload) Start(
 		// https://github.com/golang/go/blob/7ca6902c171b336d98adbb103d701a013229c806/src/net/http/transport.go#L74
 		transport.TLSClientConfig.KeyLogWriter = lgd.KeyLogger
 	}
-	transport.TLSClientConfig.InsecureSkipVerify = true
+	transport.TLSClientConfig.InsecureSkipVerify = lgd.InsecureSkipVerify
 
-	lgd.client = &http.Client{Transport: &transport}
+	utilities.OverrideHostTransport(transport, lgd.ConnectToAddr)
+
+	lgd.client = &http.Client{Transport: transport}
 	lgd.valid = true
 	lgd.tracer = traceable.GenerateHttpTimingTracer(lgd, lgd.debug)
 
@@ -309,26 +316,16 @@ func (lgd *LoadGeneratingConnectionDownload) doDownload(ctx context.Context) {
 	if request, err = http.NewRequestWithContext(
 		httptrace.WithClientTrace(ctx, lgd.tracer),
 		"GET",
-		lgd.Path,
+		lgd.URL,
 		nil,
 	); err != nil {
 		lgd.valid = false
 		return
 	}
 
-	// To support test_endpoint
-	if len(lgd.Host) != 0 {
-		if debug.IsDebug(lgd.debug) {
-			fmt.Printf(
-				"Because of a test_endpoint in the config, there is a special Host set for this connection: %s\n",
-				lgd.Host,
-			)
-		}
-		request.Host = lgd.Host
-	}
-
 	// Used to disable compression
 	request.Header.Set("Accept-Encoding", "identity")
+	request.Header.Set("User-Agent", utilities.UserAgent())
 
 	lgd.downloadStartTime = time.Now()
 	lgd.lastIntervalEnd = 0
@@ -355,17 +352,18 @@ func (lgd *LoadGeneratingConnectionDownload) doDownload(ctx context.Context) {
 // TODO: All 64-bit fields that are accessed atomically must
 // appear at the top of this struct.
 type LoadGeneratingConnectionUpload struct {
-	uploaded        uint64
-	lastIntervalEnd int64
-	Path            string
-	Host            string
-	uploadStartTime time.Time
-	lastUploaded    uint64
-	client          *http.Client
-	debug           debug.DebugLevel
-	valid           bool
-	KeyLogger       io.Writer
-	clientId        uint64
+	uploaded           uint64
+	lastIntervalEnd    int64
+	URL                string
+	ConnectToAddr      string
+	uploadStartTime    time.Time
+	lastUploaded       uint64
+	client             *http.Client
+	debug              debug.DebugLevel
+	valid              bool
+	InsecureSkipVerify bool
+	KeyLogger          io.Writer
+	clientId           uint64
 }
 
 func (lgu *LoadGeneratingConnectionUpload) ClientId() uint64 {
@@ -416,26 +414,16 @@ func (lgu *LoadGeneratingConnectionUpload) doUpload(ctx context.Context) bool {
 
 	if request, err = http.NewRequest(
 		"POST",
-		lgu.Path,
+		lgu.URL,
 		s,
 	); err != nil {
 		lgu.valid = false
 		return false
 	}
 
-	// To support test_endpoint
-	if len(lgu.Host) != 0 {
-		if debug.IsDebug(lgu.debug) {
-			fmt.Printf(
-				"Because of a test_endpoint in the config, there is a special Host set for this connection: %s\n",
-				lgu.Host,
-			)
-		}
-		request.Host = lgu.Host
-	}
-
 	// Used to disable compression
 	request.Header.Set("Accept-Encoding", "identity")
+	request.Header.Set("User-Agent", utilities.UserAgent())
 
 	lgu.uploadStartTime = time.Now()
 	lgu.lastIntervalEnd = 0
@@ -460,10 +448,12 @@ func (lgu *LoadGeneratingConnectionUpload) Start(
 	lgu.clientId = utilities.GenerateUniqueId()
 	lgu.debug = debugLevel
 
-	// See above for the rationale of doing http2.Transport{} here
-	// to ensure that we are using h2.
-	transport := http2.Transport{}
-	transport.TLSClientConfig = &tls.Config{}
+	transport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: lgu.InsecureSkipVerify,
+		},
+	}
 
 	if !utilities.IsInterfaceNil(lgu.KeyLogger) {
 		if debug.IsDebug(lgu.debug) {
@@ -473,9 +463,10 @@ func (lgu *LoadGeneratingConnectionUpload) Start(
 		}
 		transport.TLSClientConfig.KeyLogWriter = lgu.KeyLogger
 	}
-	transport.TLSClientConfig.InsecureSkipVerify = true
 
-	lgu.client = &http.Client{Transport: &transport}
+	utilities.OverrideHostTransport(transport, lgu.ConnectToAddr)
+
+	lgu.client = &http.Client{Transport: transport}
 	lgu.valid = true
 
 	if debug.IsDebug(lgu.debug) {
