@@ -18,7 +18,6 @@ import (
 	"context"
 	"crypto/tls"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptrace"
 	"sync"
@@ -141,7 +140,7 @@ func TestDuplicativeTraceables(t *testing.T) {
 		if err != nil {
 			return
 		}
-		_, _ = io.Copy(ioutil.Discard, get.Body)
+		_, _ = io.Copy(io.Discard, get.Body)
 		get.Body.Close()
 	}()
 	go func() {
@@ -150,7 +149,7 @@ func TestDuplicativeTraceables(t *testing.T) {
 		if err != nil {
 			return
 		}
-		_, _ = io.Copy(ioutil.Discard, get.Body)
+		_, _ = io.Copy(io.Discard, get.Body)
 		get.Body.Close()
 	}()
 

@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
@@ -59,7 +58,16 @@ func (c *Config) Get(configHost string, configPath string, keyLogger io.Writer) 
 		configPath = "/" + configPath
 	}
 	c.Source = fmt.Sprintf("https://%s%s", configHost, configPath)
-	resp, err := configClient.Get(c.Source)
+	req, err := http.NewRequest("GET", c.Source, nil)
+	if err != nil {
+		return fmt.Errorf(
+			"Error: Could not create request for configuration host %s: %v\n",
+			configHost,
+			err,
+		)
+	}
+
+	resp, err := configClient.Do(req)
 	if err != nil {
 		return fmt.Errorf(
 			"could not connect to configuration host %s: %v",
@@ -67,8 +75,17 @@ func (c *Config) Get(configHost string, configPath string, keyLogger io.Writer) 
 			err,
 		)
 	}
+	defer resp.Body.Close()
 
-	jsonConfig, err := ioutil.ReadAll(resp.Body)
+	if resp.StatusCode != 200 {
+		return fmt.Errorf(
+			"Error: Configuration host %s returned %d for config request\n",
+			configHost,
+			resp.StatusCode,
+		)
+	}
+
+	jsonConfig, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf(
 			"could not read configuration content downloaded from %s: %v",

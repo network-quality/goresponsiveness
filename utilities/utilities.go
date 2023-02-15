@@ -180,9 +180,9 @@ func OrTimeout(f func(), timeout time.Duration) {
 		return completed
 	}()
 	select {
-	case _ = <-completeChannel:
+	case <-completeChannel:
 		break
-	case _ = <-time.After(timeout):
+	case <-time.After(timeout):
 		break
 	}
 }

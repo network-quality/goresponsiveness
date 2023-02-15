@@ -19,7 +19,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptrace"
 	"sync"
@@ -346,7 +345,7 @@ func (lgd *LoadGeneratingConnectionDownload) doDownload(ctx context.Context) {
 		return
 	}
 	cr := &countingReader{n: &lgd.downloaded, ctx: ctx, readable: get.Body}
-	_, _ = io.Copy(ioutil.Discard, cr)
+	_, _ = io.Copy(io.Discard, cr)
 	get.Body.Close()
 	if debug.IsDebug(lgd.debug) {
 		fmt.Printf("Ending a load-generating download.\n")
@@ -373,12 +372,12 @@ func (lgu *LoadGeneratingConnectionUpload) ClientId() uint64 {
 	return lgu.clientId
 }
 
-func (lgd *LoadGeneratingConnectionUpload) TransferredInInterval() (uint64, time.Duration) {
-	transferred := atomic.SwapUint64(&lgd.uploaded, 0)
-	newIntervalEnd := (time.Now().Sub(lgd.uploadStartTime)).Nanoseconds()
-	previousIntervalEnd := atomic.SwapInt64(&lgd.lastIntervalEnd, newIntervalEnd)
+func (lgu *LoadGeneratingConnectionUpload) TransferredInInterval() (uint64, time.Duration) {
+	transferred := atomic.SwapUint64(&lgu.uploaded, 0)
+	newIntervalEnd := (time.Now().Sub(lgu.uploadStartTime)).Nanoseconds()
+	previousIntervalEnd := atomic.SwapInt64(&lgu.lastIntervalEnd, newIntervalEnd)
 	intervalLength := time.Duration(newIntervalEnd - previousIntervalEnd)
-	if debug.IsDebug(lgd.debug) {
+	if debug.IsDebug(lgu.debug) {
 		fmt.Printf("upload: Transferred: %v bytes in %v.\n", transferred, intervalLength)
 	}
 	return transferred, intervalLength
