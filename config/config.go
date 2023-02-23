@@ -19,59 +19,82 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
 
 	"github.com/network-quality/goresponsiveness/utilities"
-	"golang.org/x/net/http2"
 )
 
 type ConfigUrls struct {
-	SmallUrl      string `json:"small_https_download_url"`
-	SmallUrlHost  string
-	LargeUrl      string `json:"large_https_download_url"`
-	LargeUrlHost  string
-	UploadUrl     string `json:"https_upload_url"`
-	UploadUrlHost string
+	SmallUrl  string `json:"small_https_download_url"`
+	LargeUrl  string `json:"large_https_download_url"`
+	UploadUrl string `json:"https_upload_url"`
 }
 
 type Config struct {
 	Version       int
 	Urls          ConfigUrls `json:"urls"`
 	Source        string
-	Test_Endpoint string
+	ConnectToAddr string `json:"test_endpoint"`
 }
 
-func (c *Config) Get(configHost string, configPath string, keyLogger io.Writer) error {
-	configTransport := http2.Transport{}
-	configTransport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-
+func (c *Config) Get(configHost string, configPath string, insecureSkipVerify bool, keyLogger io.Writer) error {
+	configTransport := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: insecureSkipVerify,
+		},
+		Proxy: http.ProxyFromEnvironment,
+	}
 	if !utilities.IsInterfaceNil(keyLogger) {
 		configTransport.TLSClientConfig.KeyLogWriter = keyLogger
 	}
-	configClient := &http.Client{Transport: &configTransport}
+
+	utilities.OverrideHostTransport(configTransport, c.ConnectToAddr)
+
+	configClient := &http.Client{Transport: configTransport}
+
 	// Extraneous /s in URLs is normally okay, but the Apple CDN does not
 	// like them. Make sure that we put exactly one (1) / between the host
 	// and the path.
 	if !strings.HasPrefix(configPath, "/") {
 		configPath = "/" + configPath
 	}
+
 	c.Source = fmt.Sprintf("https://%s%s", configHost, configPath)
-	resp, err := configClient.Get(c.Source)
+	req, err := http.NewRequest("GET", c.Source, nil)
 	if err != nil {
 		return fmt.Errorf(
-			"could not connect to configuration host %s: %v",
+			"Error: Could not create request for configuration host %s: %v",
 			configHost,
 			err,
 		)
 	}
 
-	jsonConfig, err := ioutil.ReadAll(resp.Body)
+	req.Header.Set("User-Agent", utilities.UserAgent())
+
+	resp, err := configClient.Do(req)
 	if err != nil {
 		return fmt.Errorf(
-			"could not read configuration content downloaded from %s: %v",
+			"Error: could not connect to configuration host %s: %v",
+			configHost,
+			err,
+		)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return fmt.Errorf(
+			"Error: Configuration host %s returned %d for config request",
+			configHost,
+			resp.StatusCode,
+		)
+	}
+
+	jsonConfig, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf(
+			"Error: Could not read configuration content downloaded from %s: %v",
 			c.Source,
 			err,
 		)
@@ -86,26 +109,6 @@ func (c *Config) Get(configHost string, configPath string, keyLogger io.Writer) 
 		)
 	}
 
-	if len(c.Test_Endpoint) != 0 {
-		tempUrl, err := url.Parse(c.Urls.LargeUrl)
-		if err != nil {
-			return fmt.Errorf("error parsing large_https_download_url: %v", err)
-		}
-		c.Urls.LargeUrl = tempUrl.Scheme + "://" + c.Test_Endpoint + "" + tempUrl.Path
-		c.Urls.LargeUrlHost = tempUrl.Host
-		tempUrl, err = url.Parse(c.Urls.SmallUrl)
-		if err != nil {
-			return fmt.Errorf("error parsing small_https_download_url: %v", err)
-		}
-		c.Urls.SmallUrl = tempUrl.Scheme + "://" + c.Test_Endpoint + "" + tempUrl.Path
-		c.Urls.SmallUrlHost = tempUrl.Host
-		tempUrl, err = url.Parse(c.Urls.UploadUrl)
-		if err != nil {
-			return fmt.Errorf("error parsing https_upload_url: %v", err)
-		}
-		c.Urls.UploadUrl = tempUrl.Scheme + "://" + c.Test_Endpoint + "" + tempUrl.Path
-		c.Urls.UploadUrlHost = tempUrl.Host
-	}
 	return nil
 }
 
@@ -116,7 +119,7 @@ func (c *Config) String() string {
 		c.Urls.SmallUrl,
 		c.Urls.LargeUrl,
 		c.Urls.UploadUrl,
-		c.Test_Endpoint,
+		c.ConnectToAddr,
 	)
 }
 

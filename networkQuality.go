@@ -15,9 +15,11 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
 	"runtime/pprof"
 	"time"
@@ -52,6 +54,11 @@ var (
 		"path",
 		"config",
 		"path on the server to the configuration endpoint.",
+	)
+	configURL = flag.String(
+		"url",
+		"",
+		"configuration URL (takes precedence over other configuration parts)",
 	)
 	debugCliFlag = flag.Bool(
 		"debug",
@@ -88,14 +95,56 @@ var (
 		100,
 		"Time (in ms) between probes (foreign and self).",
 	)
+	connectToAddr = flag.String(
+		"connect-to",
+		"",
+		"address (hostname or IP) to connect to (overriding DNS). Disabled by default.",
+	)
+	insecureSkipVerify = flag.Bool(
+		"insecure-skip-verify",
+		constants.DefaultInsecureSkipVerify,
+		"Enable server certificate validation.",
+	)
+	prometheusStatsFilename = flag.String(
+		"prometheus-stats-filename",
+		"",
+		"If filename specified, prometheus stats will be written. If specified file exists, it will be overwritten.",
+	)
+	showVersion = flag.Bool(
+		"version",
+		false,
+		"Show version.",
+	)
 )
 
 func main() {
 	flag.Parse()
 
+	if *showVersion {
+		fmt.Fprintf(os.Stdout, "goresponsiveness %s\n", utilities.GitVersion)
+		os.Exit(0)
+	}
+
 	timeoutDuration := time.Second * time.Duration(*rpmtimeout)
 	timeoutAbsoluteTime := time.Now().Add(timeoutDuration)
-	configHostPort := fmt.Sprintf("%s:%d", *configHost, *configPort)
+
+	var configHostPort string
+
+	// if user specified a full URL, use that and set the various parts we need out of it
+	if len(*configURL) > 0 {
+		parsedURL, err := url.ParseRequestURI(*configURL)
+		if err != nil {
+			fmt.Printf("Error: Could not parse %q: %s", *configURL, err)
+			os.Exit(1)
+		}
+
+		*configHost = parsedURL.Hostname()
+		*configPath = parsedURL.Path
+		// We don't explicitly care about configuring the *configPort.
+		configHostPort = parsedURL.Host // host or host:port
+	} else {
+		configHostPort = fmt.Sprintf("%s:%d", *configHost, *configPort)
+	}
 
 	// This is the overall operating context of the program. All other
 	// contexts descend from this one. Canceling this one cancels all
@@ -114,7 +163,9 @@ func main() {
 	// all the network connections that are responsible for generating the load.
 	networkActivityCtx, networkActivityCtxCancel := context.WithCancel(operatingCtx)
 
-	config := &config.Config{}
+	config := &config.Config{
+		ConnectToAddr: *connectToAddr,
+	}
 	var debugLevel debug.DebugLevel = debug.Error
 
 	if *debugCliFlag {
@@ -147,9 +198,9 @@ func main() {
 		}
 	}
 
-	if err := config.Get(configHostPort, *configPath, sslKeyFileConcurrentWriter); err != nil {
+	if err := config.Get(configHostPort, *configPath, *insecureSkipVerify, sslKeyFileConcurrentWriter); err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
-		return
+		os.Exit(1)
 	}
 	if err := config.IsValid(); err != nil {
 		fmt.Fprintf(
@@ -158,7 +209,7 @@ func main() {
 			config.Source,
 			err,
 		)
-		return
+		os.Exit(1)
 	}
 	if debug.IsDebug(debugLevel) {
 		fmt.Printf("Configuration: %s\n", config)
@@ -190,7 +241,7 @@ func main() {
 				*profile,
 				err,
 			)
-			return
+			os.Exit(1)
 		}
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
@@ -303,31 +354,34 @@ func main() {
 	 */
 	generate_lgd := func() lgc.LoadGeneratingConnection {
 		return &lgc.LoadGeneratingConnectionDownload{
-			Path:      config.Urls.LargeUrl,
-			Host:      config.Urls.LargeUrlHost,
-			KeyLogger: sslKeyFileConcurrentWriter,
+			URL:                config.Urls.LargeUrl,
+			KeyLogger:          sslKeyFileConcurrentWriter,
+			ConnectToAddr:      config.ConnectToAddr,
+			InsecureSkipVerify: *insecureSkipVerify,
 		}
 	}
 
 	generate_lgu := func() lgc.LoadGeneratingConnection {
 		return &lgc.LoadGeneratingConnectionUpload{
-			Path:      config.Urls.UploadUrl,
-			Host:      config.Urls.UploadUrlHost,
-			KeyLogger: sslKeyFileConcurrentWriter,
+			URL:           config.Urls.UploadUrl,
+			KeyLogger:     sslKeyFileConcurrentWriter,
+			ConnectToAddr: config.ConnectToAddr,
 		}
 	}
 
 	generateSelfProbeConfiguration := func() rpm.ProbeConfiguration {
 		return rpm.ProbeConfiguration{
-			URL:  config.Urls.SmallUrl,
-			Host: config.Urls.SmallUrlHost,
+			URL:                config.Urls.SmallUrl,
+			ConnectToAddr:      config.ConnectToAddr,
+			InsecureSkipVerify: *insecureSkipVerify,
 		}
 	}
 
 	generateForeignProbeConfiguration := func() rpm.ProbeConfiguration {
 		return rpm.ProbeConfiguration{
-			URL:  config.Urls.SmallUrl,
-			Host: config.Urls.SmallUrlHost,
+			URL:                config.Urls.SmallUrl,
+			ConnectToAddr:      config.ConnectToAddr,
+			InsecureSkipVerify: *insecureSkipVerify,
 		}
 	}
 
@@ -681,4 +735,24 @@ Trimmed Mean Foreign RTT:     %f
 		fmt.Printf("Done cooling down.\n")
 	}
 
+	if len(*prometheusStatsFilename) > 0 {
+		var testStable int
+		if testRanToStability {
+			testStable = 1
+		}
+		var buffer bytes.Buffer
+		buffer.WriteString(fmt.Sprintf("networkquality_test_stable %d\n", testStable))
+		buffer.WriteString(fmt.Sprintf("networkquality_rpm_value %d\n", int64(p90Rpm)))
+		buffer.WriteString(fmt.Sprintf("networkquality_trimmed_rpm_value %d\n", int64(meanRpm))) //utilities.ToMbps(lastDownloadThroughputRate),
+
+		buffer.WriteString(fmt.Sprintf("networkquality_download_bits_per_second %d\n", int64(lastDownloadThroughputRate)))
+		buffer.WriteString(fmt.Sprintf("networkquality_download_connections %d\n", int64(lastDownloadThroughputOpenConnectionCount)))
+		buffer.WriteString(fmt.Sprintf("networkquality_upload_bits_per_second %d\n", int64(lastUploadThroughputRate)))
+		buffer.WriteString(fmt.Sprintf("networkquality_upload_connections %d\n", lastUploadThroughputOpenConnectionCount))
+
+		if err := os.WriteFile(*prometheusStatsFilename, buffer.Bytes(), 0644); err != nil {
+			fmt.Printf("could not write %s: %s", *prometheusStatsFilename, err)
+			os.Exit(1)
+		}
+	}
 }

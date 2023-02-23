@@ -1,6 +1,3 @@
-//go:build !dragonfly && !freebsd && !linux && !netbsd && !openbsd && !darwin && !windows
-// +build !dragonfly,!freebsd,!linux,!netbsd,!openbsd,!darwin,!windows
-
 /*
  * This file is part of Go Responsiveness.
  *
@@ -15,27 +12,35 @@
  * with Go Responsiveness. If not, see <https://www.gnu.org/licenses/>.
  */
 
-package extendedstats
+package utilities
 
 import (
-	"fmt"
+	"context"
 	"net"
+	"net/http"
+	"time"
+
+	"golang.org/x/net/http2"
 )
 
-type ExtendedStats struct{}
+func OverrideHostTransport(transport *http.Transport, connectToAddr string) {
+	dialer := &net.Dialer{
+		Timeout: 10 * time.Second,
+	}
 
-func (es *ExtendedStats) IncorporateConnectionStats(conn net.Conn) error {
-	return fmt.Errorf("IncorporateConnectionStats is not supported on this platform")
-}
+	transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+		_, port, err := net.SplitHostPort(addr)
+		if err != nil {
+			return nil, err
+		}
 
-func (es *ExtendedStats) Repr() string {
-	return ""
-}
+		if len(connectToAddr) > 0 {
+			addr = net.JoinHostPort(connectToAddr, port)
+		}
 
-func ExtendedStatsAvailable() bool {
-	return false
-}
+		return dialer.DialContext(ctx, network, addr)
+	}
 
-func GetTCPInfo(basicConn net.Conn) (interface{}, error) {
-	return nil, fmt.Errorf("GetTCPInfo is not supported on this platform")
+	http2.ConfigureTransport(transport)
+
 }

@@ -28,8 +28,6 @@ import (
 
 type AggregateExtendedStats struct {
 	Maxseg               uint64
-	MaxSendMss           uint64
-	MaxRecvMss           uint64
 	TotalRetransmissions uint64
 	totalSent            uint64
 	TotalReorderings     uint64
@@ -44,12 +42,8 @@ func ExtendedStatsAvailable() bool {
 }
 
 type TCPInfo struct {
-	Rxoutoforderbytes uint64
-	Txretransmitbytes uint64
-	Txbytes           uint64
-	Rtt               uint32
-	Maxseg            uint32
-	Snd_cwnd          uint32
+	unix.TCPConnectionInfo
+	Rtt uint32 // Srtt under Darwin
 }
 
 func (es *AggregateExtendedStats) IncorporateConnectionStats(basicConn net.Conn) error {
@@ -98,20 +92,18 @@ func GetTCPInfo(basicConn net.Conn) (*TCPInfo, error) {
 
 	var rawInfo *unix.TCPConnectionInfo = nil
 	var tcpInfo *TCPInfo = nil
-	rawConn.Control(func(fd uintptr) {
+	rerr := rawConn.Control(func(fd uintptr) {
 		rawInfo, err = unix.GetsockoptTCPConnectionInfo(
 			int(fd),
 			unix.IPPROTO_TCP,
 			unix.TCP_CONNECTION_INFO,
 		)
 	})
+	if rerr != nil {
+		return nil, rerr
+	}
 	if rawInfo != nil && err == nil {
-		tcpInfo = &TCPInfo{}
-		tcpInfo.Rxoutoforderbytes = rawInfo.Rxoutoforderbytes
-		tcpInfo.Txretransmitbytes = rawInfo.Txretransmitbytes
-		tcpInfo.Rtt = rawInfo.Srtt
-		tcpInfo.Snd_cwnd = rawInfo.Snd_cwnd
-		tcpInfo.Maxseg = rawInfo.Maxseg
+		tcpInfo = &TCPInfo{TCPConnectionInfo: *rawInfo, Rtt: rawInfo.Srtt}
 	}
 	return tcpInfo, err
 }
