@@ -19,6 +19,7 @@ package extendedstats
 
 import (
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
 	"unsafe"
@@ -186,6 +187,14 @@ func getTCPInfoRaw(basicConn net.Conn) (*TCPINFO_V1, error) {
 
 	overlapped := windows.Overlapped{}
 
+	eventHandle, err := windows.CreateEvent(nil, 0, 0, nil)
+
+	if err != nil {
+		return nil, fmt.Errorf("OOPS: CreateEvent failed during extended stats capture: %v", err)
+	}
+	overlapped.HEvent = eventHandle
+	overlapped.HEvent = (windows.Handle)((uintptr)(eventHandle)) | 0x1
+
 	completionRoutine := uintptr(0)
 
 	rawConn.Control(func(fd uintptr) {
@@ -201,6 +210,38 @@ func getTCPInfoRaw(basicConn net.Conn) (*TCPINFO_V1, error) {
 			completionRoutine,
 		)
 	})
+
+	if err != nil {
+		/* An error might just indicate that the result is not immediately available.
+		 * If that is the case, we will wait until it is.
+		 */
+		if errors.Is(err, windows.ERROR_IO_PENDING /*AKA, WSA_IO_PENDING*/) {
+			_, err = windows.WaitForSingleObject(overlapped.HEvent, windows.INFINITE)
+			if err != nil {
+				return nil, fmt.Errorf("OOPS: WaitForSingleObject failed during extended stats capture: %v", err)
+			}
+			rawConn.Control(func(fd uintptr) {
+				err = windows.GetOverlappedResult(
+					windows.Handle(fd),
+					&overlapped,
+					&cbbr,
+					false,
+				)
+			})
+			if err != nil {
+				return nil, fmt.Errorf("OOPS: GetOverlappedResult failed during extended stats capture: %v", err)
+			}
+		} else {
+			return nil, fmt.Errorf("OOPS: WSAIoctl failed: %v", err)
+		}
+	}
+
+	windows.CloseHandle(overlapped.HEvent)
+
+	if cbbr != cbob {
+		return nil, fmt.Errorf("WSAIoctl did not get valid information about the TCP connection")
+	}
+
 	return &outbuf, err
 }
 
