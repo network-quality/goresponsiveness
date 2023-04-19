@@ -15,6 +15,7 @@
 package utilities
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"math/rand"
@@ -22,6 +23,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -208,4 +210,22 @@ func ApproximatelyEqual[T float32 | float64](truth T, maybe T, fudge T) bool {
 
 func UserAgent() string {
 	return fmt.Sprintf("goresponsiveness/%s", GitVersion)
+}
+
+func WaitWithContext(ctxt context.Context, condition *func() bool, mu *sync.Mutex, c *sync.Cond) bool {
+	mu.Lock()
+	for !(*condition)() && ctxt.Err() == nil {
+		c.Wait()
+	}
+	return ctxt.Err() == nil
+}
+
+func ContextSignaler(ctxt context.Context, st time.Duration, condition *func() bool, c *sync.Cond) {
+	for !(*condition)() && ctxt.Err() == nil {
+		time.Sleep(st)
+	}
+	if ctxt.Err() != nil {
+		c.Broadcast()
+		return
+	}
 }

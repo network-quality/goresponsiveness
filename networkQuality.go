@@ -353,20 +353,13 @@ func main() {
 	 * will create load-generating connections for upload/download
 	 */
 	generate_lgd := func() lgc.LoadGeneratingConnection {
-		return &lgc.LoadGeneratingConnectionDownload{
-			URL:                config.Urls.LargeUrl,
-			KeyLogger:          sslKeyFileConcurrentWriter,
-			ConnectToAddr:      config.ConnectToAddr,
-			InsecureSkipVerify: *insecureSkipVerify,
-		}
+		lgd := lgc.NewLoadGeneratingConnectionDownload(config.Urls.LargeUrl, sslKeyFileConcurrentWriter, config.ConnectToAddr, *insecureSkipVerify)
+		return &lgd
 	}
 
 	generate_lgu := func() lgc.LoadGeneratingConnection {
-		return &lgc.LoadGeneratingConnectionUpload{
-			URL:           config.Urls.UploadUrl,
-			KeyLogger:     sslKeyFileConcurrentWriter,
-			ConnectToAddr: config.ConnectToAddr,
-		}
+		lgu := lgc.NewLoadGeneratingConnectionUpload(config.Urls.LargeUrl, sslKeyFileConcurrentWriter, config.ConnectToAddr, *insecureSkipVerify)
+		return &lgu
 	}
 
 	generateSelfProbeConfiguration := func() rpm.ProbeConfiguration {
@@ -416,7 +409,7 @@ func main() {
 	)
 
 	// Handles for the first connection that the load-generating go routines (both up and
-	// download) open are passed because on the self[Down|Up]ProbeConnectionCommunicationChannel
+	// download) open are passed back on the self[Down|Up]ProbeConnectionCommunicationChannel
 	// so that we can then start probes on those handles.
 	selfDownProbeConnection := <-selfDownProbeConnectionCommunicationChannel
 	selfUpProbeConnection := <-selfUpProbeConnectionCommunicationChannel

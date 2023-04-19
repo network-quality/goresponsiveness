@@ -45,13 +45,13 @@ func addFlows(
 	defer lgcc.Lock.Unlock()
 	for i := uint64(0); i < toAdd; i++ {
 		// First, generate the connection.
-		*lgcc.LGCs = append(*lgcc.LGCs, lgcGenerator())
+		newGenerator := lgcGenerator()
+		lgcc.Append(newGenerator)
 		// Second, try to start the connection.
-		if !(*lgcc.LGCs)[len(*lgcc.LGCs)-1].Start(ctx, debug) {
+		if !newGenerator.Start(ctx, debug) {
 			// If there was an error, we'll make sure that the caller knows it.
 			fmt.Printf(
-				"Error starting lgc with id %d!\n",
-				(*lgcc.LGCs)[len(*lgcc.LGCs)-1].ClientId(),
+				"Error starting lgc with id %d!\n", newGenerator.ClientId(),
 			)
 			return i
 		}
@@ -407,7 +407,19 @@ func LoadGenerator(
 
 		// We have at least a single load-generating channel. This channel will be the one that
 		// the self probes use. Let's send it back to the caller so that they can pass it on if they need to.
-		probeConnectionCommunicationChannel <- (*loadGeneratingConnections.LGCs)[0]
+		go func() {
+			loadGeneratingConnections.Lock.Lock()
+			zerothConnection, err := loadGeneratingConnections.Get(0)
+			loadGeneratingConnections.Lock.Unlock()
+			if err != nil {
+				panic("Could not get the zeroth connection!\n")
+			}
+			if !(*zerothConnection).WaitUntilStarted(loadGeneratorCtx) {
+				fmt.Fprintf(os.Stderr, "Could not wait until the zeroth load-generating connection was started!\n")
+				return
+			}
+			probeConnectionCommunicationChannel <- *zerothConnection
+		}()
 
 		nextSampleStartTime := time.Now().Add(rampupInterval)
 
@@ -732,7 +744,7 @@ func (probe *ProbeTracer) SetGotConnTimeInfo(
 	if (probe.probeType == SelfUp || probe.probeType == SelfDown) && !gotConnInfo.Reused {
 		fmt.Fprintf(
 			os.Stderr,
-			"A self probe sent used a new connection!\n",
+			"A self probe sent using a new connection!\n",
 		)
 	}
 	if gotConnInfo.Reused {

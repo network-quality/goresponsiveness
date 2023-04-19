@@ -14,6 +14,7 @@
 package utilities
 
 import (
+	"context"
 	"log"
 	"sync"
 	"testing"
@@ -85,4 +86,33 @@ func TestFilenameAppend(t *testing.T) {
 	if expected != result {
 		t.Fatalf("%s != %s for FilenameAppend.", expected, result)
 	}
+}
+
+func TestWaitWithContext(t *testing.T) {
+	ctxt, canceller := context.WithCancel(context.Background())
+	never_true := func() bool { return false }
+	mu := sync.Mutex{}
+	cond := sync.NewCond(&mu)
+
+	wg := sync.WaitGroup{}
+
+	wg.Add(3)
+
+	go func() {
+		ContextSignaler(ctxt, 500*time.Millisecond, &never_true, cond)
+		wg.Done()
+	}()
+
+	go func() {
+		WaitWithContext(ctxt, &never_true, &mu, cond)
+		wg.Done()
+	}()
+
+	go func() {
+		time.Sleep(2 * time.Second)
+		canceller()
+		wg.Done()
+	}()
+
+	wg.Wait()
 }
