@@ -358,7 +358,7 @@ func main() {
 	}
 
 	generate_lgu := func() lgc.LoadGeneratingConnection {
-		lgu := lgc.NewLoadGeneratingConnectionUpload(config.Urls.LargeUrl, sslKeyFileConcurrentWriter, config.ConnectToAddr, *insecureSkipVerify)
+		lgu := lgc.NewLoadGeneratingConnectionUpload(config.Urls.UploadUrl, sslKeyFileConcurrentWriter, config.ConnectToAddr, *insecureSkipVerify)
 		return &lgu
 	}
 
