@@ -32,6 +32,7 @@ import (
 	"github.com/network-quality/goresponsiveness/extendedstats"
 	"github.com/network-quality/goresponsiveness/lgc"
 	"github.com/network-quality/goresponsiveness/ms"
+	"github.com/network-quality/goresponsiveness/probe"
 	"github.com/network-quality/goresponsiveness/rpm"
 	"github.com/network-quality/goresponsiveness/stabilizer"
 	"github.com/network-quality/goresponsiveness/timeoutat"
@@ -246,8 +247,8 @@ func main() {
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
 	}
-	var selfProbeDataLogger datalogger.DataLogger[rpm.ProbeDataPoint] = nil
-	var foreignProbeDataLogger datalogger.DataLogger[rpm.ProbeDataPoint] = nil
+	var selfProbeDataLogger datalogger.DataLogger[probe.ProbeDataPoint] = nil
+	var foreignProbeDataLogger datalogger.DataLogger[probe.ProbeDataPoint] = nil
 	var downloadThroughputDataLogger datalogger.DataLogger[rpm.ThroughputDataPoint] = nil
 	var uploadThroughputDataLogger datalogger.DataLogger[rpm.ThroughputDataPoint] = nil
 	var granularThroughputDataLogger datalogger.DataLogger[rpm.GranularThroughputDataPoint] = nil
@@ -275,7 +276,7 @@ func main() {
 			"-throughput-granular-"+unique,
 		)
 
-		selfProbeDataLogger, err = datalogger.CreateCSVDataLogger[rpm.ProbeDataPoint](
+		selfProbeDataLogger, err = datalogger.CreateCSVDataLogger[probe.ProbeDataPoint](
 			dataLoggerSelfFilename,
 		)
 		if err != nil {
@@ -286,7 +287,7 @@ func main() {
 			selfProbeDataLogger = nil
 		}
 
-		foreignProbeDataLogger, err = datalogger.CreateCSVDataLogger[rpm.ProbeDataPoint](
+		foreignProbeDataLogger, err = datalogger.CreateCSVDataLogger[probe.ProbeDataPoint](
 			dataLoggerForeignFilename,
 		)
 		if err != nil {
@@ -333,10 +334,10 @@ func main() {
 	// If, for some reason, the data loggers are nil, make them Null Data Loggers so that we don't have conditional
 	// code later.
 	if selfProbeDataLogger == nil {
-		selfProbeDataLogger = datalogger.CreateNullDataLogger[rpm.ProbeDataPoint]()
+		selfProbeDataLogger = datalogger.CreateNullDataLogger[probe.ProbeDataPoint]()
 	}
 	if foreignProbeDataLogger == nil {
-		foreignProbeDataLogger = datalogger.CreateNullDataLogger[rpm.ProbeDataPoint]()
+		foreignProbeDataLogger = datalogger.CreateNullDataLogger[probe.ProbeDataPoint]()
 	}
 	if downloadThroughputDataLogger == nil {
 		downloadThroughputDataLogger = datalogger.CreateNullDataLogger[rpm.ThroughputDataPoint]()
@@ -352,26 +353,26 @@ func main() {
 	 * Create (and then, ironically, name) two anonymous functions that, when invoked,
 	 * will create load-generating connections for upload/download
 	 */
-	generate_lgd := func() lgc.LoadGeneratingConnection {
+	generateLgdc := func() lgc.LoadGeneratingConnection {
 		lgd := lgc.NewLoadGeneratingConnectionDownload(config.Urls.LargeUrl, sslKeyFileConcurrentWriter, config.ConnectToAddr, *insecureSkipVerify)
 		return &lgd
 	}
 
-	generate_lgu := func() lgc.LoadGeneratingConnection {
+	generateLguc := func() lgc.LoadGeneratingConnection {
 		lgu := lgc.NewLoadGeneratingConnectionUpload(config.Urls.UploadUrl, sslKeyFileConcurrentWriter, config.ConnectToAddr, *insecureSkipVerify)
 		return &lgu
 	}
 
-	generateSelfProbeConfiguration := func() rpm.ProbeConfiguration {
-		return rpm.ProbeConfiguration{
+	generateSelfProbeConfiguration := func() probe.ProbeConfiguration {
+		return probe.ProbeConfiguration{
 			URL:                config.Urls.SmallUrl,
 			ConnectToAddr:      config.ConnectToAddr,
 			InsecureSkipVerify: *insecureSkipVerify,
 		}
 	}
 
-	generateForeignProbeConfiguration := func() rpm.ProbeConfiguration {
-		return rpm.ProbeConfiguration{
+	generateForeignProbeConfiguration := func() probe.ProbeConfiguration {
+		return probe.ProbeConfiguration{
 			URL:                config.Urls.SmallUrl,
 			ConnectToAddr:      config.ConnectToAddr,
 			InsecureSkipVerify: *insecureSkipVerify,
@@ -393,7 +394,7 @@ func main() {
 		networkActivityCtx,
 		downloadLoadGeneratorOperatorCtx,
 		time.Second,
-		generate_lgd,
+		generateLgdc,
 		&downloadLoadGeneratingConnectionCollection,
 		*calculateExtendedStats,
 		downloadDebugging,
@@ -402,7 +403,7 @@ func main() {
 		networkActivityCtx,
 		uploadLoadGeneratorOperatorCtx,
 		time.Second,
-		generate_lgu,
+		generateLguc,
 		&uploadLoadGeneratingConnectionCollection,
 		*calculateExtendedStats,
 		uploadDebugging,
@@ -410,7 +411,7 @@ func main() {
 
 	// Handles for the first connection that the load-generating go routines (both up and
 	// download) open are passed back on the self[Down|Up]ProbeConnectionCommunicationChannel
-	// so that we can then start probes on those handles.
+	// so that we can then start probes on those connections.
 	selfDownProbeConnection := <-selfDownProbeConnectionCommunicationChannel
 	selfUpProbeConnection := <-selfUpProbeConnectionCommunicationChannel
 
@@ -532,7 +533,7 @@ timeout:
 					fmt.Printf(
 						"################# Responsiveness is instantaneously %s.\n", utilities.Conditional(responsivenessIsStable, "stable", "unstable"))
 				}
-				if probeMeasurement.Type == rpm.Foreign {
+				if probeMeasurement.Type == probe.Foreign {
 					// There may be more than one round trip accumulated together. If that is the case,
 					// we will blow them apart in to three separate measurements and each one will just
 					// be 1 / measurement.RoundTripCount of the total length.
@@ -540,13 +541,13 @@ timeout:
 						foreignRtts.AddElement(probeMeasurement.Duration.Seconds() / float64(probeMeasurement.RoundTripCount))
 
 					}
-				} else if probeMeasurement.Type == rpm.SelfDown || probeMeasurement.Type == rpm.SelfUp {
+				} else if probeMeasurement.Type == probe.SelfDown || probeMeasurement.Type == probe.SelfUp {
 					selfRtts.AddElement(probeMeasurement.Duration.Seconds())
 				}
 
-				if probeMeasurement.Type == rpm.Foreign {
+				if probeMeasurement.Type == probe.Foreign {
 					foreignProbeDataLogger.LogRecord(probeMeasurement)
-				} else if probeMeasurement.Type == rpm.SelfDown || probeMeasurement.Type == rpm.SelfUp {
+				} else if probeMeasurement.Type == probe.SelfDown || probeMeasurement.Type == probe.SelfUp {
 					selfProbeDataLogger.LogRecord(probeMeasurement)
 				}
 			}
@@ -592,10 +593,11 @@ timeout:
 				defer downloadLoadGeneratingConnectionCollection.Lock.Unlock()
 
 				// Note: We do not trace upload connections!
-				for i := 0; i < len(*downloadLoadGeneratingConnectionCollection.LGCs); i++ {
+				for i := 0; i < downloadLoadGeneratingConnectionCollection.Len(); i++ {
 					// Assume that extended statistics are available -- the check was done explicitly at
 					// program startup if the calculateExtendedStats flag was set by the user on the command line.
-					if err := extendedStats.IncorporateConnectionStats((*downloadLoadGeneratingConnectionCollection.LGCs)[i].Stats().ConnInfo.Conn); err != nil {
+					currentLgc, _ := downloadLoadGeneratingConnectionCollection.Get(i)
+					if err := extendedStats.IncorporateConnectionStats((*currentLgc).Stats().ConnInfo.Conn); err != nil {
 						fmt.Fprintf(
 							os.Stderr,
 							"Warning: Could not add extended stats for the connection: %v\n",

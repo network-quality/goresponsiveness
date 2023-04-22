@@ -6,6 +6,7 @@ import (
 
 	"github.com/network-quality/goresponsiveness/debug"
 	"github.com/network-quality/goresponsiveness/ms"
+	"github.com/network-quality/goresponsiveness/probe"
 	"github.com/network-quality/goresponsiveness/rpm"
 	"github.com/network-quality/goresponsiveness/utilities"
 )
@@ -55,7 +56,7 @@ func NewProbeStabilizer(
 		dbgLevel:                   debugLevel}
 }
 
-func (r3 *ProbeStabilizer) AddMeasurement(measurement rpm.ProbeDataPoint) {
+func (r3 *ProbeStabilizer) AddMeasurement(measurement probe.ProbeDataPoint) {
 	r3.m.Lock()
 	defer r3.m.Unlock()
 
