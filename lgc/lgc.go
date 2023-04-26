@@ -41,3 +41,17 @@ const (
 	LGC_STATUS_DONE
 	LGC_STATUS_ERROR
 )
+
+func (status LgcStatus) String() string {
+	switch status {
+	case LGC_STATUS_DONE:
+		return "Load-Generating Connection Done"
+	case LGC_STATUS_RUNNING:
+		return "Load-Generating Connection Running"
+	case LGC_STATUS_ERROR:
+		return "Load-Generating Connection Error"
+	case LGC_STATUS_NOT_STARTED:
+		return "Load-Generating Connection Not Started"
+	}
+	return "Load-Generating Connection in invalid state"
+}
