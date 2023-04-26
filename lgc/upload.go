@@ -100,7 +100,7 @@ func (s *syntheticCountingReader) Read(p []byte) (n int, err error) {
 	if s.ctx.Err() != nil {
 		return 0, io.EOF
 	}
-	if n == 0 {
+	if *s.n == 0 {
 		s.lgu.statusLock.Lock()
 		s.lgu.status = LGC_STATUS_RUNNING
 		s.lgu.statusWaiter.Broadcast()

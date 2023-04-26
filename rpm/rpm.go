@@ -158,30 +158,46 @@ func CombinedProber(
 			)
 
 			// Start Self Download Connection Prober
-			go probe.Probe(
-				networkActivityCtx,
-				&wg,
-				selfDownProbeConnection.Client(),
-				selfProbeConfiguration.URL,
-				selfProbeConfiguration.Host,
-				probe.SelfDown,
-				&dataPoints,
-				captureExtendedStats,
-				debugging,
-			)
+
+			// TODO: Make the following sanity check more than just a check.
+			// We only want to start a SelfDown probe on a connection that is
+			// in the RUNNING state.
+			if selfDownProbeConnection.Status() == lgc.LGC_STATUS_RUNNING {
+				go probe.Probe(
+					networkActivityCtx,
+					&wg,
+					selfDownProbeConnection.Client(),
+					selfProbeConfiguration.URL,
+					selfProbeConfiguration.Host,
+					probe.SelfDown,
+					&dataPoints,
+					captureExtendedStats,
+					debugging,
+				)
+			} else {
+				panic(fmt.Sprintf("(%s) Combined probe driver evidently lost its underlying connection (Status: %v).\n", debugging.Prefix, selfDownProbeConnection.Status()))
+			}
 
 			// Start Self Upload Connection Prober
-			go probe.Probe(
-				proberCtx,
-				&wg,
-				selfUpProbeConnection.Client(),
-				selfProbeConfiguration.URL,
-				selfProbeConfiguration.Host,
-				probe.SelfUp,
-				&dataPoints,
-				captureExtendedStats,
-				debugging,
-			)
+
+			// TODO: Make the following sanity check more than just a check.
+			// We only want to start a SelfDown probe on a connection that is
+			// in the RUNNING state.
+			if selfUpProbeConnection.Status() == lgc.LGC_STATUS_RUNNING {
+				go probe.Probe(
+					proberCtx,
+					&wg,
+					selfUpProbeConnection.Client(),
+					selfProbeConfiguration.URL,
+					selfProbeConfiguration.Host,
+					probe.SelfUp,
+					&dataPoints,
+					captureExtendedStats,
+					debugging,
+				)
+			} else {
+				panic(fmt.Sprintf("(%s) Combined probe driver evidently lost its underlying connection (Status: %v).\n", debugging.Prefix, selfUpProbeConnection.Status()))
+			}
 		}
 		if debug.IsDebug(debugging.Level) {
 			fmt.Printf(

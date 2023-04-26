@@ -138,10 +138,6 @@ func (lgd *LoadGeneratingConnectionDownload) SetGetConnTime(now time.Time) {
 			lgd.stats.GetConnectionStartTime,
 		)
 	}
-	lgd.statusLock.Lock()
-	lgd.status = LGC_STATUS_RUNNING
-	lgd.statusWaiter.Broadcast()
-	lgd.statusLock.Unlock()
 }
 
 func (lgd *LoadGeneratingConnectionDownload) SetGotConnTimeInfo(
@@ -241,15 +237,23 @@ func (lgd *LoadGeneratingConnectionDownload) Client() *http.Client {
 	return lgd.client
 }
 
-type countingReader struct {
+type loadGeneratingConnectionDownloadReader struct {
 	n        *uint64
 	ctx      context.Context
 	readable io.Reader
+	lgd      *LoadGeneratingConnectionDownload
 }
 
-func (cr *countingReader) Read(p []byte) (n int, err error) {
+func (cr *loadGeneratingConnectionDownloadReader) Read(p []byte) (n int, err error) {
 	if cr.ctx.Err() != nil {
 		return 0, io.EOF
+	}
+
+	if *cr.n == 0 {
+		cr.lgd.statusLock.Lock()
+		cr.lgd.status = LGC_STATUS_RUNNING
+		cr.lgd.statusWaiter.Broadcast()
+		cr.lgd.statusLock.Unlock()
 	}
 
 	n, err = cr.readable.Read(p)
@@ -356,7 +360,7 @@ func (lgd *LoadGeneratingConnectionDownload) doDownload(ctx context.Context) err
 		fmt.Printf("Content-Encoding header was set (compression not allowed)")
 		return fmt.Errorf("Content-Encoding header was set (compression not allowed)")
 	}
-	cr := &countingReader{n: &lgd.downloaded, ctx: ctx, readable: get.Body}
+	cr := &loadGeneratingConnectionDownloadReader{n: &lgd.downloaded, ctx: ctx, lgd: lgd, readable: get.Body}
 	_, _ = io.Copy(io.Discard, cr)
 
 	lgd.statusLock.Lock()
