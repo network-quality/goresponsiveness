@@ -93,7 +93,6 @@ func CombinedProber(
 	captureExtendedStats bool,
 	debugging *debug.DebugWithPrefix,
 ) (dataPoints chan probe.ProbeDataPoint) {
-
 	// Make a channel to send back all the generated data points
 	// when we are probing.
 	dataPoints = make(chan probe.ProbeDataPoint)
@@ -138,9 +137,11 @@ func CombinedProber(
 				transport.TLSClientConfig.KeyLogWriter = keyLogger
 			}
 
-			transport.TLSClientConfig.InsecureSkipVerify = foreignProbeConfiguration.InsecureSkipVerify
+			transport.TLSClientConfig.InsecureSkipVerify =
+				foreignProbeConfiguration.InsecureSkipVerify
 
-			utilities.OverrideHostTransport(transport, foreignProbeConfiguration.ConnectToAddr)
+			utilities.OverrideHostTransport(transport,
+				foreignProbeConfiguration.ConnectToAddr)
 
 			foreignProbeClient := &http.Client{Transport: transport}
 
@@ -176,7 +177,8 @@ func CombinedProber(
 					debugging,
 				)
 			} else {
-				panic(fmt.Sprintf("(%s) Combined probe driver evidently lost its underlying connection (Status: %v).\n", debugging.Prefix, selfDownProbeConnection.Status()))
+				panic(fmt.Sprintf("(%s) Combined probe driver evidently lost its underlying connection (Status: %v).\n",
+					debugging.Prefix, selfDownProbeConnection.Status()))
 			}
 
 			// Start Self Upload Connection Prober
@@ -197,7 +199,8 @@ func CombinedProber(
 					debugging,
 				)
 			} else {
-				panic(fmt.Sprintf("(%s) Combined probe driver evidently lost its underlying connection (Status: %v).\n", debugging.Prefix, selfUpProbeConnection.Status()))
+				panic(fmt.Sprintf("(%s) Combined probe driver evidently lost its underlying connection (Status: %v).\n",
+					debugging.Prefix, selfUpProbeConnection.Status()))
 			}
 		}
 		if debug.IsDebug(debugging.Level) {
@@ -229,7 +232,6 @@ func LoadGenerator(
 ) (probeConnectionCommunicationChannel chan lgc.LoadGeneratingConnection, // Send back a channel to communicate the connection to be used for self probes.
 	throughputCalculations chan ThroughputDataPoint, // Send back all the instantaneous throughputs that we generate.
 ) {
-
 	throughputCalculations = make(chan ThroughputDataPoint)
 	// The channel that we are going to use to send back the connection to use for probing may not immediately
 	// be read by the caller. We don't want to wait around until they are ready before we start doing our work.
@@ -237,7 +239,6 @@ func LoadGenerator(
 	probeConnectionCommunicationChannel = make(chan lgc.LoadGeneratingConnection, 1)
 
 	go func() {
-
 		flowsCreated := uint64(0)
 
 		flowsCreated += addFlows(
@@ -334,7 +335,8 @@ func LoadGenerator(
 					{
 						if debug.IsDebug(debugging.Level) {
 							fmt.Printf(
-								"%v: Load-generating connection with id %d has not finished starting; it will not contribute throughput during this interval.\n",
+								"%v: Load-generating connection with id %d has not finished starting; "+
+									"it will not contribute throughput during this interval.\n",
 								debugging,
 								(*loadGeneratingConnectionsCollection.LGCs)[i].ClientId())
 						}
@@ -342,7 +344,8 @@ func LoadGenerator(
 				case lgc.LGC_STATUS_RUNNING:
 					{
 						allInvalid = false
-						currentTransferred, currentInterval := (*loadGeneratingConnectionsCollection.LGCs)[i].TransferredInInterval()
+						currentTransferred, currentInterval :=
+							(*loadGeneratingConnectionsCollection.LGCs)[i].TransferredInInterval()
 						// normalize to a second-long interval!
 						instantaneousConnectionThroughput := float64(
 							currentTransferred,
