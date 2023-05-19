@@ -1,0 +1,6 @@
+{
+    "gopls": {
+        "formatting.gofumpt": true
+    },
+    "go.toolsEnvVars": {"GOFUMPT_SPLIT_LONG_LINES":"on"}
+}

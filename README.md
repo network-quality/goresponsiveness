@@ -127,6 +127,22 @@ As a bonus, there are unit tests to check for regressions:
 $ go test ./timeoutat ./ms ./utilities  ./traceable
 ```
 
+### IDE Configuration
+
+If you are developing with VSCode, you can use `ide/settings.json` as the
+[workspace's](https://code.visualstudio.com/docs/editor/workspaces) `settings.json` file
+in order to meet the project's existing style. In particular, this file will configure
+VSCode to use an alternate go formatter known as [`gofumpt`](https://github.com/mvdan/gofumpt)
+and, in turn, give `gofumpt` specific configuration directives.
+
+To use the included `settings.json` file, simply drop it in the `.vscode` directory of the folder
+containing this `README.md` file.
+
+>Note: If you have existing workspace settings, you may be required to take additional
+steps to incorporate the information in the given `settings.json` file.
+
+> You may have to create the `.vscode` directory if it does not already exist.
+
 ## References
 
 [RFC2026] https://datatracker.ietf.org/doc/html/rfc2026
