@@ -1,12 +1,6 @@
 name: Go Responsiveness
 
-on:
-  pull_request:
-    branches: main
-    types:
-      - edited
-  workflow_dispatch:
-
+on: [pull_request, workflow_dispatch]
 jobs:
   build:
 
