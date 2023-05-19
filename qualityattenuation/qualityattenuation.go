@@ -111,7 +111,8 @@ func (qa *SimpleQualityAttenuation) GetPDV(percentile float64) float64 {
 // It also assumes that the two quality attenuation values are measurements of the same thing (path, outcome, etc.).
 func (qa *SimpleQualityAttenuation) Merge(other *SimpleQualityAttenuation) {
 	// Check that offsets are the same
-	if qa.Offset != other.Offset || qa.Latency_eq_loss_threshold != other.Latency_eq_loss_threshold {
+	if qa.Offset != other.Offset ||
+		qa.Latency_eq_loss_threshold != other.Latency_eq_loss_threshold {
 		//"Cannot merge quality attenuation values with different offset or latency_eq_loss_threshold"
 
 	}
