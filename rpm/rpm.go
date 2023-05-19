@@ -69,6 +69,7 @@ type GranularThroughputDataPoint struct {
 type ThroughputDataPoint struct {
 	Time                         time.Time                     `Description:"Time of the generation of the data point." Formatter:"Format" FormatterArgument:"01-02-2006-15-04-05.000"`
 	Throughput                   float64                       `Description:"Instantaneous throughput (B/s)."`
+	ActiveConnections            int                           `Description:"Number of active parallel connections."`
 	Connections                  int                           `Description:"Number of parallel connections."`
 	GranularThroughputDataPoints []GranularThroughputDataPoint `Description:"[OMIT]"`
 }
@@ -248,7 +249,7 @@ func LoadGenerator(
 		)
 
 		// We have at least a single load-generating channel. This channel will be the one that
-		// the self probes use. Let's send it back to the caller so that they can pass it on if they need to.
+		// the self probes use.
 		go func() {
 			loadGeneratingConnectionsCollection.Lock.Lock()
 			zerothConnection, err := loadGeneratingConnectionsCollection.Get(0)
@@ -256,10 +257,14 @@ func LoadGenerator(
 			if err != nil {
 				panic("Could not get the zeroth connection!\n")
 			}
+			// We are going to wait until it is started.
 			if !(*zerothConnection).WaitUntilStarted(loadGeneratorCtx) {
 				fmt.Fprintf(os.Stderr, "Could not wait until the zeroth load-generating connection was started!\n")
 				return
 			}
+			// Now that it is started, we will send it back to the caller so that
+			// they can pass it on to the CombinedProber which will use it for the
+			// self probes.
 			probeConnectionCommunicationChannel <- *zerothConnection
 		}()
 
@@ -290,7 +295,8 @@ func LoadGenerator(
 
 			// Compute "instantaneous aggregate" goodput which is the number of
 			// bytes transferred within the last second.
-			var instantaneousTotalThroughput float64 = 0
+			var instantaneousThroughputTotal float64 = 0
+			var instantaneousThroughputDataPoints uint = 0
 			granularThroughputDatapoints := make([]GranularThroughputDataPoint, 0)
 			now = time.Now() // Used to align granular throughput data
 			allInvalid := true
@@ -323,7 +329,15 @@ func LoadGenerator(
 							granularThroughputDatapoints,
 							GranularThroughputDataPoint{now, 0, uint32(i), 0, 0, ""},
 						)
-						continue
+					}
+				case lgc.LGC_STATUS_NOT_STARTED:
+					{
+						if debug.IsDebug(debugging.Level) {
+							fmt.Printf(
+								"%v: Load-generating connection with id %d has not finished starting; it will not contribute throughput during this interval.\n",
+								debugging,
+								(*loadGeneratingConnectionsCollection.LGCs)[i].ClientId())
+						}
 					}
 				case lgc.LGC_STATUS_RUNNING:
 					{
@@ -335,7 +349,8 @@ func LoadGenerator(
 						) / float64(
 							currentInterval.Seconds(),
 						)
-						instantaneousTotalThroughput += instantaneousConnectionThroughput
+						instantaneousThroughputTotal += instantaneousConnectionThroughput
+						instantaneousThroughputDataPoints++
 
 						tcpRtt := time.Duration(0 * time.Second)
 						tcpCwnd := uint32(0)
@@ -362,7 +377,6 @@ func LoadGenerator(
 							},
 						)
 					}
-
 				}
 			}
 
@@ -381,7 +395,8 @@ func LoadGenerator(
 			// We have generated a throughput calculation -- let's send it back to the coordinator
 			throughputDataPoint := ThroughputDataPoint{
 				time.Now(),
-				instantaneousTotalThroughput,
+				instantaneousThroughputTotal,
+				int(instantaneousThroughputDataPoints),
 				len(*loadGeneratingConnectionsCollection.LGCs),
 				granularThroughputDatapoints,
 			}
