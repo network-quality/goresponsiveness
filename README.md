@@ -146,3 +146,5 @@ steps to incorporate the information in the given `settings.json` file.
 ## References
 
 [RFC2026] https://datatracker.ietf.org/doc/html/rfc2026
+
+This will be something that we remove. And this, too. Don't forget this.
