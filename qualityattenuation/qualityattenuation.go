@@ -70,12 +70,12 @@ func (qa *SimpleQualityAttenuation) GetPercentile(percentile float64) float64 {
 }
 
 func (qa *SimpleQualityAttenuation) GetAverage() float64 {
-	return qa.Offset_sum/float64(qa.Number_of_samples) + qa.Offset
+	return qa.Offset_sum/float64(qa.Number_of_samples-qa.Number_of_losses) + qa.Offset
 }
 
 func (qa *SimpleQualityAttenuation) GetVariance() float64 {
 	number_of_latency_samples := float64(qa.Number_of_samples) - float64(qa.Number_of_losses)
-	return (qa.Offset_sum_of_squares - (qa.Offset_sum * qa.Offset_sum / number_of_latency_samples)) / (number_of_latency_samples - 1)
+	return (qa.Offset_sum_of_squares - (qa.Offset_sum * qa.Offset_sum / number_of_latency_samples)) / (number_of_latency_samples)
 }
 
 func (qa *SimpleQualityAttenuation) GetStandardDeviation() float64 {
@@ -95,11 +95,11 @@ func (qa *SimpleQualityAttenuation) GetMedian() float64 {
 }
 
 func (qa *SimpleQualityAttenuation) GetLossPercentage() float64 {
-	return float64(qa.Number_of_losses) / float64(qa.Number_of_samples)
+	return 100 * float64(qa.Number_of_losses) / float64(qa.Number_of_samples)
 }
 
 func (qa *SimpleQualityAttenuation) GetRPM() float64 {
-	return 60 / qa.GetAverage()
+	return 60.0 / qa.GetAverage()
 }
 
 func (qa *SimpleQualityAttenuation) GetPDV(percentile float64) float64 {
