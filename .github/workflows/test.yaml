@@ -4,6 +4,7 @@ on:
   pull_request:
     branches: main
     types: edited
+	workflow_dispatch:
 
 jobs:
   build:
