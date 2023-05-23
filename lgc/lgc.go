@@ -31,6 +31,23 @@ type LoadGeneratingConnection interface {
 	ClientId() uint64
 	Stats() *stats.TraceStats
 	WaitUntilStarted(context.Context) bool
+	Direction() LgcDirection
+}
+
+type LgcDirection int
+
+const (
+	LGC_DOWN LgcDirection = iota
+	LGC_UP
+)
+
+func (direction LgcDirection) String() string {
+	if direction == LGC_DOWN {
+		return "Download"
+	} else if direction == LGC_UP {
+		return "Upload"
+	}
+	return "Invalid load-generating connection direction"
 }
 
 type LgcStatus int

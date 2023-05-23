@@ -35,8 +35,6 @@ var (
 
 	// The amount of time that the client will cooldown if it is in debug mode.
 	CooldownPeriod time.Duration = 4 * time.Second
-	// The amount of time that we give ourselves to calculate the RPM.
-	RPMCalculationTime int = 10
 
 	// The default amount of time that a test will take to calculate the RPM.
 	DefaultTestTime int = 20
@@ -49,3 +47,15 @@ var (
 	// The default determination of whether to verify server certificates
 	DefaultInsecureSkipVerify bool = true
 )
+
+type SpecParametersCliOptions struct {
+	Mad int
+	Id  int
+	Tmp uint
+	Sdt float64
+	Mnp int
+	Mps int
+	Ptc float64
+}
+
+var SpecParameterCliOptionsDefaults = SpecParametersCliOptions{Mad: 4, Id: 1, Tmp: 5, Sdt: 5.0, Mnp: 16, Mps: 100, Ptc: 0.05}

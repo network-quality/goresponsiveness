@@ -30,13 +30,10 @@ import (
 	"golang.org/x/exp/constraints"
 )
 
-var (
-	// GitVersion is the Git revision hash
-	GitVersion = "dev"
-)
+// GitVersion is the Git revision hash
+var GitVersion = "dev"
 
 func Iota(low int, high int) (made []int) {
-
 	made = make([]int, high-low)
 	for counter := low; counter < high; counter++ {
 		made[counter-low] = counter
@@ -67,7 +64,7 @@ func AbsPercentDifference(
 	)
 }
 
-func Conditional(condition bool, t string, f string) string {
+func Conditional[T any](condition bool, t T, f T) T {
 	if condition {
 		return t
 	}
@@ -228,4 +225,13 @@ func ContextSignaler(ctxt context.Context, st time.Duration, condition *func() b
 		c.Broadcast()
 		return
 	}
+}
+
+type Pair[T any] struct {
+	First  T
+	Second T
+}
+
+func PerSecondToInterval(rate int64) time.Duration {
+	return time.Duration(time.Second.Nanoseconds() / rate)
 }

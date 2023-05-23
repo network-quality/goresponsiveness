@@ -33,7 +33,7 @@ type MathematicalSeries[T constraints.Float | constraints.Integer] interface {
 	Len() int
 	Values() []T
 	Percentile(int) T
-	DoubleSidedTrim(uint32) MathematicalSeries[T]
+	DoubleSidedTrim(uint) MathematicalSeries[T]
 	Less(int, int) bool
 	Swap(int, int)
 }
@@ -77,7 +77,7 @@ func (ims *InfiniteMathematicalSeries[T]) Less(i, j int) bool {
 	return ims.elements[i] < ims.elements[j]
 }
 
-func (ims *InfiniteMathematicalSeries[T]) DoubleSidedTrim(percent uint32) MathematicalSeries[T] {
+func (ims *InfiniteMathematicalSeries[T]) DoubleSidedTrim(percent uint) MathematicalSeries[T] {
 	if percent >= 100 {
 		panic(
 			fmt.Sprintf("Cannot perform double-sided trim for an invalid percentage: %d", percent),
@@ -137,7 +137,6 @@ func (ims *InfiniteMathematicalSeries[T]) AllSequentialIncreasesLessThan(
  * N.B.: Overflow is possible -- use at your discretion!
  */
 func (ims *InfiniteMathematicalSeries[T]) StandardDeviation() (bool, T) {
-
 	// From https://www.mathsisfun.com/data/standard-deviation-calculator.html
 	// Yes, for real!
 
@@ -165,7 +164,7 @@ func (ims *InfiniteMathematicalSeries[T]) StandardDeviation() (bool, T) {
 	// Finally, the standard deviation is the square root
 	// of the variance.
 	sd := T(math.Sqrt(variance))
-	//sd := T(variance)
+	// sd := T(variance)
 
 	return true, sd
 }
@@ -187,14 +186,14 @@ func (ims *InfiniteMathematicalSeries[T]) Percentile(p int) T {
 }
 
 type CappedMathematicalSeries[T constraints.Float | constraints.Integer] struct {
-	elements_count uint64
+	elements_count uint
 	elements       []T
-	index          uint64
-	divisor        *saturating.Saturating[uint64]
+	index          uint
+	divisor        *saturating.Saturating[uint]
 }
 
 func NewCappedMathematicalSeries[T constraints.Float | constraints.Integer](
-	instants_count uint64,
+	instants_count uint,
 ) MathematicalSeries[T] {
 	return &CappedMathematicalSeries[T]{
 		elements:       make([]T, instants_count),
@@ -221,7 +220,6 @@ func (ma *CappedMathematicalSeries[T]) CalculateAverage() float64 {
 func (ma *CappedMathematicalSeries[T]) AllSequentialIncreasesLessThan(
 	limit float64,
 ) (_ bool, maximumSequentialIncrease float64) {
-
 	// If we have not yet accumulated a complete set of intervals,
 	// this is false.
 	if ma.divisor.Value() != ma.elements_count {
@@ -233,7 +231,7 @@ func (ma *CappedMathematicalSeries[T]) AllSequentialIncreasesLessThan(
 	oldestIndex := ma.index
 	previous := ma.elements[oldestIndex]
 	maximumSequentialIncrease = 0
-	for i := uint64(1); i < ma.elements_count; i++ {
+	for i := uint(1); i < ma.elements_count; i++ {
 		currentIndex := (oldestIndex + i) % ma.elements_count
 		current := ma.elements[currentIndex]
 		percentChange := utilities.SignedPercentDifference(current, previous)
@@ -249,7 +247,6 @@ func (ma *CappedMathematicalSeries[T]) AllSequentialIncreasesLessThan(
  * N.B.: Overflow is possible -- use at your discretion!
  */
 func (ma *CappedMathematicalSeries[T]) StandardDeviation() (bool, T) {
-
 	// If we have not yet accumulated a complete set of intervals,
 	// we are always false.
 	if ma.divisor.Value() != ma.elements_count {
@@ -283,7 +280,7 @@ func (ma *CappedMathematicalSeries[T]) StandardDeviation() (bool, T) {
 	// Finally, the standard deviation is the square root
 	// of the variance.
 	sd := T(math.Sqrt(variance))
-	//sd := T(variance)
+	// sd := T(variance)
 
 	return true, sd
 }
@@ -312,7 +309,7 @@ func (ma *CappedMathematicalSeries[T]) Values() []T {
 }
 
 func (ma *CappedMathematicalSeries[T]) Len() int {
-	if uint64(len(ma.elements)) != ma.elements_count {
+	if uint(len(ma.elements)) != ma.elements_count {
 		panic(
 			fmt.Sprintf(
 				"Error: A capped mathematical series' metadata is invalid: the length of its element array/slice does not match element_count! (%v vs %v)",
@@ -346,19 +343,19 @@ func (ims *CappedMathematicalSeries[T]) Less(i, j int) bool {
 	return ims.elements[i] < ims.elements[j]
 }
 
-func (ims *CappedMathematicalSeries[T]) DoubleSidedTrim(percent uint32) MathematicalSeries[T] {
+func (ims *CappedMathematicalSeries[T]) DoubleSidedTrim(percent uint) MathematicalSeries[T] {
 	if percent >= 100 {
 		panic(
 			fmt.Sprintf("Cannot perform double-sided trim for an invalid percentage: %d", percent),
 		)
 	}
 
-	trimmed := &CappedMathematicalSeries[T]{elements_count: uint64(ims.Len())}
+	trimmed := &CappedMathematicalSeries[T]{elements_count: uint(ims.Len())}
 	trimmed.elements = make([]T, ims.Len())
 	copy(trimmed.elements, ims.elements)
 	sort.Sort(trimmed)
 
-	elementsToTrim := uint64(float32(ims.Len()) * ((float32(percent)) / float32(100.0)))
+	elementsToTrim := uint(float32(ims.Len()) * ((float32(percent)) / float32(100.0)))
 	trimmed.elements = trimmed.elements[elementsToTrim : len(trimmed.elements)-int(elementsToTrim)]
 
 	trimmed.elements_count -= (elementsToTrim * 2)

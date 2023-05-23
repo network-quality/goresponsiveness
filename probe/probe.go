@@ -21,7 +21,6 @@ import (
 	"net/http"
 	"net/http/httptrace"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/network-quality/goresponsiveness/debug"
@@ -72,28 +71,25 @@ func (pt ProbeType) Value() string {
 	return "Foreign"
 }
 
+func (pt ProbeType) IsSelf() bool {
+	return pt == SelfUp || pt == SelfDown
+}
+
 func Probe(
 	managingCtx context.Context,
-	waitGroup *sync.WaitGroup,
 	client *http.Client,
-	lgc lgc.LoadGeneratingConnection,
 	probeUrl string,
 	probeHost string, // optional: for use with a test_endpoint
+	probeDirection lgc.LgcDirection,
 	probeType ProbeType,
-	result *chan ProbeDataPoint,
+	probeId uint,
 	captureExtendedStats bool,
 	debugging *debug.DebugWithPrefix,
-) error {
-	if waitGroup != nil {
-		waitGroup.Add(1)
-		defer waitGroup.Done()
-	}
-
+) (*ProbeDataPoint, error) {
 	if client == nil {
-		return fmt.Errorf("cannot start a probe with a nil client")
+		return nil, fmt.Errorf("cannot start a probe with a nil client")
 	}
 
-	probeId := utilities.GenerateUniqueId()
 	probeTracer := NewProbeTracer(client, probeType, probeId, debugging)
 	time_before_probe := time.Now()
 	probe_req, err := http.NewRequestWithContext(
@@ -103,7 +99,7 @@ func Probe(
 		nil,
 	)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Used to disable compression
@@ -112,18 +108,18 @@ func Probe(
 
 	probe_resp, err := client.Do(probe_req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Header.Get returns "" when not set
 	if probe_resp.Header.Get("Content-Encoding") != "" {
-		return fmt.Errorf("Content-Encoding header was set (compression not allowed)")
+		return nil, fmt.Errorf("Content-Encoding header was set (compression not allowed)")
 	}
 
 	// TODO: Make this interruptable somehow by using _ctx_.
 	_, err = io.ReadAll(probe_resp.Body)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	time_after_probe := time.Now()
 
@@ -144,16 +140,13 @@ func Probe(
 	) + probeTracer.GetTCPDelta()
 
 	// We must have reused the connection if we are a self probe!
-	if (probeType == SelfUp || probeType == SelfDown) && !probeTracer.stats.ConnectionReused {
-		if !utilities.IsInterfaceNil(lgc) {
-			fmt.Fprintf(os.Stderr,
-				"(%s) (%s Probe %v) Probe should have reused a connection, but it didn't (connection status: %v)!\n",
-				debugging.Prefix,
-				probeType.Value(),
-				probeId,
-				lgc.Status(),
-			)
-		}
+	if probeType.IsSelf() && !probeTracer.stats.ConnectionReused {
+		fmt.Fprintf(os.Stderr,
+			"(%s) (%s Probe %v) Probe should have reused a connection, but it didn't!\n",
+			debugging.Prefix,
+			probeType.Value(),
+			probeId,
+		)
 		panic(!probeTracer.stats.ConnectionReused)
 	}
 
@@ -199,14 +192,12 @@ func Probe(
 			fmt.Printf("Warning: Could not fetch the extended stats for a probe: %v\n", err)
 		}
 	}
-	dataPoint := ProbeDataPoint{
+	return &ProbeDataPoint{
 		Time:           time_before_probe,
 		RoundTripCount: uint64(roundTripCount),
 		Duration:       totalDelay,
 		TCPRtt:         tcpRtt,
 		TCPCwnd:        tcpCwnd,
 		Type:           probeType,
-	}
-	*result <- dataPoint
-	return nil
+	}, nil
 }

@@ -1,0 +1,94 @@
+/*
+ * This file is part of Go Responsiveness.
+ *
+ * Go Responsiveness is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software Foundation,
+ * either version 2 of the License, or (at your option) any later version.
+ * Go Responsiveness is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+ * PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with Go Responsiveness. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+package rpm
+
+import (
+	"fmt"
+
+	"github.com/network-quality/goresponsiveness/ms"
+)
+
+type Rpm struct {
+	SelfRttsTotal       int
+	ForeignRttsTotal    int
+	SelfRttsTrimmed     int
+	ForeignRttsTrimmed  int
+	SelfProbeRttPN      float64
+	ForeignProbeRttPN   float64
+	SelfProbeRttMean    float64
+	ForeignProbeRttMean float64
+	PNRpm               float64
+	MeanRpm             float64
+}
+
+func CalculateRpm(selfRtts ms.MathematicalSeries[float64], foreignRtts ms.MathematicalSeries[float64], trimming uint, percentile int) Rpm {
+	// First, let's do a double-sided trim of the top/bottom 10% of our measurements.
+	selfRttsTotalCount := selfRtts.Len()
+	foreignRttsTotalCount := foreignRtts.Len()
+
+	selfRttsTrimmed := selfRtts.DoubleSidedTrim(trimming)
+	foreignRttsTrimmed := foreignRtts.DoubleSidedTrim(trimming)
+
+	selfRttsTrimmedCount := selfRttsTrimmed.Len()
+	foreignRttsTrimmedCount := foreignRttsTrimmed.Len()
+
+	// Then, let's take the mean of those ...
+	selfProbeRoundTripTimeMean := selfRttsTrimmed.CalculateAverage()
+	foreignProbeRoundTripTimeMean := foreignRttsTrimmed.CalculateAverage()
+
+	// Second, let's do the P90 calculations.
+	selfProbeRoundTripTimePN := selfRtts.Percentile(percentile)
+	foreignProbeRoundTripTimePN := foreignRtts.Percentile(percentile)
+
+	// Note: The specification indicates that we want to calculate the foreign probes as such:
+	// 1/3*tcp_foreign + 1/3*tls_foreign + 1/3*http_foreign
+	// where tcp_foreign, tls_foreign, http_foreign are the P90 RTTs for the connection
+	// of the tcp, tls and http connections, respectively. However, we cannot break out
+	// the individual RTTs so we assume that they are roughly equal.
+
+	// This is 60 because we measure in seconds not ms
+	pnRpm := 60.0 / (float64(selfProbeRoundTripTimePN+foreignProbeRoundTripTimePN) / 2.0)
+	meanRpm := 60.0 / (float64(selfProbeRoundTripTimeMean+foreignProbeRoundTripTimeMean) / 2.0)
+
+	return Rpm{
+		SelfRttsTotal: selfRttsTotalCount, ForeignRttsTotal: foreignRttsTotalCount,
+		SelfRttsTrimmed: selfRttsTrimmedCount, ForeignRttsTrimmed: foreignRttsTrimmedCount,
+		SelfProbeRttPN: selfProbeRoundTripTimePN, ForeignProbeRttPN: foreignProbeRoundTripTimePN,
+		SelfProbeRttMean: selfProbeRoundTripTimeMean, ForeignProbeRttMean: foreignProbeRoundTripTimeMean,
+		PNRpm: pnRpm, MeanRpm: meanRpm,
+	}
+}
+
+func (rpm *Rpm) ToString() string {
+	return fmt.Sprintf(
+		`Total Self Probes:            %d
+Total Foreign Probes:         %d
+Trimmed Self Probes Count:    %d
+Trimmed Foreign Probes Count: %d
+P90 Self RTT:                 %f
+P90 Foreign RTT:              %f
+Trimmed Mean Self RTT:        %f
+Trimmed Mean Foreign RTT:     %f
+`,
+		rpm.SelfRttsTotal,
+		rpm.ForeignRttsTotal,
+		rpm.SelfRttsTrimmed,
+		rpm.ForeignRttsTrimmed,
+		rpm.SelfProbeRttPN,
+		rpm.ForeignProbeRttPN,
+		rpm.SelfProbeRttMean,
+		rpm.ForeignProbeRttMean,
+	)
+}

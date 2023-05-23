@@ -16,6 +16,7 @@ package lgc
 
 import (
 	"fmt"
+	"math/rand"
 	"sync"
 )
 
@@ -33,10 +34,10 @@ func (collection *LoadGeneratingConnectionCollection) Get(idx int) (*LoadGenerat
 		collection.Lock.Unlock()
 		return nil, fmt.Errorf("collection is unlocked")
 	}
+	return collection.lockedGet(idx)
+}
 
-	if idx > len(*collection.LGCs) {
-		return nil, fmt.Errorf("index too large")
-	}
+func (collection *LoadGeneratingConnectionCollection) lockedGet(idx int) (*LoadGeneratingConnection, error) {
 	return &(*collection.LGCs)[idx], nil
 }
 
@@ -49,6 +50,22 @@ func (collection *LoadGeneratingConnectionCollection) Append(conn LoadGenerating
 	return nil
 }
 
-func (collection *LoadGeneratingConnectionCollection) Len() int {
-	return len(*collection.LGCs)
+func (collection *LoadGeneratingConnectionCollection) Len() (int, error) {
+	if collection.Lock.TryLock() {
+		collection.Lock.Unlock()
+		return -1, fmt.Errorf("collection is unlocked")
+	}
+	return len(*collection.LGCs), nil
+}
+
+func (collection *LoadGeneratingConnectionCollection) GetRandom() (*LoadGeneratingConnection, error) {
+	if collection.Lock.TryLock() {
+		collection.Lock.Unlock()
+		return nil, fmt.Errorf("collection is unlocked")
+	}
+
+	idx := int(rand.Uint32())
+	idx = idx % len(*collection.LGCs)
+
+	return collection.lockedGet(idx)
 }

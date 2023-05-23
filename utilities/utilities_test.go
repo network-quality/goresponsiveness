@@ -116,3 +116,13 @@ func TestWaitWithContext(t *testing.T) {
 
 	wg.Wait()
 }
+
+func TestPerSecondToInterval(t *testing.T) {
+	if time.Second != PerSecondToInterval(1) {
+		t.Fatalf("A number of nanoseconds is not equal to a second!")
+	}
+
+	if time.Second/2 != PerSecondToInterval(2) {
+		t.Fatalf("Something that happens twice per second should happen every 5000ns.")
+	}
+}

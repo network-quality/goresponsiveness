@@ -11,7 +11,7 @@ func Test_InfiniteValues(test *testing.T) {
 	series := NewInfiniteMathematicalSeries[float64]()
 	shouldMatch := make([]float64, 0)
 	previous := float64(1.0)
-	for _ = range utilities.Iota(1, 80) {
+	for range utilities.Iota(1, 80) {
 		previous *= 1.059
 		series.AddElement(float64(previous))
 		shouldMatch = append(shouldMatch, previous)
@@ -21,10 +21,11 @@ func Test_InfiniteValues(test *testing.T) {
 		test.Fatalf("Values() on infinite mathematical series does not work.")
 	}
 }
+
 func Test_InfiniteSequentialIncreasesAlwaysLessThan(test *testing.T) {
 	series := NewInfiniteMathematicalSeries[float64]()
 	previous := float64(1.0)
-	for _ = range utilities.Iota(1, 80) {
+	for range utilities.Iota(1, 80) {
 		previous *= 1.059
 		series.AddElement(float64(previous))
 	}
@@ -35,6 +36,7 @@ func Test_InfiniteSequentialIncreasesAlwaysLessThan(test *testing.T) {
 		)
 	}
 }
+
 func Test_CappedTooFewInstantsSequentialIncreasesLessThanAlwaysFalse(test *testing.T) {
 	series := NewCappedMathematicalSeries[float64](500)
 	series.AddElement(0.0)
@@ -51,14 +53,17 @@ func Test_Infinite_degenerate_percentile_too_high(test *testing.T) {
 		test.Fatalf("(infinite) Series percentile of 101 failed.")
 	}
 }
+
 func Test_Infinite_degenerate_percentile_too_low(test *testing.T) {
 	series := NewInfiniteMathematicalSeries[int]()
 	if series.Percentile(-1) != 0 {
 		test.Fatalf("(infinite) Series percentile of -1 failed.")
 	}
 }
+
 func Test_Infinite90_percentile(test *testing.T) {
-	series := NewInfiniteMathematicalSeries[int]()
+	var expected int64 = 10
+	series := NewInfiniteMathematicalSeries[int64]()
 	series.AddElement(10)
 	series.AddElement(9)
 	series.AddElement(8)
@@ -70,15 +75,16 @@ func Test_Infinite90_percentile(test *testing.T) {
 	series.AddElement(2)
 	series.AddElement(1)
 
-	if series.Percentile(90) != 10 {
+	if series.Percentile(90) != expected {
 		test.Fatalf(
-			"(infinite) Series 90th percentile of 0 ... 10 failed: Expected 10 got %v.",
+			"(infinite) Series 90th percentile of 0 ... 10 failed: Expected: %v; Actual: %v.", expected,
 			series.Percentile(90),
 		)
 	}
 }
 
 func Test_Infinite90_percentile_reversed(test *testing.T) {
+	var expected int64 = 10
 	series := NewInfiniteMathematicalSeries[int64]()
 	series.AddElement(1)
 	series.AddElement(2)
@@ -91,15 +97,16 @@ func Test_Infinite90_percentile_reversed(test *testing.T) {
 	series.AddElement(9)
 	series.AddElement(10)
 
-	if series.Percentile(90) != 10 {
+	if series.Percentile(90) != expected {
 		test.Fatalf(
-			"(infinite) Series 90th percentile of 0 ... 10 failed: Expected 10 got %v.",
+			"(infinite) Series 90th percentile of 0 ... 10 failed: Expected %v; Actual: %v.", expected,
 			series.Percentile(90),
 		)
 	}
 }
 
 func Test_Infinite50_percentile_jumbled(test *testing.T) {
+	var expected int64 = 15
 	series := NewInfiniteMathematicalSeries[int64]()
 	series.AddElement(7)
 	series.AddElement(2)
@@ -112,15 +119,16 @@ func Test_Infinite50_percentile_jumbled(test *testing.T) {
 	series.AddElement(11)
 	series.AddElement(12)
 
-	if series.Percentile(50) != 15 {
+	if series.Percentile(50) != expected {
 		test.Fatalf(
-			"(infinite) Series 50 percentile of a jumble of numbers failed: Expected 15 got %v.",
+			"(infinite) Series 50 percentile of a jumble of numbers failed: Expected %v; Actual: %v.", expected,
 			series.Percentile(50),
 		)
 	}
 }
 
 func Test_InfiniteDoubleSidedTrimmedMean_jumbled(test *testing.T) {
+	expected := 16
 	series := NewInfiniteMathematicalSeries[int64]()
 	series.AddElement(7)
 	series.AddElement(2)
@@ -145,10 +153,10 @@ func Test_InfiniteDoubleSidedTrimmedMean_jumbled(test *testing.T) {
 
 	trimmed := series.DoubleSidedTrim(10)
 
-	if trimmed.Len() != 16 {
+	if trimmed.Len() != expected {
 		test.Fatalf(
 			"Capped series is not of the proper size. Expected %v and got %v",
-			16,
+			expected,
 			trimmed.Len(),
 		)
 	}
@@ -165,7 +173,7 @@ func Test_InfiniteDoubleSidedTrimmedMean_jumbled(test *testing.T) {
 func Test_CappedSequentialIncreasesAlwaysLessThan(test *testing.T) {
 	series := NewCappedMathematicalSeries[float64](40)
 	previous := float64(1.0)
-	for _ = range utilities.Iota(1, 80) {
+	for range utilities.Iota(1, 80) {
 		previous *= 1.059
 		series.AddElement(float64(previous))
 	}
@@ -221,16 +229,41 @@ func Test_CappedSequentialIncreasesAlwaysLessThanWithWraparoundInverse(test *tes
 }
 
 func Test_CappedStandardDeviationCalculation(test *testing.T) {
+	expected := 2.93
 	series := NewCappedMathematicalSeries[float64](5)
 	// 5.7, 1.0, 8.6, 7.4, 2.2
+	series.AddElement(5.7)
+	series.AddElement(5.7)
+	series.AddElement(5.7)
+	series.AddElement(5.7)
+	series.AddElement(5.7)
+	series.AddElement(5.7)
+	series.AddElement(5.7)
+	series.AddElement(5.7)
 	series.AddElement(5.7)
 	series.AddElement(1.0)
 	series.AddElement(8.6)
 	series.AddElement(7.4)
 	series.AddElement(2.2)
 
-	if _, sd := series.StandardDeviation(); !utilities.ApproximatelyEqual(2.93, sd, 0.01) {
-		test.Fatalf("Standard deviation max calculation failed: %v.", sd)
+	if _, sd := series.StandardDeviation(); !utilities.ApproximatelyEqual(sd, expected, 0.01) {
+		test.Fatalf("Standard deviation max calculation failed: Expected: %v; Actual: %v.", expected, sd)
+	} else {
+		test.Logf("Standard deviation calculation result: %v", sd)
+	}
+}
+
+func Test_CappedStandardDeviationCalculation2(test *testing.T) {
+	expected := 1.41
+	series := NewCappedMathematicalSeries[float64](5)
+	series.AddElement(8)
+	series.AddElement(9)
+	series.AddElement(10)
+	series.AddElement(11)
+	series.AddElement(12)
+
+	if _, sd := series.StandardDeviation(); !utilities.ApproximatelyEqual(sd, expected, 0.01) {
+		test.Fatalf("Standard deviation max calculation failed: Expected: %v; Actual: %v.", expected, sd)
 	} else {
 		test.Logf("Standard deviation calculation result: %v", sd)
 	}
@@ -252,6 +285,7 @@ func Test_CappedRotatingValues(test *testing.T) {
 		test.Fatalf("Adding values does not properly erase earlier values.")
 	}
 }
+
 func Test_CappedLen(test *testing.T) {
 	series := NewCappedMathematicalSeries[int](5)
 
@@ -275,13 +309,16 @@ func Test_Capped_degenerate_percentile_too_high(test *testing.T) {
 		test.Fatalf("Series percentile of 101 failed.")
 	}
 }
+
 func Test_Capped_degenerate_percentile_too_low(test *testing.T) {
 	series := NewCappedMathematicalSeries[int](21)
 	if series.Percentile(-1) != 0 {
 		test.Fatalf("Series percentile of -1 failed.")
 	}
 }
+
 func Test_Capped90_percentile(test *testing.T) {
+	var expected int = 10
 	series := NewCappedMathematicalSeries[int](10)
 	series.AddElement(10)
 	series.AddElement(9)
@@ -294,9 +331,9 @@ func Test_Capped90_percentile(test *testing.T) {
 	series.AddElement(2)
 	series.AddElement(1)
 
-	if series.Percentile(90) != 10 {
+	if series.Percentile(90) != expected {
 		test.Fatalf(
-			"Series 90th percentile of 0 ... 10 failed: Expected 10 got %v.",
+			"Series 90th percentile of 0 ... 10 failed: Expected %v got %v.", expected,
 			series.Percentile(90),
 		)
 	}
@@ -324,6 +361,7 @@ func Test_Capped90_percentile_reversed(test *testing.T) {
 }
 
 func Test_Capped50_percentile_jumbled(test *testing.T) {
+	var expected int64 = 15
 	series := NewCappedMathematicalSeries[int64](10)
 	series.AddElement(7)
 	series.AddElement(2)
@@ -336,15 +374,16 @@ func Test_Capped50_percentile_jumbled(test *testing.T) {
 	series.AddElement(11)
 	series.AddElement(12)
 
-	if series.Percentile(50) != 15 {
+	if series.Percentile(50) != expected {
 		test.Fatalf(
-			"Series 50 percentile of a jumble of numbers failed: Expected 15 got %v.",
+			"Series 50 percentile of a jumble of numbers failed: Expected %v got %v.", expected,
 			series.Percentile(50),
 		)
 	}
 }
 
 func Test_CappedDoubleSidedTrimmedMean_jumbled(test *testing.T) {
+	expected := 8
 	series := NewCappedMathematicalSeries[int64](10)
 	series.AddElement(7)
 	series.AddElement(2)
@@ -360,10 +399,10 @@ func Test_CappedDoubleSidedTrimmedMean_jumbled(test *testing.T) {
 
 	trimmed := series.DoubleSidedTrim(10)
 
-	if trimmed.Len() != 8 {
+	if trimmed.Len() != expected {
 		test.Fatalf(
 			"Capped series is not of the proper size. Expected %v and got %v",
-			8,
+			expected,
 			trimmed.Len(),
 		)
 	}
@@ -374,5 +413,19 @@ func Test_CappedDoubleSidedTrimmedMean_jumbled(test *testing.T) {
 			test.Fatalf("Not sorted: %v is not less than or equal to %v\n", prev, v)
 		}
 		prev = v
+	}
+}
+
+func Test_CappedAverage(test *testing.T) {
+	expected := 1.0082230220488836e+08
+	series := NewCappedMathematicalSeries[float64](4)
+	series.AddElement(9.94747772516195e+07)
+	series.AddElement(9.991286984703423e+07)
+	series.AddElement(1.0285437111086299e+08)
+	series.AddElement(1.0104719061003672e+08)
+	if average := series.CalculateAverage(); !utilities.ApproximatelyEqual(average, 0.01, expected) {
+		test.Fatalf(
+			"Expected: %v; Actual: %v.", average, expected,
+		)
 	}
 }

@@ -64,6 +64,10 @@ func NewLoadGeneratingConnectionDownload(url string, keyLogger io.Writer, connec
 	return lgd
 }
 
+func (lgd *LoadGeneratingConnectionDownload) Direction() LgcDirection {
+	return LGC_DOWN
+}
+
 func (lgd *LoadGeneratingConnectionDownload) WaitUntilStarted(ctxt context.Context) bool {
 	conditional := func() bool { return lgd.status != LGC_STATUS_NOT_STARTED }
 	go utilities.ContextSignaler(ctxt, 500*time.Millisecond, &conditional, lgd.statusWaiter)

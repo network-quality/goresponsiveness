@@ -33,7 +33,7 @@ type ProbeTracer struct {
 	stats     *stats.TraceStats
 	trace     *httptrace.ClientTrace
 	debug     debug.DebugLevel
-	probeid   uint64
+	probeid   uint
 	probeType ProbeType
 }
 
@@ -41,7 +41,7 @@ func (p *ProbeTracer) String() string {
 	return fmt.Sprintf("(Probe %v): stats: %v\n", p.probeid, p.stats)
 }
 
-func (p *ProbeTracer) ProbeId() uint64 {
+func (p *ProbeTracer) ProbeId() uint {
 	return p.probeid
 }
 
@@ -293,7 +293,7 @@ func (probe *ProbeTracer) SetHttpResponseReadyTime(
 func NewProbeTracer(
 	client *http.Client,
 	probeType ProbeType,
-	probeId uint64,
+	probeId uint,
 	debugging *debug.DebugWithPrefix,
 ) *ProbeTracer {
 	probe := &ProbeTracer{

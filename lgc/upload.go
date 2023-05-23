@@ -90,6 +90,10 @@ func (lgu *LoadGeneratingConnectionUpload) Status() LgcStatus {
 	return lgu.status
 }
 
+func (lgd *LoadGeneratingConnectionUpload) Direction() LgcDirection {
+	return LGC_UP
+}
+
 type syntheticCountingReader struct {
 	n   *uint64
 	ctx context.Context
