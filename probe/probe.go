@@ -20,11 +20,13 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptrace"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/network-quality/goresponsiveness/debug"
 	"github.com/network-quality/goresponsiveness/extendedstats"
+	"github.com/network-quality/goresponsiveness/lgc"
 	"github.com/network-quality/goresponsiveness/utilities"
 )
 
@@ -74,6 +76,7 @@ func Probe(
 	managingCtx context.Context,
 	waitGroup *sync.WaitGroup,
 	client *http.Client,
+	lgc lgc.LoadGeneratingConnection,
 	probeUrl string,
 	probeHost string, // optional: for use with a test_endpoint
 	probeType ProbeType,
@@ -81,7 +84,6 @@ func Probe(
 	captureExtendedStats bool,
 	debugging *debug.DebugWithPrefix,
 ) error {
-
 	if waitGroup != nil {
 		waitGroup.Add(1)
 		defer waitGroup.Done()
@@ -143,6 +145,15 @@ func Probe(
 
 	// We must have reused the connection if we are a self probe!
 	if (probeType == SelfUp || probeType == SelfDown) && !probeTracer.stats.ConnectionReused {
+		if !utilities.IsInterfaceNil(lgc) {
+			fmt.Fprintf(os.Stderr,
+				"(%s) (%s Probe %v) Probe should have reused a connection, but it didn't (connection status: %v)!\n",
+				debugging.Prefix,
+				probeType.Value(),
+				probeId,
+				lgc.Status(),
+			)
+		}
 		panic(!probeTracer.stats.ConnectionReused)
 	}
 
