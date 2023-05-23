@@ -550,7 +550,9 @@ timeout:
 					}
 				} else if probeMeasurement.Type == probe.SelfDown || probeMeasurement.Type == probe.SelfUp {
 					selfRtts.AddElement(probeMeasurement.Duration.Seconds())
-					selfRttsQualityAttenuation.AddSample(probeMeasurement.Duration.Seconds())
+					if *printQualityAttenuation {
+						selfRttsQualityAttenuation.AddSample(probeMeasurement.Duration.Seconds())
+					}
 				}
 
 				if probeMeasurement.Type == probe.Foreign {

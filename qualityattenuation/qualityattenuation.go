@@ -3,79 +3,81 @@
 package qualityattenuation
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/influxdata/tdigest"
 )
 
 type SimpleQualityAttenuation struct {
-	EmpiricalDistribution     *tdigest.TDigest
-	Offset                    float64
-	Offset_sum                float64
-	Offset_sum_of_squares     float64
-	Number_of_samples         int64
-	Number_of_losses          int64
-	Latency_eq_loss_threshold float64
-	Minimum_latency           float64
-	Maximum_latency           float64
+	empiricalDistribution  *tdigest.TDigest
+	offset                 float64
+	offsetSum              float64
+	offsetSumOfSquares     float64
+	numberOfSamples        int64
+	numberOfLosses         int64
+	latencyEqLossThreshold float64
+	minimumLatency         float64
+	maximumLatency         float64
 }
 
 func NewSimpleQualityAttenuation() *SimpleQualityAttenuation {
 	return &SimpleQualityAttenuation{
-		EmpiricalDistribution:     tdigest.NewWithCompression(50),
-		Offset:                    0.1,
-		Offset_sum:                0.0,
-		Offset_sum_of_squares:     0.0,
-		Number_of_samples:         0,
-		Number_of_losses:          0,
-		Latency_eq_loss_threshold: 15.0, // Count latency greater than this value as a loss.
-		Minimum_latency:           0.0,
-		Maximum_latency:           0.0,
+		empiricalDistribution:  tdigest.NewWithCompression(50),
+		offset:                 0.1,
+		offsetSum:              0.0,
+		offsetSumOfSquares:     0.0,
+		numberOfSamples:        0,
+		numberOfLosses:         0,
+		latencyEqLossThreshold: 15.0, // Count latency greater than this value as a loss.
+		minimumLatency:         0.0,
+		maximumLatency:         0.0,
 	}
 }
 
-func (qa *SimpleQualityAttenuation) AddSample(sample float64) {
+func (qa *SimpleQualityAttenuation) AddSample(sample float64) error {
 	if sample <= 0.0 {
 		// Ignore zero or negative samples because they cannot be valid.
 		// TODO: This should raise a warning and/or trigger error handling.
-		return
+		return fmt.Errorf("sample is zero or negative")
 	}
-	qa.Number_of_samples++
-	if sample > qa.Latency_eq_loss_threshold {
-		qa.Number_of_losses++
-		return
+	qa.numberOfSamples++
+	if sample > qa.latencyEqLossThreshold {
+		qa.numberOfLosses++
+		return nil
 	} else {
-		if qa.Minimum_latency == 0.0 || sample < qa.Minimum_latency {
-			qa.Minimum_latency = sample
+		if qa.minimumLatency == 0.0 || sample < qa.minimumLatency {
+			qa.minimumLatency = sample
 		}
-		if qa.Maximum_latency == 0.0 || sample > qa.Maximum_latency {
-			qa.Maximum_latency = sample
+		if qa.maximumLatency == 0.0 || sample > qa.maximumLatency {
+			qa.maximumLatency = sample
 		}
-		qa.EmpiricalDistribution.Add(sample, 1)
-		qa.Offset_sum += sample - qa.Offset
-		qa.Offset_sum_of_squares += (sample - qa.Offset) * (sample - qa.Offset)
+		qa.empiricalDistribution.Add(sample, 1)
+		qa.offsetSum += sample - qa.offset
+		qa.offsetSumOfSquares += (sample - qa.offset) * (sample - qa.offset)
 	}
+	return nil
 }
 
 func (qa *SimpleQualityAttenuation) GetNumberOfLosses() int64 {
-	return qa.Number_of_losses
+	return qa.numberOfLosses
 }
 
 func (qa *SimpleQualityAttenuation) GetNumberOfSamples() int64 {
-	return qa.Number_of_samples
+	return qa.numberOfSamples
 }
 
 func (qa *SimpleQualityAttenuation) GetPercentile(percentile float64) float64 {
-	return qa.EmpiricalDistribution.Quantile(percentile / 100)
+	return qa.empiricalDistribution.Quantile(percentile / 100)
 }
 
 func (qa *SimpleQualityAttenuation) GetAverage() float64 {
-	return qa.Offset_sum/float64(qa.Number_of_samples-qa.Number_of_losses) + qa.Offset
+	return qa.offsetSum/float64(qa.numberOfSamples-qa.numberOfLosses) + qa.offset
 }
 
 func (qa *SimpleQualityAttenuation) GetVariance() float64 {
-	number_of_latency_samples := float64(qa.Number_of_samples) - float64(qa.Number_of_losses)
-	return (qa.Offset_sum_of_squares - (qa.Offset_sum * qa.Offset_sum / number_of_latency_samples)) / (number_of_latency_samples)
+	number_of_latency_samples := float64(qa.numberOfSamples) - float64(qa.numberOfLosses)
+	return (qa.offsetSumOfSquares - (qa.offsetSum * qa.offsetSum / number_of_latency_samples)) / (number_of_latency_samples - 1)
 }
 
 func (qa *SimpleQualityAttenuation) GetStandardDeviation() float64 {
@@ -83,11 +85,11 @@ func (qa *SimpleQualityAttenuation) GetStandardDeviation() float64 {
 }
 
 func (qa *SimpleQualityAttenuation) GetMinimum() float64 {
-	return qa.Minimum_latency
+	return qa.minimumLatency
 }
 
 func (qa *SimpleQualityAttenuation) GetMaximum() float64 {
-	return qa.Maximum_latency
+	return qa.maximumLatency
 }
 
 func (qa *SimpleQualityAttenuation) GetMedian() float64 {
@@ -95,7 +97,7 @@ func (qa *SimpleQualityAttenuation) GetMedian() float64 {
 }
 
 func (qa *SimpleQualityAttenuation) GetLossPercentage() float64 {
-	return 100 * float64(qa.Number_of_losses) / float64(qa.Number_of_samples)
+	return 100 * float64(qa.numberOfLosses) / float64(qa.numberOfSamples)
 }
 
 func (qa *SimpleQualityAttenuation) GetRPM() float64 {
@@ -109,26 +111,26 @@ func (qa *SimpleQualityAttenuation) GetPDV(percentile float64) float64 {
 // Merge two quality attenuation values. This operation assumes the two samples have the same offset and latency_eq_loss_threshold, and
 // will return an error if they do not.
 // It also assumes that the two quality attenuation values are measurements of the same thing (path, outcome, etc.).
-func (qa *SimpleQualityAttenuation) Merge(other *SimpleQualityAttenuation) {
+func (qa *SimpleQualityAttenuation) Merge(other *SimpleQualityAttenuation) error {
 	// Check that offsets are the same
-	if qa.Offset != other.Offset ||
-		qa.Latency_eq_loss_threshold != other.Latency_eq_loss_threshold {
-		//"Cannot merge quality attenuation values with different offset or latency_eq_loss_threshold"
-
+	if qa.offset != other.offset ||
+		qa.latencyEqLossThreshold != other.latencyEqLossThreshold {
+		return fmt.Errorf("merge quality attenuation values with different offset or latency_eq_loss_threshold")
 	}
-	for _, centroid := range other.EmpiricalDistribution.Centroids() {
+	for _, centroid := range other.empiricalDistribution.Centroids() {
 		mean := centroid.Mean
 		weight := centroid.Weight
-		qa.EmpiricalDistribution.Add(mean, weight)
+		qa.empiricalDistribution.Add(mean, weight)
 	}
-	qa.Offset_sum += other.Offset_sum
-	qa.Offset_sum_of_squares += other.Offset_sum_of_squares
-	qa.Number_of_samples += other.Number_of_samples
-	qa.Number_of_losses += other.Number_of_losses
-	if other.Minimum_latency < qa.Minimum_latency {
-		qa.Minimum_latency = other.Minimum_latency
+	qa.offsetSum += other.offsetSum
+	qa.offsetSumOfSquares += other.offsetSumOfSquares
+	qa.numberOfSamples += other.numberOfSamples
+	qa.numberOfLosses += other.numberOfLosses
+	if other.minimumLatency < qa.minimumLatency {
+		qa.minimumLatency = other.minimumLatency
 	}
-	if other.Maximum_latency > qa.Maximum_latency {
-		qa.Maximum_latency = other.Maximum_latency
+	if other.maximumLatency > qa.maximumLatency {
+		qa.maximumLatency = other.maximumLatency
 	}
+	return nil
 }
