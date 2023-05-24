@@ -33,6 +33,7 @@ import (
 	"github.com/network-quality/goresponsiveness/lgc"
 	"github.com/network-quality/goresponsiveness/ms"
 	"github.com/network-quality/goresponsiveness/probe"
+	"github.com/network-quality/goresponsiveness/qualityattenuation"
 	"github.com/network-quality/goresponsiveness/rpm"
 	"github.com/network-quality/goresponsiveness/stabilizer"
 	"github.com/network-quality/goresponsiveness/timeoutat"
@@ -85,6 +86,11 @@ var (
 		"extended-stats",
 		false,
 		"Enable the collection and display of extended statistics -- may not be available on certain platforms.",
+	)
+	printQualityAttenuation = flag.Bool(
+		"quality-attenuation",
+		false,
+		"Print quality attenuation information.",
 	)
 	dataLoggerBaseFileName = flag.String(
 		"logger-filename",
@@ -469,6 +475,7 @@ func main() {
 	probeStabilizer := stabilizer.NewProbeStabilizer(probeI, K, S, probeStabilizerDebugLevel, probeStabilizerDebugConfig)
 
 	selfRtts := ms.NewInfiniteMathematicalSeries[float64]()
+	selfRttsQualityAttenuation := qualityattenuation.NewSimpleQualityAttenuation()
 	foreignRtts := ms.NewInfiniteMathematicalSeries[float64]()
 
 	// For later debugging output, record the last throughputs on load-generating connectings
@@ -543,6 +550,9 @@ timeout:
 					}
 				} else if probeMeasurement.Type == probe.SelfDown || probeMeasurement.Type == probe.SelfUp {
 					selfRtts.AddElement(probeMeasurement.Duration.Seconds())
+					if *printQualityAttenuation {
+						selfRttsQualityAttenuation.AddSample(probeMeasurement.Duration.Seconds())
+					}
 				}
 
 				if probeMeasurement.Type == probe.Foreign {
@@ -668,6 +678,35 @@ Trimmed Mean Foreign RTT:     %f
 			selfProbeRoundTripTimeMean,
 			foreignProbeRoundTripTimeMean,
 		)
+	}
+
+	if *printQualityAttenuation {
+		fmt.Println("Quality Attenuation Statistics:")
+		fmt.Printf(
+			`Number of losses: %d
+Number of samples: %d
+Loss: %f
+Min: %.6f
+Max: %.6f
+Mean: %.6f 
+Variance: %.6f
+Standard Deviation: %.6f
+PDV(90): %.6f
+PDV(99): %.6f
+P(90): %.6f
+P(99): %.6f
+`, selfRttsQualityAttenuation.GetNumberOfLosses(),
+			selfRttsQualityAttenuation.GetNumberOfSamples(),
+			selfRttsQualityAttenuation.GetLossPercentage(),
+			selfRttsQualityAttenuation.GetMinimum(),
+			selfRttsQualityAttenuation.GetMaximum(),
+			selfRttsQualityAttenuation.GetAverage(),
+			selfRttsQualityAttenuation.GetVariance(),
+			selfRttsQualityAttenuation.GetStandardDeviation(),
+			selfRttsQualityAttenuation.GetPDV(90),
+			selfRttsQualityAttenuation.GetPDV(99),
+			selfRttsQualityAttenuation.GetPercentile(90),
+			selfRttsQualityAttenuation.GetPercentile(99))
 	}
 
 	if !testRanToStability {
