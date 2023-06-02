@@ -41,6 +41,9 @@ func OverrideHostTransport(transport *http.Transport, connectToAddr string) {
 		return dialer.DialContext(ctx, network, addr)
 	}
 
-	http2.ConfigureTransport(transport)
-
+	if t2, err := http2.ConfigureTransports(transport); err != nil {
+		panic("Panic: Could not properly upgrade an http/1.1 transport for http/2.")
+	} else {
+		t2.StrictMaxConcurrentStreams = true
+	}
 }
