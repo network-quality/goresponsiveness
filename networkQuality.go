@@ -159,7 +159,7 @@ func main() {
 	operatingCtx, operatingCtxCancel := context.WithCancel(context.Background())
 
 	// The operator contexts. These contexts control the processes that manage
-	// network activity but do no control network activity.
+	// network activity but do not control network activity.
 
 	uploadLoadGeneratorOperatorCtx, uploadLoadGeneratorOperatorCtxCancel := context.WithCancel(operatingCtx)
 	downloadLoadGeneratorOperatorCtx, downloadLoadGeneratorOperatorCtxCancel := context.WithCancel(operatingCtx)
@@ -188,7 +188,7 @@ func main() {
 
 	var sslKeyFileConcurrentWriter *ccw.ConcurrentWriter = nil
 	if *sslKeyFileName != "" {
-		if sslKeyFileHandle, err := os.OpenFile(*sslKeyFileName, os.O_RDWR|os.O_CREATE, os.FileMode(0600)); err != nil {
+		if sslKeyFileHandle, err := os.OpenFile(*sslKeyFileName, os.O_RDWR|os.O_CREATE, os.FileMode(0o600)); err != nil {
 			fmt.Printf("Could not open the requested SSL key logging file for writing: %v!\n", err)
 			sslKeyFileConcurrentWriter = nil
 		} else {
@@ -205,7 +205,8 @@ func main() {
 		}
 	}
 
-	if err := config.Get(configHostPort, *configPath, *insecureSkipVerify, sslKeyFileConcurrentWriter); err != nil {
+	if err := config.Get(configHostPort, *configPath, *insecureSkipVerify,
+		sslKeyFileConcurrentWriter); err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
 	}
@@ -360,12 +361,14 @@ func main() {
 	 * will create load-generating connections for upload/download
 	 */
 	generateLgdc := func() lgc.LoadGeneratingConnection {
-		lgd := lgc.NewLoadGeneratingConnectionDownload(config.Urls.LargeUrl, sslKeyFileConcurrentWriter, config.ConnectToAddr, *insecureSkipVerify)
+		lgd := lgc.NewLoadGeneratingConnectionDownload(config.Urls.LargeUrl,
+			sslKeyFileConcurrentWriter, config.ConnectToAddr, *insecureSkipVerify)
 		return &lgd
 	}
 
 	generateLguc := func() lgc.LoadGeneratingConnection {
-		lgu := lgc.NewLoadGeneratingConnectionUpload(config.Urls.UploadUrl, sslKeyFileConcurrentWriter, config.ConnectToAddr, *insecureSkipVerify)
+		lgu := lgc.NewLoadGeneratingConnectionUpload(config.Urls.UploadUrl,
+			sslKeyFileConcurrentWriter, config.ConnectToAddr, *insecureSkipVerify)
 		return &lgu
 	}
 
@@ -453,19 +456,23 @@ func main() {
 	K := constants.InstantaneousMovingAverageStabilityCount
 	S := constants.StabilityStandardDeviation
 
-	downloadThroughputStabilizerDebugConfig := debug.NewDebugWithPrefix(debug.Debug, "Download Throughput Stabilizer")
+	downloadThroughputStabilizerDebugConfig :=
+		debug.NewDebugWithPrefix(debug.Debug, "Download Throughput Stabilizer")
 	downloadThroughputStabilizerDebugLevel := debug.Error
 	if *debugCliFlag {
 		downloadThroughputStabilizerDebugLevel = debug.Debug
 	}
-	downloadThroughputStabilizer := stabilizer.NewThroughputStabilizer(throughputI, K, S, downloadThroughputStabilizerDebugLevel, downloadThroughputStabilizerDebugConfig)
+	downloadThroughputStabilizer := stabilizer.NewThroughputStabilizer(throughputI, K, S,
+		downloadThroughputStabilizerDebugLevel, downloadThroughputStabilizerDebugConfig)
 
-	uploadThroughputStabilizerDebugConfig := debug.NewDebugWithPrefix(debug.Debug, "Upload Throughput Stabilizer")
+	uploadThroughputStabilizerDebugConfig :=
+		debug.NewDebugWithPrefix(debug.Debug, "Upload Throughput Stabilizer")
 	uploadThroughputStabilizerDebugLevel := debug.Error
 	if *debugCliFlag {
 		uploadThroughputStabilizerDebugLevel = debug.Debug
 	}
-	uploadThroughputStabilizer := stabilizer.NewThroughputStabilizer(throughputI, K, S, uploadThroughputStabilizerDebugLevel, uploadThroughputStabilizerDebugConfig)
+	uploadThroughputStabilizer := stabilizer.NewThroughputStabilizer(throughputI, K, S,
+		uploadThroughputStabilizerDebugLevel, uploadThroughputStabilizerDebugConfig)
 
 	probeStabilizerDebugConfig := debug.NewDebugWithPrefix(debug.Debug, "Probe Stabilizer")
 	probeStabilizerDebugLevel := debug.Error
@@ -497,7 +504,8 @@ timeout:
 				downloadThroughputIsStable = downloadThroughputStabilizer.IsStable()
 				if *debugCliFlag {
 					fmt.Printf(
-						"################# Download is instantaneously %s.\n", utilities.Conditional(downloadThroughputIsStable, "stable", "unstable"))
+						"################# Download is instantaneously %s.\n",
+						utilities.Conditional(downloadThroughputIsStable, "stable", "unstable"))
 				}
 				downloadThroughputDataLogger.LogRecord(downloadThroughputMeasurement)
 				for i := range downloadThroughputMeasurement.GranularThroughputDataPoints {
@@ -507,7 +515,8 @@ timeout:
 				}
 
 				lastDownloadThroughputRate = downloadThroughputMeasurement.Throughput
-				lastDownloadThroughputOpenConnectionCount = downloadThroughputMeasurement.Connections
+				lastDownloadThroughputOpenConnectionCount =
+					downloadThroughputMeasurement.Connections
 			}
 
 		case uploadThroughputMeasurement := <-uploadThroughputChannel:
@@ -516,7 +525,8 @@ timeout:
 				uploadThroughputIsStable = uploadThroughputStabilizer.IsStable()
 				if *debugCliFlag {
 					fmt.Printf(
-						"################# Upload is instantaneously %s.\n", utilities.Conditional(uploadThroughputIsStable, "stable", "unstable"))
+						"################# Upload is instantaneously %s.\n",
+						utilities.Conditional(uploadThroughputIsStable, "stable", "unstable"))
 				}
 				uploadThroughputDataLogger.LogRecord(uploadThroughputMeasurement)
 				for i := range uploadThroughputMeasurement.GranularThroughputDataPoints {
@@ -538,15 +548,16 @@ timeout:
 
 				if *debugCliFlag {
 					fmt.Printf(
-						"################# Responsiveness is instantaneously %s.\n", utilities.Conditional(responsivenessIsStable, "stable", "unstable"))
+						"################# Responsiveness is instantaneously %s.\n",
+						utilities.Conditional(responsivenessIsStable, "stable", "unstable"))
 				}
 				if probeMeasurement.Type == probe.Foreign {
 					// There may be more than one round trip accumulated together. If that is the case,
 					// we will blow them apart in to three separate measurements and each one will just
 					// be 1 / measurement.RoundTripCount of the total length.
 					for range utilities.Iota(0, int(probeMeasurement.RoundTripCount)) {
-						foreignRtts.AddElement(probeMeasurement.Duration.Seconds() / float64(probeMeasurement.RoundTripCount))
-
+						foreignRtts.AddElement(probeMeasurement.Duration.Seconds() /
+							float64(probeMeasurement.RoundTripCount))
 					}
 				} else if probeMeasurement.Type == probe.SelfDown || probeMeasurement.Type == probe.SelfUp {
 					selfRtts.AddElement(probeMeasurement.Duration.Seconds())
@@ -574,7 +585,8 @@ timeout:
 	testRanToStability := (downloadThroughputIsStable && uploadThroughputIsStable && responsivenessIsStable)
 
 	if *debugCliFlag {
-		fmt.Printf("Stopping all the load generating data generators (stability: %s).\n", utilities.Conditional(testRanToStability, "success", "failure"))
+		fmt.Printf("Stopping all the load generating data generators (stability: %s).\n",
+			utilities.Conditional(testRanToStability, "success", "failure"))
 	}
 
 	/* At this point there are
@@ -607,7 +619,8 @@ timeout:
 					// Assume that extended statistics are available -- the check was done explicitly at
 					// program startup if the calculateExtendedStats flag was set by the user on the command line.
 					currentLgc, _ := downloadLoadGeneratingConnectionCollection.Get(i)
-					if err := extendedStats.IncorporateConnectionStats((*currentLgc).Stats().ConnInfo.Conn); err != nil {
+					if err := extendedStats.IncorporateConnectionStats(
+						(*currentLgc).Stats().ConnInfo.Conn); err != nil {
 						fmt.Fprintf(
 							os.Stderr,
 							"Warning: Could not add extended stats for the connection: %v\n",
@@ -777,14 +790,17 @@ P(99): %.6f
 		var buffer bytes.Buffer
 		buffer.WriteString(fmt.Sprintf("networkquality_test_stable %d\n", testStable))
 		buffer.WriteString(fmt.Sprintf("networkquality_rpm_value %d\n", int64(p90Rpm)))
-		buffer.WriteString(fmt.Sprintf("networkquality_trimmed_rpm_value %d\n", int64(meanRpm))) //utilities.ToMbps(lastDownloadThroughputRate),
+		buffer.WriteString(fmt.Sprintf("networkquality_trimmed_rpm_value %d\n",
+			int64(meanRpm))) // utilities.ToMbps(lastDownloadThroughputRate),
 
 		buffer.WriteString(fmt.Sprintf("networkquality_download_bits_per_second %d\n", int64(lastDownloadThroughputRate)))
-		buffer.WriteString(fmt.Sprintf("networkquality_download_connections %d\n", int64(lastDownloadThroughputOpenConnectionCount)))
+		buffer.WriteString(fmt.Sprintf("networkquality_download_connections %d\n",
+			int64(lastDownloadThroughputOpenConnectionCount)))
 		buffer.WriteString(fmt.Sprintf("networkquality_upload_bits_per_second %d\n", int64(lastUploadThroughputRate)))
-		buffer.WriteString(fmt.Sprintf("networkquality_upload_connections %d\n", lastUploadThroughputOpenConnectionCount))
+		buffer.WriteString(fmt.Sprintf("networkquality_upload_connections %d\n",
+			lastUploadThroughputOpenConnectionCount))
 
-		if err := os.WriteFile(*prometheusStatsFilename, buffer.Bytes(), 0644); err != nil {
+		if err := os.WriteFile(*prometheusStatsFilename, buffer.Bytes(), 0o644); err != nil {
 			fmt.Printf("could not write %s: %s", *prometheusStatsFilename, err)
 			os.Exit(1)
 		}
