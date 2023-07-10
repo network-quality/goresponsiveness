@@ -6,7 +6,7 @@ all: build test
 build:
 	go build $(LDFLAGS) networkQuality.go
 test:
-	go test ./timeoutat/ ./traceable/ ./ms/ ./utilities/ ./lgc ./qualityattenuation ./rpm
+	go test ./timeoutat/ ./traceable/ ./utilities/ ./lgc ./qualityattenuation ./rpm ./series
 golines:
 	find . -name '*.go' -exec ~/go/bin/golines -w {} \;
 clean:

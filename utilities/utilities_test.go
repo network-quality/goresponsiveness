@@ -126,3 +126,65 @@ func TestPerSecondToInterval(t *testing.T) {
 		t.Fatalf("Something that happens twice per second should happen every 5000ns.")
 	}
 }
+
+func TestTrim(t *testing.T) {
+	elements := Iota(1, 101)
+
+	trimmedElements := TrimBy(elements, 75)
+
+	trimmedLength := len(trimmedElements)
+	trimmedLast := trimmedElements[trimmedLength-1]
+
+	if trimmedLength != 75 || trimmedLast != 75 {
+		t.Fatalf("When trimming, the length should be 75 but it is %d and/or the last element should be 75 but it is %d", trimmedLength, trimmedLast)
+	}
+}
+
+func TestTrim2(t *testing.T) {
+	elements := Iota(1, 11)
+
+	trimmedElements := TrimBy(elements, 75)
+
+	trimmedLength := len(trimmedElements)
+	trimmedLast := trimmedElements[trimmedLength-1]
+
+	if trimmedLength != 7 || trimmedLast != 7 {
+		t.Fatalf("When trimming, the length should be 7 but it is %d and/or the last element should be 7 but it is %d", trimmedLength, trimmedLast)
+	}
+}
+
+func TestTrim3(t *testing.T) {
+	elements := Iota(1, 6)
+
+	trimmedElements := TrimBy(elements, 101)
+
+	trimmedLength := len(trimmedElements)
+	trimmedLast := trimmedElements[trimmedLength-1]
+
+	if trimmedLength != 5 || trimmedLast != 5 {
+		t.Fatalf("When trimming, the length should be 5 but it is %d and/or the last element should be 5 but it is %d", trimmedLength, trimmedLast)
+	}
+}
+
+func TestTrim4(t *testing.T) {
+	elements := Iota(1, 11)
+
+	trimmedElements := TrimBy(elements, 81)
+
+	trimmedLength := len(trimmedElements)
+	trimmedLast := trimmedElements[trimmedLength-1]
+
+	if trimmedLength != 8 || trimmedLast != 8 {
+		t.Fatalf("When trimming, the length should be 8 but it is %d and/or the last element should be 8 but it is %d", trimmedLength, trimmedLast)
+	}
+}
+
+func TestTrimmedMean(t *testing.T) {
+	expected := 2.5
+	elements := []int{5, 4, 3, 2, 1}
+
+	result, elements := TrimmedMean(elements, 80)
+	if result != expected || len(elements) != 4 || elements[len(elements)-1] != 4 {
+		t.Fatalf("The trimmed mean result %v does not match the expected value %v", result, expected)
+	}
+}

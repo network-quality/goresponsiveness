@@ -14,7 +14,12 @@
 
 package stabilizer
 
-type Stabilizer[T any] interface {
-	AddMeasurement(T)
+import (
+	"golang.org/x/exp/constraints"
+)
+
+type Stabilizer[Data any, Bucket constraints.Ordered] interface {
+	Interval()
+	AddMeasurement(Data, Bucket)
 	IsStable() bool
 }

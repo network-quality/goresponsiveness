@@ -17,40 +17,60 @@ package rpm
 import (
 	"fmt"
 
-	"github.com/network-quality/goresponsiveness/ms"
+	"github.com/network-quality/goresponsiveness/series"
+	"github.com/network-quality/goresponsiveness/utilities"
+	"golang.org/x/exp/constraints"
 )
 
-type Rpm struct {
+type Rpm[Data utilities.Number] struct {
 	SelfRttsTotal       int
 	ForeignRttsTotal    int
 	SelfRttsTrimmed     int
 	ForeignRttsTrimmed  int
-	SelfProbeRttPN      float64
-	ForeignProbeRttPN   float64
+	SelfProbeRttPN      Data
+	ForeignProbeRttPN   Data
 	SelfProbeRttMean    float64
 	ForeignProbeRttMean float64
 	PNRpm               float64
 	MeanRpm             float64
 }
 
-func CalculateRpm(selfRtts ms.MathematicalSeries[float64], foreignRtts ms.MathematicalSeries[float64], trimming uint, percentile int) Rpm {
+func CalculateRpm[Data utilities.Number, Bucket constraints.Ordered](
+	selfRtts series.WindowSeries[Data, Bucket], aggregatedForeignRtts series.WindowSeries[Data, Bucket], trimming uint, percentile int,
+) Rpm[Data] {
+	// There may be more than one round trip accumulated together. If that is the case,
+	// we will blow them apart in to three separate measurements and each one will just
+	// be 1 / 3.
+	foreignRtts := series.NewWindowSeries[Data, int](series.Forever, 0)
+	foreignBuckets := 0
+	for _, v := range aggregatedForeignRtts.GetValues() {
+		if utilities.IsSome(v) {
+			v := utilities.GetSome(v)
+			foreignRtts.Reserve(foreignBuckets)
+			foreignRtts.Reserve(foreignBuckets + 1)
+			foreignRtts.Reserve(foreignBuckets + 2)
+			foreignRtts.Fill(foreignBuckets, v/3)
+			foreignRtts.Fill(foreignBuckets+1, v/3)
+			foreignRtts.Fill(foreignBuckets+2, v/3)
+			foreignBuckets += 3
+		}
+	}
+
 	// First, let's do a double-sided trim of the top/bottom 10% of our measurements.
-	selfRttsTotalCount := selfRtts.Len()
-	foreignRttsTotalCount := foreignRtts.Len()
+	selfRttsTotalCount, _ := selfRtts.Count()
+	foreignRttsTotalCount, _ := foreignRtts.Count()
 
-	selfRttsTrimmed := selfRtts.DoubleSidedTrim(trimming)
-	foreignRttsTrimmed := foreignRtts.DoubleSidedTrim(trimming)
+	_, selfProbeRoundTripTimeMean, selfRttsTrimmed :=
+		series.TrimmedMean(selfRtts, int(trimming))
+	_, foreignProbeRoundTripTimeMean, foreignRttsTrimmed :=
+		series.TrimmedMean(foreignRtts, int(trimming))
 
-	selfRttsTrimmedCount := selfRttsTrimmed.Len()
-	foreignRttsTrimmedCount := foreignRttsTrimmed.Len()
-
-	// Then, let's take the mean of those ...
-	selfProbeRoundTripTimeMean := selfRttsTrimmed.CalculateAverage()
-	foreignProbeRoundTripTimeMean := foreignRttsTrimmed.CalculateAverage()
+	selfRttsTrimmedCount := len(selfRttsTrimmed)
+	foreignRttsTrimmedCount := len(foreignRttsTrimmed)
 
 	// Second, let's do the P90 calculations.
-	selfProbeRoundTripTimePN := selfRtts.Percentile(percentile)
-	foreignProbeRoundTripTimePN := foreignRtts.Percentile(percentile)
+	_, selfProbeRoundTripTimePN := series.Percentile(selfRtts, percentile)
+	_, foreignProbeRoundTripTimePN := series.Percentile(foreignRtts, percentile)
 
 	// Note: The specification indicates that we want to calculate the foreign probes as such:
 	// 1/3*tcp_foreign + 1/3*tls_foreign + 1/3*http_foreign
@@ -62,7 +82,7 @@ func CalculateRpm(selfRtts ms.MathematicalSeries[float64], foreignRtts ms.Mathem
 	pnRpm := 60.0 / (float64(selfProbeRoundTripTimePN+foreignProbeRoundTripTimePN) / 2.0)
 	meanRpm := 60.0 / (float64(selfProbeRoundTripTimeMean+foreignProbeRoundTripTimeMean) / 2.0)
 
-	return Rpm{
+	return Rpm[Data]{
 		SelfRttsTotal: selfRttsTotalCount, ForeignRttsTotal: foreignRttsTotalCount,
 		SelfRttsTrimmed: selfRttsTrimmedCount, ForeignRttsTrimmed: foreignRttsTrimmedCount,
 		SelfProbeRttPN: selfProbeRoundTripTimePN, ForeignProbeRttPN: foreignProbeRoundTripTimePN,
@@ -71,14 +91,14 @@ func CalculateRpm(selfRtts ms.MathematicalSeries[float64], foreignRtts ms.Mathem
 	}
 }
 
-func (rpm *Rpm) ToString() string {
+func (rpm *Rpm[Data]) ToString() string {
 	return fmt.Sprintf(
 		`Total Self Probes:            %d
 Total Foreign Probes:         %d
 Trimmed Self Probes Count:    %d
 Trimmed Foreign Probes Count: %d
-P90 Self RTT:                 %f
-P90 Foreign RTT:              %f
+P90 Self RTT:                 %v
+P90 Foreign RTT:              %v
 Trimmed Mean Self RTT:        %f
 Trimmed Mean Foreign RTT:     %f
 `,

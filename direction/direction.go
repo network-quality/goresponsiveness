@@ -23,19 +23,18 @@ import (
 )
 
 type Direction struct {
-	DirectionLabel                      string
-	SelfProbeDataLogger                 datalogger.DataLogger[probe.ProbeDataPoint]
-	ForeignProbeDataLogger              datalogger.DataLogger[probe.ProbeDataPoint]
-	ThroughputDataLogger                datalogger.DataLogger[rpm.ThroughputDataPoint]
-	GranularThroughputDataLogger        datalogger.DataLogger[rpm.GranularThroughputDataPoint]
-	CreateLgdc                          func() lgc.LoadGeneratingConnection
-	Lgcc                                lgc.LoadGeneratingConnectionCollection
-	DirectionDebugging                  *debug.DebugWithPrefix
-	ProbeDebugging                      *debug.DebugWithPrefix
-	ThroughputStabilizerDebugging       *debug.DebugWithPrefix
-	ResponsivenessStabilizerDebugging   *debug.DebugWithPrefix
-	LgStabilizationCommunicationChannel chan rpm.ThroughputDataPoint
-	ExtendedStatsEligible               bool
-	StableThroughput                    bool
-	StableResponsiveness                bool
+	DirectionLabel                    string
+	SelfProbeDataLogger               datalogger.DataLogger[probe.ProbeDataPoint]
+	ForeignProbeDataLogger            datalogger.DataLogger[probe.ProbeDataPoint]
+	ThroughputDataLogger              datalogger.DataLogger[rpm.ThroughputDataPoint]
+	GranularThroughputDataLogger      datalogger.DataLogger[rpm.GranularThroughputDataPoint]
+	CreateLgdc                        func() lgc.LoadGeneratingConnection
+	Lgcc                              lgc.LoadGeneratingConnectionCollection
+	DirectionDebugging                *debug.DebugWithPrefix
+	ProbeDebugging                    *debug.DebugWithPrefix
+	ThroughputStabilizerDebugging     *debug.DebugWithPrefix
+	ResponsivenessStabilizerDebugging *debug.DebugWithPrefix
+	ExtendedStatsEligible             bool
+	StableThroughput                  bool
+	StableResponsiveness              bool
 }

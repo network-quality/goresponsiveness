@@ -21,13 +21,10 @@ import (
 	"math/rand"
 	"os"
 	"reflect"
-	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"golang.org/x/exp/constraints"
 )
 
 // GitVersion is the Git revision hash
@@ -44,24 +41,6 @@ func Iota(low int, high int) (made []int) {
 func IsInterfaceNil(ifc interface{}) bool {
 	return ifc == nil ||
 		(reflect.ValueOf(ifc).Kind() == reflect.Ptr && reflect.ValueOf(ifc).IsNil())
-}
-
-func SignedPercentDifference[T constraints.Float | constraints.Integer](
-	current T,
-	previous T,
-) (difference float64) {
-	fCurrent := float64(current)
-	fPrevious := float64(previous)
-	return ((fCurrent - fPrevious) / fPrevious) * 100.0
-}
-
-func AbsPercentDifference(
-	current float64,
-	previous float64,
-) (difference float64) {
-	return (math.Abs(current-previous) / (float64(current+previous) / 2.0)) * float64(
-		100,
-	)
 }
 
 func Conditional[T any](condition bool, t T, f T) T {
@@ -137,13 +116,6 @@ func RandBetween(max int) int {
 	return rand.New(rand.NewSource(int64(time.Now().Nanosecond()))).Int() % max
 }
 
-func Max(x, y uint64) uint64 {
-	if x > y {
-		return x
-	}
-	return y
-}
-
 func ChannelToSlice[S any](channel <-chan S) (slice []S) {
 	slice = make([]S, 0)
 	for element := range channel {
@@ -152,19 +124,32 @@ func ChannelToSlice[S any](channel <-chan S) (slice []S) {
 	return
 }
 
+func Reverse[T any](elements []T) []T {
+	result := make([]T, len(elements))
+	iterator := len(elements) - 1
+	for _, v := range elements {
+		result[iterator] = v
+		iterator--
+	}
+	return result
+}
+
+func Filter[S any](elements []S, filterer func(S) bool) []S {
+	result := make([]S, 0)
+	for _, s := range elements {
+		if filterer(s) {
+			result = append(result, s)
+		}
+	}
+	return result
+}
+
 func Fmap[S any, F any](elements []S, mapper func(S) F) []F {
 	result := make([]F, 0)
 	for _, s := range elements {
 		result = append(result, mapper(s))
 	}
 	return result
-}
-
-func CalculatePercentile[S float32 | int32 | float64 | int64](elements []S, percentile int) S {
-	sort.Slice(elements, func(a, b int) bool { return elements[a] < elements[b] })
-	elementsCount := len(elements)
-	percentileIdx := elementsCount * (percentile / 100)
-	return elements[percentileIdx]
 }
 
 func OrTimeout(f func(), timeout time.Duration) {
@@ -227,9 +212,9 @@ func ContextSignaler(ctxt context.Context, st time.Duration, condition *func() b
 	}
 }
 
-type Pair[T any] struct {
-	First  T
-	Second T
+type Pair[T1, T2 any] struct {
+	First  T1
+	Second T2
 }
 
 func PerSecondToInterval(rate int64) time.Duration {
