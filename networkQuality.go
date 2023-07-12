@@ -851,16 +851,16 @@ func main() {
 			fmt.Printf(
 				`Number of losses: %d
 Number of samples: %d
-Loss: %f
-Min: %.6f
-Max: %.6f
-Mean: %.6f 
-Variance: %.6f
-Standard Deviation: %.6f
-PDV(90): %.6f
-PDV(99): %.6f
-P(90): %.6f
-P(99): %.6f
+Loss: %f %%
+Min: %.6f s
+Max: %.6f s
+Mean: %.6f s
+Variance: %.6f s
+Standard Deviation: %.6f s
+PDV(90): %.6f s
+PDV(99): %.6f s
+P(90): %.6f s
+P(99): %.6f s
 RPM: %.0f
 Gaming QoO: %.0f
 `, selfRttsQualityAttenuation.GetNumberOfLosses(),

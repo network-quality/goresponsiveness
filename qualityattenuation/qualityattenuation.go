@@ -13,7 +13,7 @@ type cablelabsHist struct {
 	hist [256]float64
 }
 
-func (h *cablelabsHist) GetHist() [256]float64 {
+func (h *cablelabsHist) GetHistogram() [256]float64 {
 	return h.hist
 }
 
@@ -52,17 +52,16 @@ type SimpleQualityAttenuation struct {
 	latencyEqLossThreshold float64
 	minimumLatency         float64
 	maximumLatency         float64
-	hist                   cablelabsHist
 }
 
-type PercentileLatencyPair struct {
+type percentileLatencyPair struct {
 	percentile     float64
 	perfectLatency float64
 	uselessLatency float64
 }
 
-type QualityRequirement struct {
-	latencyRequirements []PercentileLatencyPair
+type qualityRequirement struct {
+	latencyRequirements []percentileLatencyPair
 }
 
 func NewSimpleQualityAttenuation() *SimpleQualityAttenuation {
@@ -85,7 +84,6 @@ func (qa *SimpleQualityAttenuation) AddSample(sample float64) error {
 		// TODO: This should raise a warning and/or trigger error handling.
 		return fmt.Errorf("sample is zero or negative")
 	}
-	qa.hist.AddSample(sample)
 	qa.numberOfSamples++
 	if sample > qa.latencyEqLossThreshold {
 		qa.numberOfLosses++
@@ -206,10 +204,6 @@ func (qa *SimpleQualityAttenuation) Merge(other *SimpleQualityAttenuation) error
 	return nil
 }
 
-func (qa *SimpleQualityAttenuation) GetHist() [256]float64 {
-	return qa.hist.GetHist()
-}
-
 func (qa *SimpleQualityAttenuation) EmpiricalDistributionHistogram() []float64 {
 	// Convert the tdigest to a histogram on the format defined by CableLabs, with the following bucket edges:
 	// 100 bins from 0 to 50 ms, each 0.5 ms wide
@@ -240,7 +234,7 @@ func (qa *SimpleQualityAttenuation) EmpiricalDistributionHistogram() []float64 {
 // Compute the Quality of Outcome (QoO) for a given quality requirement.
 // The details and motivation for the QoO metric are described in the following internet draft:
 // https://datatracker.ietf.org/doc/draft-olden-ippm-qoo/
-func (qa *SimpleQualityAttenuation) QoO(requirement QualityRequirement) float64 {
+func (qa *SimpleQualityAttenuation) QoO(requirement qualityRequirement) float64 {
 	QoO := 100.0
 	for _, percentileLatencyPair := range requirement.latencyRequirements {
 		score := 0.0
@@ -263,10 +257,10 @@ func (qa *SimpleQualityAttenuation) QoO(requirement QualityRequirement) float64 
 }
 
 func (qa *SimpleQualityAttenuation) GetGamingQoO() float64 {
-	qualReq := QualityRequirement{}
-	qualReq.latencyRequirements = []PercentileLatencyPair{}
-	qualReq.latencyRequirements = append(qualReq.latencyRequirements, PercentileLatencyPair{percentile: 50.0, perfectLatency: 0.030, uselessLatency: 0.150})
-	qualReq.latencyRequirements = append(qualReq.latencyRequirements, PercentileLatencyPair{percentile: 95.0, perfectLatency: 0.065, uselessLatency: 0.200})
-	qualReq.latencyRequirements = append(qualReq.latencyRequirements, PercentileLatencyPair{percentile: 99.0, perfectLatency: 0.100, uselessLatency: 0.250})
+	qualReq := qualityRequirement{}
+	qualReq.latencyRequirements = []percentileLatencyPair{}
+	qualReq.latencyRequirements = append(qualReq.latencyRequirements, percentileLatencyPair{percentile: 50.0, perfectLatency: 0.030, uselessLatency: 0.150})
+	qualReq.latencyRequirements = append(qualReq.latencyRequirements, percentileLatencyPair{percentile: 95.0, perfectLatency: 0.065, uselessLatency: 0.200})
+	qualReq.latencyRequirements = append(qualReq.latencyRequirements, percentileLatencyPair{percentile: 99.0, perfectLatency: 0.100, uselessLatency: 0.250})
 	return qa.QoO(qualReq)
 }
