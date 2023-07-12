@@ -15,6 +15,7 @@ package series
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/network-quality/goresponsiveness/utilities"
 	"golang.org/x/exp/constraints"
@@ -277,4 +278,21 @@ func NewWindowSeries[Data any, Bucket constraints.Ordered](tipe WindowSeriesDura
 		return newWindowSeriesForeverImpl[Data, Bucket]()
 	}
 	panic("")
+}
+
+type NumericBucketGenerator[T utilities.Number] struct {
+	mt           sync.Mutex
+	currentValue T
+}
+
+func (bg *NumericBucketGenerator[T]) Generate() T {
+	bg.mt.Lock()
+	defer bg.mt.Unlock()
+
+	bg.currentValue++
+	return bg.currentValue
+}
+
+func NewNumericBucketGenerator[T utilities.Number](initialValue T) NumericBucketGenerator[T] {
+	return NumericBucketGenerator[T]{currentValue: initialValue}
 }

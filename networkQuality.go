@@ -471,13 +471,15 @@ func main() {
 	}
 
 	// All tests will accumulate data to these series because it will all matter for RPM calculation!
-	selfRtts := series.NewWindowSeries[float64, uint](series.Forever, 0)
-	foreignRtts := series.NewWindowSeries[float64, uint](series.Forever, 0)
+	selfRtts := series.NewWindowSeries[float64, uint64](series.Forever, 0)
+	foreignRtts := series.NewWindowSeries[float64, uint64](series.Forever, 0)
 
 	var selfRttsQualityAttenuation *qualityattenuation.SimpleQualityAttenuation = nil
 	if *printQualityAttenuation {
 		selfRttsQualityAttenuation = qualityattenuation.NewSimpleQualityAttenuation()
 	}
+
+	globalNumericBucketGenerator := series.NewNumericBucketGenerator[uint64](0)
 
 	for _, direction := range directions {
 
@@ -510,6 +512,7 @@ func main() {
 			specParameters.EvalInterval,
 			direction.CreateLgdc,
 			&direction.Lgcc,
+			&globalNumericBucketGenerator,
 			specParameters.MaxParallelConns,
 			*calculateExtendedStats,
 			direction.DirectionDebugging,
@@ -531,7 +534,7 @@ func main() {
 		if *debugCliFlag {
 			responsivenessStabilizerDebugLevel = debug.Debug
 		}
-		responsivenessStabilizer := stabilizer.NewStabilizer[int64, uint](
+		responsivenessStabilizer := stabilizer.NewStabilizer[int64, uint64](
 			specParameters.MovingAvgDist, specParameters.StdDevTolerance,
 			specParameters.TrimmedMeanPct, "milliseconds",
 			responsivenessStabilizerDebugLevel, responsivenessStabilizerDebugConfig)
@@ -628,8 +631,8 @@ func main() {
 			)
 		}
 
-		perDirectionSelfRtts := series.NewWindowSeries[float64, uint](series.Forever, 0)
-		perDirectionForeignRtts := series.NewWindowSeries[float64, uint](series.Forever, 0)
+		perDirectionSelfRtts := series.NewWindowSeries[float64, uint64](series.Forever, 0)
+		perDirectionForeignRtts := series.NewWindowSeries[float64, uint64](series.Forever, 0)
 
 		responsivenessStabilizationCommunicationChannel := rpm.ResponsivenessProber(
 			proberOperatorCtx,
@@ -637,6 +640,7 @@ func main() {
 			generateForeignProbeConfiguration,
 			generateSelfProbeConfiguration,
 			&direction.Lgcc,
+			&globalNumericBucketGenerator,
 			direction.CreateLgdc().Direction(), // TODO: This could be better!
 			specParameters.ProbeInterval,
 			sslKeyFileConcurrentWriter,
