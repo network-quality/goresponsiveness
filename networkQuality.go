@@ -846,6 +846,38 @@ func main() {
 		if *debugCliFlag {
 			fmt.Printf("(%s RPM Calculation stats): %v\n", direction.DirectionLabel, directionResult.ToString())
 		}
+		if *printQualityAttenuation {
+			fmt.Println("Quality Attenuation Statistics:")
+			fmt.Printf(
+				`Number of losses: %d
+Number of samples: %d
+Loss: %f %%
+Min: %.6f s
+Max: %.6f s
+Mean: %.6f s
+Variance: %.6f s
+Standard Deviation: %.6f s
+PDV(90): %.6f s
+PDV(99): %.6f s
+P(90): %.6f s
+P(99): %.6f s
+RPM: %.0f
+Gaming QoO: %.0f
+`, selfRttsQualityAttenuation.GetNumberOfLosses(),
+				selfRttsQualityAttenuation.GetNumberOfSamples(),
+				selfRttsQualityAttenuation.GetLossPercentage(),
+				selfRttsQualityAttenuation.GetMinimum(),
+				selfRttsQualityAttenuation.GetMaximum(),
+				selfRttsQualityAttenuation.GetAverage(),
+				selfRttsQualityAttenuation.GetVariance(),
+				selfRttsQualityAttenuation.GetStandardDeviation(),
+				selfRttsQualityAttenuation.GetPDV(90),
+				selfRttsQualityAttenuation.GetPDV(99),
+				selfRttsQualityAttenuation.GetPercentile(90),
+				selfRttsQualityAttenuation.GetPercentile(99),
+				selfRttsQualityAttenuation.GetRPM(),
+				selfRttsQualityAttenuation.GetGamingQoO())
+		}
 
 		if !testRanToStability {
 			fmt.Printf("Test did not run to stability, these results are estimates:\n")
