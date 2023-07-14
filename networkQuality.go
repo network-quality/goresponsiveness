@@ -690,15 +690,16 @@ func main() {
 							if err := selfRtts.Fill(bucket, selfDataPoint.Duration.Seconds()); err != nil {
 								fmt.Printf("Attempting to fill a bucket (id: %d) that does not exist (selfRtts)\n", bucket)
 							}
-							if perDirectionSelfRtts.Fill(bucket, selfDataPoint.Duration.Seconds()); err != nil {
+							if err := perDirectionSelfRtts.Fill(bucket,
+								selfDataPoint.Duration.Seconds()); err != nil {
 								fmt.Printf("Attempting to fill a bucket (id: %d) that does not exist (perDirectionSelfRtts)\n", bucket)
 							}
 
-							if foreignRtts.Fill(bucket, foreignDataPoint.Duration.Seconds()); err != nil {
+							if err := foreignRtts.Fill(bucket, foreignDataPoint.Duration.Seconds()); err != nil {
 								fmt.Printf("Attempting to fill a bucket (id: %d) that does not exist (foreignRtts)\n", bucket)
 							}
 
-							if perDirectionForeignRtts.Fill(bucket,
+							if err := perDirectionForeignRtts.Fill(bucket,
 								foreignDataPoint.Duration.Seconds()); err != nil {
 								fmt.Printf("Attempting to fill a bucket (id: %d) that does not exist (perDirectionForeignRtts)\n", bucket)
 							}
