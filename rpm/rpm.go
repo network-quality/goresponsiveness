@@ -204,83 +204,95 @@ func ResponsivenessProber[BucketType utilities.Number](
 				}
 
 				var selfProbeConnection *lgc.LoadGeneratingConnection = nil
-				func() {
-					selfProbeConnectionCollection.Lock.Lock()
-					defer selfProbeConnectionCollection.Lock.Unlock()
-					selfProbeConnection, err = selfProbeConnectionCollection.GetRandom()
-					if err != nil {
+				if selfProbeConnectionCollection != nil {
+					func() {
+						selfProbeConnectionCollection.Lock.Lock()
+						defer selfProbeConnectionCollection.Lock.Unlock()
+						selfProbeConnection, err = selfProbeConnectionCollection.GetRandom()
+						if err != nil {
+							if debug.IsWarn(debugging.Level) {
+								fmt.Printf(
+									"(%s) Failed to get a random %s load-generating connection on which to send a probe: %v.\n",
+									debugging.Prefix,
+									probeDirection,
+									err,
+								)
+							}
+							return
+						}
+					}()
+				}
+				if selfProbeConnectionCollection != nil && selfProbeConnection == nil {
+					return
+				}
+
+				var selfProbeDataPoint *probe.ProbeDataPoint = nil
+				if selfProbeConnection != nil {
+					// TODO: Make the following sanity check more than just a check.
+					// We only want to start a SelfUp probe on a connection that is
+					// in the RUNNING state.
+					if (*selfProbeConnection).Status() != lgc.LGC_STATUS_RUNNING {
 						if debug.IsWarn(debugging.Level) {
 							fmt.Printf(
-								"(%s) Failed to get a random %s load-generating connection on which to send a probe: %v.\n",
+								"(%s) The selected random %s load-generating connection on which to send a probe was not running.\n",
 								debugging.Prefix,
 								probeDirection,
-								err,
 							)
 						}
 						return
 					}
-				}()
-				if selfProbeConnection == nil {
-					return
-				}
 
-				// TODO: Make the following sanity check more than just a check.
-				// We only want to start a SelfUp probe on a connection that is
-				// in the RUNNING state.
-				if (*selfProbeConnection).Status() != lgc.LGC_STATUS_RUNNING {
-					if debug.IsWarn(debugging.Level) {
+					if debug.IsDebug(debugging.Level) {
 						fmt.Printf(
-							"(%s) The selected random %s load-generating connection on which to send a probe was not running.\n",
+							"(%s) Selected %s load-generating connection with ID %d to send a self probe with Id %d.\n",
 							debugging.Prefix,
 							probeDirection,
+							(*selfProbeConnection).ClientId(),
+							probeCount,
 						)
 					}
-					return
-				}
-
-				if debug.IsDebug(debugging.Level) {
-					fmt.Printf(
-						"(%s) Selected %s load-generating connection with ID %d to send a self probe with Id %d.\n",
-						debugging.Prefix,
-						probeDirection,
-						(*selfProbeConnection).ClientId(),
+					selfProbeDataPoint, err = probe.Probe(
+						proberCtx,
+						(*selfProbeConnection).Client(),
+						selfProbeConfiguration.URL,
+						selfProbeConfiguration.Host,
+						utilities.Conditional(probeDirection == lgc.LGC_DOWN, probe.SelfDown, probe.SelfUp),
 						probeCount,
+						captureExtendedStats,
+						debugging,
 					)
-				}
-				selfProbeDataPoint, err := probe.Probe(
-					proberCtx,
-					(*selfProbeConnection).Client(),
-					selfProbeConfiguration.URL,
-					selfProbeConfiguration.Host,
-					utilities.Conditional(probeDirection == lgc.LGC_DOWN, probe.SelfDown, probe.SelfUp),
-					probeCount,
-					captureExtendedStats,
-					debugging,
-				)
-				if err != nil {
-					// We may see an error here because the prober context was cancelled
-					// and requests were attempting to be sent. This situation is not an
-					// error (per se) so we will not log it as such.
+					if err != nil {
+						// We may see an error here because the prober context was cancelled
+						// and requests were attempting to be sent. This situation is not an
+						// error (per se) so we will not log it as such.
 
-					if proberCtx.Err() != nil {
-						if debug.IsDebug(debugging.Level) {
-							fmt.Printf(
-								"(%s) Failed to send a probe (id: %v) because the prober context was cancelled.\n",
-								debugging.Prefix,
-								probeCount,
-							)
+						if proberCtx.Err() != nil {
+							if debug.IsDebug(debugging.Level) {
+								fmt.Printf(
+									"(%s) Failed to send a probe (id: %v) because the prober context was cancelled.\n",
+									debugging.Prefix,
+									probeCount,
+								)
+							}
+							return
 						}
+						fmt.Printf(
+							"(%s) There was an error sending a self probe with Id %d: %v\n",
+							debugging.Prefix,
+							probeCount,
+							err,
+						)
 						return
 					}
-					fmt.Printf(
-						"(%s) There was an error sending a self probe with Id %d: %v\n",
-						debugging.Prefix,
-						probeCount,
-						err,
-					)
-					return
+				} else {
+					if debug.IsDebug(debugging.Level) {
+						fmt.Printf(
+							"(%s) Did not send a self probe at id %d of probes!\n",
+							debugging.Prefix,
+							probeCount,
+						)
+					}
 				}
-
 				if debug.IsDebug(debugging.Level) {
 					fmt.Printf(
 						"(%s) About to report results for round %d of probes!\n",
@@ -288,10 +300,9 @@ func ResponsivenessProber[BucketType utilities.Number](
 						probeCount,
 					)
 				}
-
 				dataPointsLock.Lock()
 				defer dataPointsLock.Unlock()
-				// Now we have our four data points (three in the foreign probe data point and one in the self probe data point)
+				// Now we have our (maybe) four data points (three in the foreign probe data point and [maybe] one in the self probe data point)
 				if dataPoints != nil {
 					measurement := ResponsivenessProbeResult{
 						Foreign: foreignProbeDataPoint, Self: selfProbeDataPoint,

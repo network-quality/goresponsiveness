@@ -37,7 +37,7 @@ type Rpm[Data utilities.Number] struct {
 
 func CalculateRpm[Data utilities.Number, Bucket constraints.Ordered](
 	selfRtts series.WindowSeries[Data, Bucket], aggregatedForeignRtts series.WindowSeries[Data, Bucket], trimming uint, percentile uint,
-) Rpm[Data] {
+) *Rpm[Data] {
 	// There may be more than one round trip accumulated together. If that is the case,
 	// we will blow them apart in to three separate measurements and each one will just
 	// be 1 / 3.
@@ -82,7 +82,7 @@ func CalculateRpm[Data utilities.Number, Bucket constraints.Ordered](
 	pnRpm := 60.0 / (float64(selfProbeRoundTripTimePN+foreignProbeRoundTripTimePN) / 2.0)
 	meanRpm := 60.0 / (float64(selfProbeRoundTripTimeMean+foreignProbeRoundTripTimeMean) / 2.0)
 
-	return Rpm[Data]{
+	return &Rpm[Data]{
 		SelfRttsTotal: selfRttsTotalCount, ForeignRttsTotal: foreignRttsTotalCount,
 		SelfRttsTrimmed: selfRttsTrimmedCount, ForeignRttsTrimmed: foreignRttsTrimmedCount,
 		SelfProbeRttPN: selfProbeRoundTripTimePN, ForeignProbeRttPN: foreignProbeRoundTripTimePN,
