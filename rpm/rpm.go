@@ -150,10 +150,14 @@ func ResponsivenessProber[BucketType utilities.Number](
 
 				currentBucketId := bucketGenerator.Generate()
 
-				dataPoints <- series.SeriesMessage[ResponsivenessProbeResult, BucketType]{
-					Type: series.SeriesMessageReserve, Bucket: currentBucketId,
-					Measure: utilities.None[ResponsivenessProbeResult](),
+				dataPointsLock.Lock()
+				if dataPoints != nil {
+					dataPoints <- series.SeriesMessage[ResponsivenessProbeResult, BucketType]{
+						Type: series.SeriesMessageReserve, Bucket: currentBucketId,
+						Measure: utilities.None[ResponsivenessProbeResult](),
+					}
 				}
+				dataPointsLock.Unlock()
 
 				// The presence of a custom TLSClientConfig in a *generic* `transport`
 				// means that go will default to HTTP/1.1 and cowardly avoid HTTP/2:
