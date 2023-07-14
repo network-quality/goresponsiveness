@@ -127,6 +127,9 @@ func (wsi *windowSeriesWindowOnlyImpl[Data, Bucket]) previousIndex(currentIndex 
 func (wsi *windowSeriesWindowOnlyImpl[Data, Bucket]) toArray() []utilities.Optional[Data] {
 	result := make([]utilities.Optional[Data], wsi.windowSize)
 
+	if wsi.empty {
+		return result
+	}
 	iterator := wsi.latestIndex
 	parallelIterator := 0
 	for {

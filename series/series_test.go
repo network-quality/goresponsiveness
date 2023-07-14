@@ -95,6 +95,25 @@ func Test_ForeverValues(test *testing.T) {
 	}
 }
 
+func Test_WindowOnly_no_values_getvalues(test *testing.T) {
+	expectedLen := 5
+	series := newWindowSeriesWindowOnlyImpl[float64, int](5)
+	result := series.GetValues()
+	allZeros := true
+	for _, v := range result {
+		if utilities.IsSome(v) {
+			allZeros = false
+			break
+		}
+	}
+	if len(result) != expectedLen {
+		test.Fatalf("GetValues of empty window-only series returned list with incorrect size.")
+	}
+	if !allZeros {
+		test.Fatalf("GetValues of empty window-only series returned list with some values.")
+	}
+}
+
 func Test_WindowOnlySequentialIncreasesAlwaysLessThan(test *testing.T) {
 	series := newWindowSeriesWindowOnlyImpl[float64, int](10)
 	previous := float64(1.0)
@@ -154,8 +173,15 @@ func Test_Forever_degenerate_percentile_too_high(test *testing.T) {
 
 func Test_Forever_degenerate_percentile_too_low(test *testing.T) {
 	series := newWindowSeriesForeverImpl[int, int]()
-	if complete, result := Percentile[int, int](series, -1); !complete || result != 0.0 {
+	if complete, result := Percentile[int, int](series, 0); !complete || result != 0.0 {
 		test.Fatalf("(infinite) Series percentile of -1 failed.")
+	}
+}
+
+func Test_Forever_degenerate_percentile_no_values(test *testing.T) {
+	series := newWindowSeriesForeverImpl[int, int]()
+	if complete, p := Percentile[int, int](series, 50); !complete || p != 0 {
+		test.Fatalf("empty series percentile of 50 failed.")
 	}
 }
 
@@ -557,8 +583,15 @@ func Test_WindowOnly_degenerate_percentile_too_high(test *testing.T) {
 
 func Test_WindowOnly_degenerate_percentile_too_low(test *testing.T) {
 	series := newWindowSeriesWindowOnlyImpl[int, int](21)
-	if complete, p := Percentile[int, int](series, -1); complete != false || p != 0 {
+	if complete, p := Percentile[int, int](series, 0); complete != false || p != 0 {
 		test.Fatalf("Series percentile of -1 failed.")
+	}
+}
+
+func Test_WindowOnly_degenerate_percentile_no_values(test *testing.T) {
+	series := newWindowSeriesWindowOnlyImpl[int, int](0)
+	if complete, p := Percentile[int, int](series, 50); !complete || p != 0 {
+		test.Fatalf("empty series percentile of 50 failed.")
 	}
 }
 

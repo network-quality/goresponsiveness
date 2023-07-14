@@ -36,15 +36,18 @@ func CalculateAverage[T Number](elements []T) float64 {
 
 func CalculatePercentile[T Number](
 	elements []T,
-	p int,
+	p uint,
 ) (result T) {
 	result = T(0)
-	if p < 0 || p > 100 {
+	if p < 1 || p > 100 {
 		return
 	}
 
 	sort.Slice(elements, func(l int, r int) bool { return elements[l] < elements[r] })
-	pindex := int64((float64(p) / float64(100)) * float64(len(elements)))
+	pindex := int((float64(p) / float64(100)) * float64(len(elements)))
+	if pindex >= len(elements) {
+		return
+	}
 	result = elements[pindex]
 	return
 }
