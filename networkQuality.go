@@ -894,7 +894,7 @@ Gaming QoO: %.0f
 			fmt.Printf("Test did not run to stability, these results are estimates:\n")
 		}
 
-		fmt.Printf("%s RPM: %5.0f (P%d)\n", direction.DirectionLabel, directionResult.PNRpm, 90)
+		fmt.Printf("%s RPM: %5.0f (P%d)\n", direction.DirectionLabel, directionResult.PNRpm, specParameters.Percentile)
 		fmt.Printf("%s RPM: %5.0f (Single-Sided %v%% Trimmed Mean)\n", direction.DirectionLabel,
 			directionResult.MeanRpm, specParameters.TrimmedMeanPct)
 
@@ -943,13 +943,13 @@ Gaming QoO: %.0f
 		}
 	}
 
-	result := rpm.CalculateRpm(selfRtts, foreignRtts, specParameters.TrimmedMeanPct, 90)
+	result := rpm.CalculateRpm(selfRtts, foreignRtts, specParameters.TrimmedMeanPct, specParameters.Percentile)
 
 	if *debugCliFlag {
 		fmt.Printf("(Final RPM Calculation stats): %v\n", result.ToString())
 	}
 
-	fmt.Printf("Final RPM: %5.0f (P%d)\n", result.PNRpm, 90)
+	fmt.Printf("Final RPM: %5.0f (P%d)\n", result.PNRpm, specParameters.Percentile)
 	fmt.Printf("Final RPM: %5.0f (Single-Sided %v%% Trimmed Mean)\n",
 		result.MeanRpm, specParameters.TrimmedMeanPct)
 
