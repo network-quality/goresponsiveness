@@ -287,6 +287,7 @@ func ResponsivenessProber[BucketType utilities.Number](
 				}
 
 				dataPointsLock.Lock()
+				defer dataPointsLock.Unlock()
 				// Now we have our four data points (three in the foreign probe data point and one in the self probe data point)
 				if dataPoints != nil {
 					measurement := ResponsivenessProbeResult{
@@ -298,7 +299,6 @@ func ResponsivenessProber[BucketType utilities.Number](
 						Measure: utilities.Some[ResponsivenessProbeResult](measurement),
 					}
 				}
-				dataPointsLock.Unlock()
 			}()
 		}
 		if debug.IsDebug(debugging.Level) {
