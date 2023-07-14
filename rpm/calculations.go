@@ -36,7 +36,7 @@ type Rpm[Data utilities.Number] struct {
 }
 
 func CalculateRpm[Data utilities.Number, Bucket constraints.Ordered](
-	selfRtts series.WindowSeries[Data, Bucket], aggregatedForeignRtts series.WindowSeries[Data, Bucket], trimming uint, percentile int,
+	selfRtts series.WindowSeries[Data, Bucket], aggregatedForeignRtts series.WindowSeries[Data, Bucket], trimming uint, percentile uint,
 ) Rpm[Data] {
 	// There may be more than one round trip accumulated together. If that is the case,
 	// we will blow them apart in to three separate measurements and each one will just

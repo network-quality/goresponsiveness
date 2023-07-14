@@ -30,9 +30,10 @@ type SpecParameters struct {
 	MaxParallelConns int
 	ProbeInterval    time.Duration
 	ProbeCapacityPct float64
+	Percentile       uint
 }
 
-func SpecParametersFromArguments(timeout int, mad int, id int, tmp uint, sdt float64, mnp int, mps int, ptc float64) (*SpecParameters, error) {
+func SpecParametersFromArguments(timeout int, mad int, id int, tmp uint, sdt float64, mnp int, mps int, ptc float64, p int) (*SpecParameters, error) {
 	if timeout <= 0 {
 		return nil, fmt.Errorf("cannot specify a 0 or negative timeout for the test")
 	}
@@ -57,6 +58,9 @@ func SpecParametersFromArguments(timeout int, mad int, id int, tmp uint, sdt flo
 	if ptc <= 0 {
 		return nil, fmt.Errorf("cannot specify a 0 or negative probe capacity for the test")
 	}
+	if p < 1 || p >= 100 {
+		return nil, fmt.Errorf("percentile for statistical calculations (%v) is invalid", p)
+	}
 	testTimeout := time.Second * time.Duration(timeout)
 	evalInterval := time.Second * time.Duration(id)
 	probeInterval := utilities.PerSecondToInterval(int64(mps))
@@ -64,7 +68,7 @@ func SpecParametersFromArguments(timeout int, mad int, id int, tmp uint, sdt flo
 	params := SpecParameters{
 		TestTimeout: testTimeout, MovingAvgDist: mad,
 		EvalInterval: evalInterval, TrimmedMeanPct: tmp, StdDevTolerance: sdt,
-		MaxParallelConns: mnp, ProbeInterval: probeInterval, ProbeCapacityPct: ptc,
+		MaxParallelConns: mnp, ProbeInterval: probeInterval, ProbeCapacityPct: ptc, Percentile: uint(p),
 	}
 	return &params, nil
 }

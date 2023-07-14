@@ -18,7 +18,7 @@ func SeriesStandardDeviation[Data utilities.Number, Bucket constraints.Ordered](
 	return complete, utilities.CalculateStandardDeviation[Data](values)
 }
 
-func Percentile[Data utilities.Number, Bucket constraints.Ordered](s WindowSeries[Data, Bucket], p int) (bool, Data) {
+func Percentile[Data utilities.Number, Bucket constraints.Ordered](s WindowSeries[Data, Bucket], p uint) (bool, Data) {
 	complete := s.Complete()
 
 	inputValues := s.GetValues()

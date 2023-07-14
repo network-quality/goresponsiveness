@@ -23,16 +23,6 @@ var (
 	// saturate the network.
 	AdditiveNumberOfLoadGeneratingConnections uint64 = 1
 
-	// The number of previous instantaneous measurements to consider when generating the so-called
-	// instantaneous moving averages of a measurement.
-	InstantaneousThroughputMeasurementCount uint64 = 4
-	InstantaneousProbeMeasurementCount      uint64 = 4
-	// The number of instantaneous moving averages to consider when determining stability.
-	InstantaneousMovingAverageStabilityCount uint64 = 4
-	// The standard deviation cutoff used to determine stability among the K preceding moving averages
-	// of a measurement (as a percentage of the mean).
-	StabilityStandardDeviation float64 = 5.0
-
 	// The amount of time that the client will cooldown if it is in debug mode.
 	CooldownPeriod time.Duration = 4 * time.Second
 
@@ -56,6 +46,7 @@ type SpecParametersCliOptions struct {
 	Mnp int
 	Mps int
 	Ptc float64
+	P   int
 }
 
-var SpecParameterCliOptionsDefaults = SpecParametersCliOptions{Mad: 4, Id: 1, Tmp: 5, Sdt: 5.0, Mnp: 16, Mps: 100, Ptc: 0.05}
+var SpecParameterCliOptionsDefaults = SpecParametersCliOptions{Mad: 4, Id: 1, Tmp: 5, Sdt: 5.0, Mnp: 16, Mps: 100, Ptc: 0.05, P: 90}

@@ -109,6 +109,11 @@ var (
 		constants.SpecParameterCliOptionsDefaults.Ptc,
 		"Percentage of the (discovered) total network capacity that probes are allowed to consume.",
 	)
+	rpmp = flag.Int(
+		"rpm.p",
+		constants.SpecParameterCliOptionsDefaults.P,
+		"Percentile of results to consider when calculating responsiveness.",
+	)
 
 	sslKeyFileName = flag.String(
 		"ssl-key-file",
@@ -172,7 +177,7 @@ func main() {
 	}
 
 	specParameters, err := rpm.SpecParametersFromArguments(*rpmtimeout, *rpmmad, *rpmid,
-		*rpmtmp, *rpmsdt, *rpmmnp, *rpmmps, *rpmptc)
+		*rpmtmp, *rpmsdt, *rpmmnp, *rpmmps, *rpmptc, *rpmp)
 	if err != nil {
 		fmt.Fprintf(
 			os.Stderr,
@@ -846,7 +851,8 @@ func main() {
 		if *calculateExtendedStats {
 			fmt.Println(extendedStats.Repr())
 		}
-		directionResult := rpm.CalculateRpm(perDirectionSelfRtts, perDirectionForeignRtts, specParameters.TrimmedMeanPct, 90)
+		directionResult := rpm.CalculateRpm(perDirectionSelfRtts, perDirectionForeignRtts,
+			specParameters.TrimmedMeanPct, specParameters.Percentile)
 		if *debugCliFlag {
 			fmt.Printf("(%s RPM Calculation stats): %v\n", direction.DirectionLabel, directionResult.ToString())
 		}
