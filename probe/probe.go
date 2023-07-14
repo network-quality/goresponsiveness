@@ -25,7 +25,6 @@ import (
 
 	"github.com/network-quality/goresponsiveness/debug"
 	"github.com/network-quality/goresponsiveness/extendedstats"
-	"github.com/network-quality/goresponsiveness/lgc"
 	"github.com/network-quality/goresponsiveness/utilities"
 )
 
@@ -80,7 +79,6 @@ func Probe(
 	client *http.Client,
 	probeUrl string,
 	probeHost string, // optional: for use with a test_endpoint
-	probeDirection lgc.LgcDirection,
 	probeType ProbeType,
 	probeId uint,
 	captureExtendedStats bool,

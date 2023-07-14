@@ -190,7 +190,6 @@ func ResponsivenessProber[BucketType utilities.Number](
 					foreignProbeClient,
 					foreignProbeConfiguration.URL,
 					foreignProbeConfiguration.Host,
-					probeDirection,
 					probe.Foreign,
 					probeCount,
 					captureExtendedStats,
@@ -210,7 +209,7 @@ func ResponsivenessProber[BucketType utilities.Number](
 							fmt.Printf(
 								"(%s) Failed to get a random %s load-generating connection on which to send a probe: %v.\n",
 								debugging.Prefix,
-								utilities.Conditional(probeDirection == lgc.LGC_DOWN, "download", "upload"),
+								probeDirection,
 								err,
 							)
 						}
@@ -229,7 +228,7 @@ func ResponsivenessProber[BucketType utilities.Number](
 						fmt.Printf(
 							"(%s) The selected random %s load-generating connection on which to send a probe was not running.\n",
 							debugging.Prefix,
-							utilities.Conditional(probeDirection == lgc.LGC_DOWN, "download", "upload"),
+							probeDirection,
 						)
 					}
 					return
@@ -239,7 +238,7 @@ func ResponsivenessProber[BucketType utilities.Number](
 					fmt.Printf(
 						"(%s) Selected %s load-generating connection with ID %d to send a self probe with Id %d.\n",
 						debugging.Prefix,
-						utilities.Conditional(probeDirection == lgc.LGC_DOWN, "download", "upload"),
+						probeDirection,
 						(*selfProbeConnection).ClientId(),
 						probeCount,
 					)
