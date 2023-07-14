@@ -108,6 +108,15 @@ func Probe(
 
 	probe_resp, err := client.Do(probe_req)
 	if err != nil {
+		if debug.IsDebug(debugging.Level) {
+			fmt.Printf(
+				"(%s) (%s Probe %v) An error occurred during http.Do: %v\n",
+				debugging.Prefix,
+				probeType.Value(),
+				probeId,
+				err,
+			)
+		}
 		return nil, err
 	}
 
@@ -119,6 +128,15 @@ func Probe(
 	// TODO: Make this interruptable somehow by using _ctx_.
 	_, err = io.ReadAll(probe_resp.Body)
 	if err != nil {
+		if debug.IsDebug(debugging.Level) {
+			fmt.Printf(
+				"(%s) (%s Probe %v) An error occurred during io.ReadAll: %v\n",
+				debugging.Prefix,
+				probeType.Value(),
+				probeId,
+				err,
+			)
+		}
 		return nil, err
 	}
 	time_after_probe := time.Now()

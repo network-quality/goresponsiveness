@@ -249,13 +249,26 @@ func ResponsivenessProber[BucketType utilities.Number](
 					(*selfProbeConnection).Client(),
 					selfProbeConfiguration.URL,
 					selfProbeConfiguration.Host,
-					probeDirection,
 					utilities.Conditional(probeDirection == lgc.LGC_DOWN, probe.SelfDown, probe.SelfUp),
 					probeCount,
 					captureExtendedStats,
 					debugging,
 				)
 				if err != nil {
+					// We may see an error here because the prober context was cancelled
+					// and requests were attempting to be sent. This situation is not an
+					// error (per se) so we will not log it as such.
+
+					if proberCtx.Err() != nil {
+						if debug.IsDebug(debugging.Level) {
+							fmt.Printf(
+								"(%s) Failed to send a probe (id: %v) because the prober context was cancelled.\n",
+								debugging.Prefix,
+								probeCount,
+							)
+						}
+						return
+					}
 					fmt.Printf(
 						"(%s) There was an error sending a self probe with Id %d: %v\n",
 						debugging.Prefix,
