@@ -1,3 +1,17 @@
+/*
+ * This file is part of Go Responsiveness.
+ *
+ * Go Responsiveness is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software Foundation,
+ * either version 2 of the License, or (at your option) any later version.
+ * Go Responsiveness is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+ * PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with Go Responsiveness. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 package qualityattenuation
 
 import (
@@ -20,7 +34,7 @@ func TestBasicSimpleQualityAttenuation(t *testing.T) {
 	assert.InEpsilon(t, 1.0, qa.empiricalDistribution.Quantile(0.1), 0.000001)
 	assert.InEpsilon(t, 2.0, qa.empiricalDistribution.Quantile(0.5), 0.000001)
 	assert.InEpsilon(t, 3.0, qa.empiricalDistribution.Quantile(0.9), 0.000001)
-	//Test the get functions
+	// Test the get functions
 	assert.Equal(t, qa.GetNumberOfSamples(), int64(3))
 	assert.Equal(t, qa.GetNumberOfLosses(), int64(0))
 	assert.InEpsilon(t, 1.0, qa.GetMinimum(), 0.000001)
@@ -40,10 +54,10 @@ func TestBasicSimpleQualityAttenuation(t *testing.T) {
 func TestManySamples(t *testing.T) {
 	qa := NewSimpleQualityAttenuation()
 	for i := 1; i < 160000; i++ {
-		qa.AddSample(float64(i) / 10000.0) //Linear ramp from 0.0001 to 16.0
+		qa.AddSample(float64(i) / 10000.0) // Linear ramp from 0.0001 to 16.0
 	}
 	assert.Equal(t, qa.numberOfSamples, int64(160000-1))
-	assert.Equal(t, qa.numberOfLosses, int64(10000-1)) //Samples from 15.0001 to 16.0 are lost
+	assert.Equal(t, qa.numberOfLosses, int64(10000-1)) // Samples from 15.0001 to 16.0 are lost
 	assert.InEpsilon(t, 0.0001, qa.minimumLatency, 0.000001)
 	assert.InEpsilon(t, 15.0000, qa.maximumLatency, 0.000001)
 	assert.InEpsilon(t, 1110007.5, qa.offsetSum, 0.000001)
@@ -51,7 +65,7 @@ func TestManySamples(t *testing.T) {
 	assert.InEpsilon(t, 1.50005, qa.empiricalDistribution.Quantile(0.1), 0.000001)
 	assert.InEpsilon(t, 7.500049, qa.empiricalDistribution.Quantile(0.5), 0.000001)
 	assert.InEpsilon(t, 13.50005, qa.empiricalDistribution.Quantile(0.9), 0.000001)
-	//Test the get functions
+	// Test the get functions
 	assert.Equal(t, qa.GetNumberOfSamples(), int64(160000-1))
 	assert.Equal(t, qa.GetNumberOfLosses(), int64(10000-1))
 	assert.InEpsilon(t, 0.0001, qa.GetMinimum(), 0.000001)

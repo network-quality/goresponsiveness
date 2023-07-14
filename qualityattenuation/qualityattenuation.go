@@ -1,3 +1,17 @@
+/*
+ * This file is part of Go Responsiveness.
+ *
+ * Go Responsiveness is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software Foundation,
+ * either version 2 of the License, or (at your option) any later version.
+ * Go Responsiveness is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+ * PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with Go Responsiveness. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 // Implements a data structure for quality attenuation.
 
 package qualityattenuation
@@ -213,19 +227,23 @@ func (qa *SimpleQualityAttenuation) EmpiricalDistributionHistogram() []float64 {
 	// 4 bins from 1400 to 3000 ms, each 400 ms wide
 	hist := make([]float64, 256)
 	for i := 0; i < 100; i++ {
-		hist[i] = float64(qa.numberOfSamples) * (qa.empiricalDistribution.CDF(float64(i+1)*0.0005) - qa.empiricalDistribution.CDF(float64(i)*0.0005))
+		hist[i] = float64(qa.numberOfSamples) * (qa.empiricalDistribution.CDF(float64(i+1)*0.0005) -
+			qa.empiricalDistribution.CDF(float64(i)*0.0005))
 	}
 	for i := 100; i < 200; i++ {
-		hist[i] = float64(qa.numberOfSamples) * (qa.empiricalDistribution.CDF(0.050+float64(i-99)*0.001) - qa.empiricalDistribution.CDF(0.050+float64(i-100)*0.001))
+		hist[i] = float64(qa.numberOfSamples) * (qa.empiricalDistribution.CDF(0.050+float64(i-99)*0.001) -
+			qa.empiricalDistribution.CDF(0.050+float64(i-100)*0.001))
 	}
 	for i := 200; i < 250; i++ {
-		hist[i] = float64(qa.numberOfSamples) * (qa.empiricalDistribution.CDF(0.150+float64(i-199)*0.020) - qa.empiricalDistribution.CDF(0.150+float64(i-200)*0.020))
+		hist[i] = float64(qa.numberOfSamples) * (qa.empiricalDistribution.CDF(0.150+float64(i-199)*0.020) -
+			qa.empiricalDistribution.CDF(0.150+float64(i-200)*0.020))
 	}
 	for i := 250; i < 251; i++ {
 		hist[i] = float64(qa.numberOfSamples) * (qa.empiricalDistribution.CDF(1.150+0.250) - qa.empiricalDistribution.CDF(1.150))
 	}
 	for i := 251; i < 255; i++ {
-		hist[i] = float64(qa.numberOfSamples) * (qa.empiricalDistribution.CDF(1.400+float64(i-250)*0.400) - qa.empiricalDistribution.CDF(1.400+float64(i-251)*0.400))
+		hist[i] = float64(qa.numberOfSamples) * (qa.empiricalDistribution.CDF(1.400+float64(i-250)*0.400) -
+			qa.empiricalDistribution.CDF(1.400+float64(i-251)*0.400))
 	}
 	hist[255] = float64(qa.numberOfSamples) * (1 - qa.empiricalDistribution.CDF(3.000))
 	return hist
@@ -259,8 +277,14 @@ func (qa *SimpleQualityAttenuation) QoO(requirement qualityRequirement) float64 
 func (qa *SimpleQualityAttenuation) GetGamingQoO() float64 {
 	qualReq := qualityRequirement{}
 	qualReq.latencyRequirements = []percentileLatencyPair{}
-	qualReq.latencyRequirements = append(qualReq.latencyRequirements, percentileLatencyPair{percentile: 50.0, perfectLatency: 0.030, uselessLatency: 0.150})
-	qualReq.latencyRequirements = append(qualReq.latencyRequirements, percentileLatencyPair{percentile: 95.0, perfectLatency: 0.065, uselessLatency: 0.200})
-	qualReq.latencyRequirements = append(qualReq.latencyRequirements, percentileLatencyPair{percentile: 99.0, perfectLatency: 0.100, uselessLatency: 0.250})
+	qualReq.latencyRequirements = append(qualReq.latencyRequirements, percentileLatencyPair{
+		percentile: 50.0, perfectLatency: 0.030, uselessLatency: 0.150,
+	})
+	qualReq.latencyRequirements = append(qualReq.latencyRequirements, percentileLatencyPair{
+		percentile: 95.0, perfectLatency: 0.065, uselessLatency: 0.200,
+	})
+	qualReq.latencyRequirements = append(qualReq.latencyRequirements, percentileLatencyPair{
+		percentile: 99.0, perfectLatency: 0.100, uselessLatency: 0.250,
+	})
 	return qa.QoO(qualReq)
 }
