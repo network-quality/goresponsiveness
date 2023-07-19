@@ -20,12 +20,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptrace"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/network-quality/goresponsiveness/debug"
 	"github.com/network-quality/goresponsiveness/stats"
+	"github.com/network-quality/goresponsiveness/traceable"
 	"github.com/network-quality/goresponsiveness/utilities"
 )
 
@@ -37,12 +39,13 @@ type LoadGeneratingConnectionUpload struct {
 	URL                string
 	ConnectToAddr      string
 	uploadStartTime    time.Time
-	lastUploaded       uint64
 	client             *http.Client
 	debug              debug.DebugLevel
 	InsecureSkipVerify bool
 	KeyLogger          io.Writer
 	clientId           uint64
+	tracer             *httptrace.ClientTrace
+	stats              stats.TraceStats
 	status             LgcStatus
 	statusLock         *sync.Mutex
 	statusWaiter       *sync.Cond
@@ -65,6 +68,154 @@ func (lgu *LoadGeneratingConnectionUpload) WaitUntilStarted(ctxt context.Context
 	conditional := func() bool { return lgu.status != LGC_STATUS_NOT_STARTED }
 	go utilities.ContextSignaler(ctxt, 500*time.Millisecond, &conditional, lgu.statusWaiter)
 	return utilities.WaitWithContext(ctxt, &conditional, lgu.statusLock, lgu.statusWaiter)
+}
+
+func (lgu *LoadGeneratingConnectionUpload) SetDnsStartTimeInfo(
+	now time.Time,
+	dnsStartInfo httptrace.DNSStartInfo,
+) {
+	lgu.stats.DnsStartTime = now
+	lgu.stats.DnsStart = dnsStartInfo
+	if debug.IsDebug(lgu.debug) {
+		fmt.Printf(
+			"DNS Start for %v: %v\n",
+			lgu.ClientId(),
+			dnsStartInfo,
+		)
+	}
+}
+
+func (lgu *LoadGeneratingConnectionUpload) SetDnsDoneTimeInfo(
+	now time.Time,
+	dnsDoneInfo httptrace.DNSDoneInfo,
+) {
+	lgu.stats.DnsDoneTime = now
+	lgu.stats.DnsDone = dnsDoneInfo
+	if debug.IsDebug(lgu.debug) {
+		fmt.Printf(
+			"DNS Done for %v: %v\n",
+			lgu.ClientId(),
+			lgu.stats.DnsDone,
+		)
+	}
+}
+
+func (lgu *LoadGeneratingConnectionUpload) SetConnectStartTime(
+	now time.Time,
+) {
+	lgu.stats.ConnectStartTime = now
+	if debug.IsDebug(lgu.debug) {
+		fmt.Printf(
+			"TCP Start for %v at %v\n",
+			lgu.ClientId(),
+			lgu.stats.ConnectStartTime,
+		)
+	}
+}
+
+func (lgu *LoadGeneratingConnectionUpload) SetConnectDoneTimeError(
+	now time.Time,
+	err error,
+) {
+	lgu.stats.ConnectDoneTime = now
+	lgu.stats.ConnectDoneError = err
+	if debug.IsDebug(lgu.debug) {
+		fmt.Printf(
+			"TCP Done for %v (with error %v) @ %v\n",
+			lgu.ClientId(),
+			lgu.stats.ConnectDoneError,
+			lgu.stats.ConnectDoneTime,
+		)
+	}
+}
+
+func (lgu *LoadGeneratingConnectionUpload) SetGetConnTime(now time.Time) {
+	lgu.stats.GetConnectionStartTime = now
+	if debug.IsDebug(lgu.debug) {
+		fmt.Printf(
+			"Started getting connection for %v @ %v\n",
+			lgu.ClientId(),
+			lgu.stats.GetConnectionStartTime,
+		)
+	}
+}
+
+func (lgu *LoadGeneratingConnectionUpload) SetGotConnTimeInfo(
+	now time.Time,
+	gotConnInfo httptrace.GotConnInfo,
+) {
+	if gotConnInfo.Reused {
+		fmt.Printf("Unexpectedly reusing a connection!\n")
+		panic(!gotConnInfo.Reused)
+	}
+	lgu.stats.GetConnectionDoneTime = now
+	lgu.stats.ConnInfo = gotConnInfo
+	if debug.IsDebug(lgu.debug) {
+		fmt.Printf(
+			"Got connection for %v at %v with info %v\n",
+			lgu.ClientId(),
+			lgu.stats.GetConnectionDoneTime,
+			lgu.stats.ConnInfo,
+		)
+	}
+}
+
+func (lgu *LoadGeneratingConnectionUpload) SetTLSHandshakeStartTime(
+	now time.Time,
+) {
+	lgu.stats.TLSStartTime = utilities.Some(now)
+	if debug.IsDebug(lgu.debug) {
+		fmt.Printf(
+			"Started TLS Handshake for %v @ %v\n",
+			lgu.ClientId(),
+			lgu.stats.TLSStartTime,
+		)
+	}
+}
+
+func (lgu *LoadGeneratingConnectionUpload) SetTLSHandshakeDoneTimeState(
+	now time.Time,
+	connectionState tls.ConnectionState,
+) {
+	lgu.stats.TLSDoneTime = utilities.Some(now)
+	lgu.stats.TLSConnInfo = connectionState
+	if debug.IsDebug(lgu.debug) {
+		fmt.Printf(
+			"Completed TLS handshake for %v at %v with info %v\n",
+			lgu.ClientId(),
+			lgu.stats.TLSDoneTime,
+			lgu.stats.TLSConnInfo,
+		)
+	}
+}
+
+func (lgu *LoadGeneratingConnectionUpload) SetHttpWroteRequestTimeInfo(
+	now time.Time,
+	info httptrace.WroteRequestInfo,
+) {
+	lgu.stats.HttpWroteRequestTime = now
+	lgu.stats.HttpInfo = info
+	if debug.IsDebug(lgu.debug) {
+		fmt.Printf(
+			"(lgu) Http finished writing request for %v at %v with info %v\n",
+			lgu.ClientId(),
+			lgu.stats.HttpWroteRequestTime,
+			lgu.stats.HttpInfo,
+		)
+	}
+}
+
+func (lgu *LoadGeneratingConnectionUpload) SetHttpResponseReadyTime(
+	now time.Time,
+) {
+	lgu.stats.HttpResponseReadyTime = now
+	if debug.IsDebug(lgu.debug) {
+		fmt.Printf(
+			"Got the first byte of HTTP response headers for %v at %v\n",
+			lgu.ClientId(),
+			lgu.stats.HttpResponseReadyTime,
+		)
+	}
 }
 
 func (lgu *LoadGeneratingConnectionUpload) ClientId() uint64 {
@@ -124,7 +275,8 @@ func (lgu *LoadGeneratingConnectionUpload) doUpload(ctx context.Context) error {
 	var request *http.Request = nil
 	var err error
 
-	if request, err = http.NewRequest(
+	if request, err = http.NewRequestWithContext(
+		httptrace.WithClientTrace(ctx, lgu.tracer),
 		"POST",
 		lgu.URL,
 		s,
@@ -195,6 +347,7 @@ func (lgu *LoadGeneratingConnectionUpload) Start(
 	utilities.OverrideHostTransport(transport, lgu.ConnectToAddr)
 
 	lgu.client = &http.Client{Transport: transport}
+	lgu.tracer = traceable.GenerateHttpTimingTracer(lgu, lgu.debug)
 
 	if debug.IsDebug(lgu.debug) {
 		fmt.Printf("Started a load-generating upload (id: %v).\n", lgu.clientId)
@@ -205,6 +358,5 @@ func (lgu *LoadGeneratingConnectionUpload) Start(
 }
 
 func (lgu *LoadGeneratingConnectionUpload) Stats() *stats.TraceStats {
-	// Get all your stats from the download side of the LGC.
-	return nil
+	return &lgu.stats
 }

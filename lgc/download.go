@@ -39,7 +39,6 @@ type LoadGeneratingConnectionDownload struct {
 	ConnectToAddr      string
 	URL                string
 	downloadStartTime  time.Time
-	lastDownloaded     uint64
 	client             *http.Client
 	debug              debug.DebugLevel
 	InsecureSkipVerify bool

@@ -432,8 +432,7 @@ func main() {
 	downloadDirection.Lgcc = lgc.NewLoadGeneratingConnectionCollection()
 	uploadDirection.Lgcc = lgc.NewLoadGeneratingConnectionCollection()
 
-	// We do not do tracing on upload connections so there are no extended stats for those connections!
-	uploadDirection.ExtendedStatsEligible = false
+	uploadDirection.ExtendedStatsEligible = true
 	downloadDirection.ExtendedStatsEligible = true
 
 	generateSelfProbeConfiguration := func() probe.ProbeConfiguration {
@@ -956,24 +955,32 @@ func main() {
 					direction.Lgcc.Lock.Lock()
 					defer direction.Lgcc.Lock.Unlock()
 
-					// Note: We do not trace upload connections!
-					downloadLgcCount, err := direction.Lgcc.Len()
+					lgcCount, err := direction.Lgcc.Len()
 					if err != nil {
 						fmt.Fprintf(
 							os.Stderr,
-							"Warning: Could not calculate the number of download load-generating connections; aborting extended stats preparation.\n",
+							"Warning: Could not calculate the number of %v load-generating connections; aborting extended stats preparation.\n", direction.DirectionLabel,
 						)
 						return
 					}
-					for i := 0; i < downloadLgcCount; i++ {
+
+					for i := 0; i < lgcCount; i++ {
 						// Assume that extended statistics are available -- the check was done explicitly at
 						// program startup if the calculateExtendedStats flag was set by the user on the command line.
 						currentLgc, _ := direction.Lgcc.Get(i)
+
+						if currentLgc == nil || (*currentLgc).Stats() == nil {
+							fmt.Fprintf(
+								os.Stderr,
+								"Warning: Could not add extended stats for the connection: The LGC was nil or there were no stats available.\n",
+							)
+							continue
+						}
 						if err := extendedStats.IncorporateConnectionStats(
 							(*currentLgc).Stats().ConnInfo.Conn); err != nil {
 							fmt.Fprintf(
 								os.Stderr,
-								"Warning: Could not add extended stats for the connection: %v\n",
+								"Warning: Could not add extended stats for the connection: %v.\n",
 								err,
 							)
 						}
