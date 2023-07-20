@@ -1016,7 +1016,6 @@ func main() {
 			fmt.Printf(
 				`Number of losses: %d
 Number of samples: %d
-Loss: %f %%
 Min: %.6f s
 Max: %.6f s
 Mean: %.6f s
@@ -1030,7 +1029,6 @@ RPM: %.0f
 Gaming QoO: %.0f
 `, selfRttsQualityAttenuation.GetNumberOfLosses(),
 				selfRttsQualityAttenuation.GetNumberOfSamples(),
-				selfRttsQualityAttenuation.GetLossPercentage(),
 				selfRttsQualityAttenuation.GetMinimum(),
 				selfRttsQualityAttenuation.GetMaximum(),
 				selfRttsQualityAttenuation.GetAverage(),
