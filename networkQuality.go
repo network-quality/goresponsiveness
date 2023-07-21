@@ -1014,8 +1014,7 @@ func main() {
 		if *printQualityAttenuation {
 			fmt.Println("Quality Attenuation Statistics:")
 			fmt.Printf(
-				`Number of losses: %d
-Number of samples: %d
+				`Number of samples: %d
 Min: %.6f s
 Max: %.6f s
 Mean: %.6f s
@@ -1027,8 +1026,7 @@ P(90): %.6f s
 P(99): %.6f s
 RPM: %.0f
 Gaming QoO: %.0f
-`, selfRttsQualityAttenuation.GetNumberOfLosses(),
-				selfRttsQualityAttenuation.GetNumberOfSamples(),
+`,selfRttsQualityAttenuation.GetNumberOfSamples(),
 				selfRttsQualityAttenuation.GetMinimum(),
 				selfRttsQualityAttenuation.GetMaximum(),
 				selfRttsQualityAttenuation.GetAverage(),
