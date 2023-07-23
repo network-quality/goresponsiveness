@@ -23,6 +23,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/network-quality/goresponsiveness/constants"
 	"github.com/network-quality/goresponsiveness/debug"
 	"github.com/network-quality/goresponsiveness/extendedstats"
 	"github.com/network-quality/goresponsiveness/utilities"
@@ -34,16 +35,18 @@ type ProbeConfiguration struct {
 	ConnectToAddr      string
 	URL                string
 	Host               string
+	CongestionControl  *string
 	InsecureSkipVerify bool
 }
 
 type ProbeDataPoint struct {
-	Time           time.Time     `Description:"Time of the generation of the data point."                    Formatter:"Format"  FormatterArgument:"01-02-2006-15-04-05.000"`
-	RoundTripCount uint64        `Description:"The number of round trips measured by this data point."`
-	Duration       time.Duration `Description:"The duration for this measurement."                           Formatter:"Seconds"`
-	TCPRtt         time.Duration `Description:"The underlying connection's RTT at probe time."               Formatter:"Seconds"`
-	TCPCwnd        uint32        `Description:"The underlying connection's congestion window at probe time."`
-	Type           ProbeType     `Description:"The type of the probe."                                       Formatter:"Value"`
+	Time              time.Time     `Description:"Time of the generation of the data point."                    Formatter:"Format"  FormatterArgument:"01-02-2006-15-04-05.000"`
+	RoundTripCount    uint64        `Description:"The number of round trips measured by this data point."`
+	Duration          time.Duration `Description:"The duration for this measurement."                           Formatter:"Seconds"`
+	TCPRtt            time.Duration `Description:"The underlying connection's RTT at probe time."               Formatter:"Seconds"`
+	TCPCwnd           uint32        `Description:"The underlying connection's congestion window at probe time."`
+	Type              ProbeType     `Description:"The type of the probe."                                       Formatter:"Value"`
+	CongestionControl string        `Description:"The congestion control algorithm used."`
 }
 
 const (
@@ -81,6 +84,7 @@ func Probe(
 	probeHost string, // optional: for use with a test_endpoint
 	probeType ProbeType,
 	probeId uint,
+	congestionControl *string,
 	captureExtendedStats bool,
 	debugging *debug.DebugWithPrefix,
 ) (*ProbeDataPoint, error) {
@@ -88,7 +92,7 @@ func Probe(
 		return nil, fmt.Errorf("cannot start a probe with a nil client")
 	}
 
-	probeTracer := NewProbeTracer(client, probeType, probeId, debugging)
+	probeTracer := NewProbeTracer(client, probeType, probeId, congestionControl, debugging)
 	time_before_probe := time.Now()
 	probe_req, err := http.NewRequestWithContext(
 		httptrace.WithClientTrace(managingCtx, probeTracer.trace),
@@ -215,5 +219,7 @@ func Probe(
 		TCPRtt:         tcpRtt,
 		TCPCwnd:        tcpCwnd,
 		Type:           probeType,
+		CongestionControl: *utilities.Conditional(congestionControl == nil,
+			&constants.DefaultL4SCongestionControlAlgorithm, congestionControl),
 	}, nil
 }

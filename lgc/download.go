@@ -21,11 +21,13 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptrace"
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/network-quality/goresponsiveness/debug"
+	"github.com/network-quality/goresponsiveness/l4s"
 	"github.com/network-quality/goresponsiveness/stats"
 	"github.com/network-quality/goresponsiveness/traceable"
 	"github.com/network-quality/goresponsiveness/utilities"
@@ -47,16 +49,18 @@ type LoadGeneratingConnectionDownload struct {
 	tracer             *httptrace.ClientTrace
 	stats              stats.TraceStats
 	status             LgcStatus
+	congestionControl  *string
 	statusLock         *sync.Mutex
 	statusWaiter       *sync.Cond
 }
 
-func NewLoadGeneratingConnectionDownload(url string, keyLogger io.Writer, connectToAddr string, insecureSkipVerify bool) LoadGeneratingConnectionDownload {
+func NewLoadGeneratingConnectionDownload(url string, keyLogger io.Writer, connectToAddr string, insecureSkipVerify bool, congestionControl *string) LoadGeneratingConnectionDownload {
 	lgd := LoadGeneratingConnectionDownload{
 		URL:                url,
 		KeyLogger:          keyLogger,
 		ConnectToAddr:      connectToAddr,
 		InsecureSkipVerify: insecureSkipVerify,
+		congestionControl:  congestionControl,
 		statusLock:         &sync.Mutex{},
 	}
 	lgd.statusWaiter = sync.NewCond(lgd.statusLock)
@@ -160,6 +164,27 @@ func (lgd *LoadGeneratingConnectionDownload) SetGotConnTimeInfo(
 			lgd.stats.GetConnectionDoneTime,
 			lgd.stats.ConnInfo,
 		)
+	}
+
+	if lgd.congestionControl != nil {
+		if debug.IsDebug(lgd.debug) {
+			fmt.Printf(
+				"Attempting to set congestion control algorithm to %v for connection %v at %v with info %v\n",
+				*lgd.congestionControl,
+				lgd.ClientId(),
+				lgd.stats.GetConnectionDoneTime,
+				lgd.stats.ConnInfo,
+			)
+		}
+		if err := l4s.SetL4S(lgd.stats.ConnInfo.Conn, lgd.congestionControl); err != nil {
+			fmt.Fprintf(
+				os.Stderr,
+				"Error setting L4S for %v at %v: %v\n",
+				lgd.ClientId(),
+				lgd.stats.GetConnectionDoneTime,
+				err.Error(),
+			)
+		}
 	}
 }
 

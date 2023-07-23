@@ -23,18 +23,20 @@ import (
 	"time"
 
 	"github.com/network-quality/goresponsiveness/debug"
+	"github.com/network-quality/goresponsiveness/l4s"
 	"github.com/network-quality/goresponsiveness/stats"
 	"github.com/network-quality/goresponsiveness/traceable"
 	"github.com/network-quality/goresponsiveness/utilities"
 )
 
 type ProbeTracer struct {
-	client    *http.Client
-	stats     *stats.TraceStats
-	trace     *httptrace.ClientTrace
-	debug     debug.DebugLevel
-	probeid   uint
-	probeType ProbeType
+	client            *http.Client
+	stats             *stats.TraceStats
+	trace             *httptrace.ClientTrace
+	debug             debug.DebugLevel
+	probeid           uint
+	probeType         ProbeType
+	congestionControl *string
 }
 
 func (p *ProbeTracer) String() string {
@@ -226,6 +228,26 @@ func (probe *ProbeTracer) SetGotConnTimeInfo(
 			)
 		}
 	}
+
+	if probe.congestionControl != nil {
+		if debug.IsDebug(probe.debug) {
+			fmt.Printf(
+				"(%s Probe) Setting congestion control for Probe %v to %v.\n",
+				probe.probeType.Value(),
+				probe.ProbeId(),
+				*probe.congestionControl,
+			)
+		}
+		if err := l4s.SetL4S(probe.stats.ConnInfo.Conn, probe.congestionControl); err != nil {
+			fmt.Fprintf(
+				os.Stderr,
+				"(%s Probe) Probe %v could not set L4s because %v.\n",
+				probe.probeType.Value(),
+				probe.ProbeId(),
+				err.Error(),
+			)
+		}
+	}
 }
 
 func (probe *ProbeTracer) SetTLSHandshakeStartTime(
@@ -294,15 +316,17 @@ func NewProbeTracer(
 	client *http.Client,
 	probeType ProbeType,
 	probeId uint,
+	congestionControl *string,
 	debugging *debug.DebugWithPrefix,
 ) *ProbeTracer {
 	probe := &ProbeTracer{
-		client:    client,
-		stats:     &stats.TraceStats{},
-		trace:     nil,
-		debug:     debugging.Level,
-		probeid:   probeId,
-		probeType: probeType,
+		client:            client,
+		stats:             &stats.TraceStats{},
+		trace:             nil,
+		debug:             debugging.Level,
+		probeid:           probeId,
+		probeType:         probeType,
+		congestionControl: congestionControl,
 	}
 	trace := traceable.GenerateHttpTimingTracer(probe, debugging.Level)
 

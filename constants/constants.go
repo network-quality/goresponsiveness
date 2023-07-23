@@ -36,6 +36,8 @@ var (
 	DefaultConfigHost string = "networkquality.example.com"
 	// The default determination of whether to verify server certificates
 	DefaultInsecureSkipVerify bool = true
+
+	DefaultL4SCongestionControlAlgorithm string = "prague"
 )
 
 type SpecParametersCliOptions struct {

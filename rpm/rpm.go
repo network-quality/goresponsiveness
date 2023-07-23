@@ -196,6 +196,7 @@ func ResponsivenessProber[BucketType utilities.Number](
 					foreignProbeConfiguration.Host,
 					probe.Foreign,
 					probeCount,
+					foreignProbeConfiguration.CongestionControl,
 					captureExtendedStats,
 					debugging,
 				)
@@ -258,6 +259,7 @@ func ResponsivenessProber[BucketType utilities.Number](
 						selfProbeConfiguration.Host,
 						utilities.Conditional(probeDirection == lgc.LGC_DOWN, probe.SelfDown, probe.SelfUp),
 						probeCount,
+						selfProbeConfiguration.CongestionControl,
 						captureExtendedStats,
 						debugging,
 					)

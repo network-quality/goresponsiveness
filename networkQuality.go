@@ -165,6 +165,8 @@ var (
 		false,
 		"Calculate a relative RPM.",
 	)
+	withL4S          = flag.Bool("with-l4s", false, "Use L4S (with default TCP prague congestion control algorithm.)")
+	withL4SAlgorithm = flag.String("with-l4s-algorithm", "", "Use L4S (with specified congestion control algorithm.)")
 )
 
 func main() {
@@ -248,6 +250,18 @@ func main() {
 				defer sslKeyFileHandle.Close()
 			}
 		}
+	}
+
+	var congestionControlChosen *string = nil
+	if *withL4S || *withL4SAlgorithm != "" {
+		congestionControlChosen = &constants.DefaultL4SCongestionControlAlgorithm
+		if *withL4SAlgorithm != "" {
+			congestionControlChosen = withL4SAlgorithm
+		}
+	}
+
+	if congestionControlChosen != nil && debug.IsDebug(debugLevel) {
+		fmt.Printf("Doing congestion control with the %v algorithm.\n", *congestionControlChosen)
 	}
 
 	if err := config.Get(configHostPort, *configPath, *insecureSkipVerify,
@@ -414,12 +428,12 @@ func main() {
 	 */
 	downloadDirection.CreateLgdc = func() lgc.LoadGeneratingConnection {
 		lgd := lgc.NewLoadGeneratingConnectionDownload(config.Urls.LargeUrl,
-			sslKeyFileConcurrentWriter, config.ConnectToAddr, *insecureSkipVerify)
+			sslKeyFileConcurrentWriter, config.ConnectToAddr, *insecureSkipVerify, congestionControlChosen)
 		return &lgd
 	}
 	uploadDirection.CreateLgdc = func() lgc.LoadGeneratingConnection {
 		lgu := lgc.NewLoadGeneratingConnectionUpload(config.Urls.UploadUrl,
-			sslKeyFileConcurrentWriter, config.ConnectToAddr, *insecureSkipVerify)
+			sslKeyFileConcurrentWriter, config.ConnectToAddr, *insecureSkipVerify, congestionControlChosen)
 		return &lgu
 	}
 
@@ -440,6 +454,7 @@ func main() {
 			URL:                config.Urls.SmallUrl,
 			ConnectToAddr:      config.ConnectToAddr,
 			InsecureSkipVerify: *insecureSkipVerify,
+			CongestionControl:  congestionControlChosen,
 		}
 	}
 
@@ -448,6 +463,7 @@ func main() {
 			URL:                config.Urls.SmallUrl,
 			ConnectToAddr:      config.ConnectToAddr,
 			InsecureSkipVerify: *insecureSkipVerify,
+			CongestionControl:  congestionControlChosen,
 		}
 	}
 

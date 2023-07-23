@@ -21,11 +21,13 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptrace"
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/network-quality/goresponsiveness/debug"
+	"github.com/network-quality/goresponsiveness/l4s"
 	"github.com/network-quality/goresponsiveness/stats"
 	"github.com/network-quality/goresponsiveness/traceable"
 	"github.com/network-quality/goresponsiveness/utilities"
@@ -47,16 +49,18 @@ type LoadGeneratingConnectionUpload struct {
 	tracer             *httptrace.ClientTrace
 	stats              stats.TraceStats
 	status             LgcStatus
+	congestionControl  *string
 	statusLock         *sync.Mutex
 	statusWaiter       *sync.Cond
 }
 
-func NewLoadGeneratingConnectionUpload(url string, keyLogger io.Writer, connectToAddr string, insecureSkipVerify bool) LoadGeneratingConnectionUpload {
+func NewLoadGeneratingConnectionUpload(url string, keyLogger io.Writer, connectToAddr string, insecureSkipVerify bool, congestionControl *string) LoadGeneratingConnectionUpload {
 	lgu := LoadGeneratingConnectionUpload{
 		URL:                url,
 		KeyLogger:          keyLogger,
 		ConnectToAddr:      connectToAddr,
 		InsecureSkipVerify: insecureSkipVerify,
+		congestionControl:  congestionControl,
 		statusLock:         &sync.Mutex{},
 	}
 	lgu.status = LGC_STATUS_NOT_STARTED
@@ -157,6 +161,27 @@ func (lgu *LoadGeneratingConnectionUpload) SetGotConnTimeInfo(
 			lgu.stats.GetConnectionDoneTime,
 			lgu.stats.ConnInfo,
 		)
+	}
+
+	if lgu.congestionControl != nil {
+		if debug.IsDebug(lgu.debug) {
+			fmt.Printf(
+				"Attempting to set congestion control algorithm to %v for connection %v at %v with info %v\n",
+				*lgu.congestionControl,
+				lgu.ClientId(),
+				lgu.stats.GetConnectionDoneTime,
+				lgu.stats.ConnInfo,
+			)
+		}
+		if err := l4s.SetL4S(lgu.stats.ConnInfo.Conn, lgu.congestionControl); err != nil {
+			fmt.Fprintf(
+				os.Stderr,
+				"Error setting L4S for %v at %v: %v\n",
+				lgu.ClientId(),
+				lgu.stats.GetConnectionDoneTime,
+				err.Error(),
+			)
+		}
 	}
 }
 
