@@ -184,7 +184,7 @@ func ResponsivenessProber[BucketType utilities.Number](
 					foreignProbeConfiguration.InsecureSkipVerify
 
 				utilities.OverrideHostTransport(transport,
-					foreignProbeConfiguration.ConnectToAddr)
+					foreignProbeConfiguration.ConnectToAddr, foreignProbeConfiguration.BindAddr)
 
 				foreignProbeClient := &http.Client{Transport: transport}
 

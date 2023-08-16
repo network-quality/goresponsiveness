@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptrace"
 	"os"
@@ -36,6 +37,7 @@ type ProbeConfiguration struct {
 	URL                string
 	Host               string
 	CongestionControl  *string
+	BindAddr           net.Addr
 	InsecureSkipVerify bool
 }
 

@@ -19,12 +19,14 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"runtime/pprof"
 	"strings"
 	"time"
 
+	"github.com/hawkinsw/goeyes"
 	"github.com/network-quality/goresponsiveness/ccw"
 	"github.com/network-quality/goresponsiveness/config"
 	"github.com/network-quality/goresponsiveness/constants"
@@ -167,6 +169,16 @@ var (
 	)
 	withL4S          = flag.Bool("with-l4s", false, "Use L4S (with default TCP prague congestion control algorithm.)")
 	withL4SAlgorithm = flag.String("with-l4s-algorithm", "", "Use L4S (with specified congestion control algorithm.)")
+	bindInterface    = flag.String(
+		"interface",
+		"",
+		"The name of an interface to which to bind for all connections.",
+	)
+	bindIpVersion6 = flag.Bool(
+		"ipv6",
+		false,
+		"Use IPv6 (only considered when used in conjunction with -interface)",
+	)
 )
 
 func main() {
@@ -264,7 +276,82 @@ func main() {
 		fmt.Printf("Doing congestion control with the %v algorithm.\n", *congestionControlChosen)
 	}
 
-	if err := config.Get(configHostPort, *configPath, *insecureSkipVerify,
+	var bindAddress net.Addr = nil
+	if len(*bindInterface) != 0 {
+		if debug.IsDebug(debugLevel) {
+			fmt.Printf(
+				"User requested that all outgoing connections should be over interface named %v\n",
+				*bindInterface,
+			)
+		}
+
+		if debug.IsDebug(debugLevel) {
+			fmt.Printf(
+				"Doing a happy eyeballs test to %v (port %v) to determine the IP version to prefer\n",
+				*configHost,
+				*configPort,
+			)
+		}
+		happyEyeballs, happyEyeballsErr := goeyes.HappyEyeballs(
+			operatingCtx,
+			*configHost,
+			*configPort,
+		)
+		if happyEyeballsErr != nil {
+			fmt.Fprintf(
+				os.Stderr,
+				"There was an error running the happy eyeballs test (%v); default to IPv4.\n",
+				err,
+			)
+		} else if debug.IsDebug(debugLevel) {
+			if happyEyeballs == goeyes.IPv4 {
+				fmt.Printf("Happy eyeballs found a v4 connection!\n")
+			} else {
+				fmt.Printf("Happy eyeballs found a v6 connection!\n")
+			}
+		}
+
+		localInterfaces, err := utilities.GetLocalInterfaces()
+		if err != nil {
+			fmt.Fprintf(
+				os.Stderr,
+				"Could not enumerate interfaces to do the user-requested binding: %v\n",
+				err,
+			)
+			os.Exit(1)
+		}
+		four, six, err := localInterfaces.GetAddresses(*bindInterface)
+		if err != nil {
+			fmt.Fprintf(
+				os.Stderr,
+				"Could not get the IP addresses of the interface requested by the user for binding: %v",
+				err,
+			)
+			os.Exit(1)
+		}
+		if six != nil && len(six.Network()) != 0 &&
+			// There was a six address *and* the user either specifically requested IPv6 or
+			// the happy eyeballs result was v6.
+			(*bindIpVersion6 || happyEyeballs == goeyes.IPv6) {
+			if debug.IsDebug(debugLevel) {
+				fmt.Printf(
+					"Binding to %v (v6) for all connections during the test.\n",
+					six.String(),
+				)
+			}
+			bindAddress = six
+		} else if four != nil && len(four.Network()) != 0 {
+			if debug.IsDebug(debugLevel) {
+				fmt.Printf("Binding to %v (v4) for all connections during the test.\n", four.String())
+			}
+			bindAddress = four
+		} else {
+			fmt.Fprintf(os.Stderr, "Could not get the IP addresses of the interface requested by the user for binding: Interface %v had neither an IPv4 nor IPv6 address", *bindInterface)
+			os.Exit(1)
+		}
+	}
+
+	if err := config.Get(configHostPort, *configPath, *insecureSkipVerify, bindAddress,
 		sslKeyFileConcurrentWriter); err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
@@ -427,13 +514,25 @@ func main() {
 	 * will create load-generating connections for upload/download
 	 */
 	downloadDirection.CreateLgdc = func() lgc.LoadGeneratingConnection {
-		lgd := lgc.NewLoadGeneratingConnectionDownload(config.Urls.LargeUrl,
-			sslKeyFileConcurrentWriter, config.ConnectToAddr, *insecureSkipVerify, congestionControlChosen)
+		lgd := lgc.NewLoadGeneratingConnectionDownload(
+			config.Urls.LargeUrl,
+			sslKeyFileConcurrentWriter,
+			config.ConnectToAddr,
+			*insecureSkipVerify,
+			bindAddress,
+			congestionControlChosen,
+		)
 		return &lgd
 	}
 	uploadDirection.CreateLgdc = func() lgc.LoadGeneratingConnection {
-		lgu := lgc.NewLoadGeneratingConnectionUpload(config.Urls.UploadUrl,
-			sslKeyFileConcurrentWriter, config.ConnectToAddr, *insecureSkipVerify, congestionControlChosen)
+		lgu := lgc.NewLoadGeneratingConnectionUpload(
+			config.Urls.UploadUrl,
+			sslKeyFileConcurrentWriter,
+			config.ConnectToAddr,
+			*insecureSkipVerify,
+			bindAddress,
+			congestionControlChosen,
+		)
 		return &lgu
 	}
 
@@ -455,6 +554,7 @@ func main() {
 			ConnectToAddr:      config.ConnectToAddr,
 			InsecureSkipVerify: *insecureSkipVerify,
 			CongestionControl:  congestionControlChosen,
+			BindAddr:           bindAddress,
 		}
 	}
 
@@ -464,6 +564,7 @@ func main() {
 			ConnectToAddr:      config.ConnectToAddr,
 			InsecureSkipVerify: *insecureSkipVerify,
 			CongestionControl:  congestionControlChosen,
+			BindAddr:           bindAddress,
 		}
 	}
 

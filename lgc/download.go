@@ -19,6 +19,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptrace"
 	"os"
@@ -49,17 +50,21 @@ type LoadGeneratingConnectionDownload struct {
 	tracer             *httptrace.ClientTrace
 	stats              stats.TraceStats
 	status             LgcStatus
+	bindAddr           net.Addr
 	congestionControl  *string
 	statusLock         *sync.Mutex
 	statusWaiter       *sync.Cond
 }
 
-func NewLoadGeneratingConnectionDownload(url string, keyLogger io.Writer, connectToAddr string, insecureSkipVerify bool, congestionControl *string) LoadGeneratingConnectionDownload {
+func NewLoadGeneratingConnectionDownload(url string, keyLogger io.Writer, connectToAddr string,
+	insecureSkipVerify bool, bindAddr net.Addr, congestionControl *string,
+) LoadGeneratingConnectionDownload {
 	lgd := LoadGeneratingConnectionDownload{
 		URL:                url,
 		KeyLogger:          keyLogger,
 		ConnectToAddr:      connectToAddr,
 		InsecureSkipVerify: insecureSkipVerify,
+		bindAddr:           bindAddr,
 		congestionControl:  congestionControl,
 		statusLock:         &sync.Mutex{},
 	}
@@ -322,7 +327,7 @@ func (lgd *LoadGeneratingConnectionDownload) Start(
 	}
 	transport.TLSClientConfig.InsecureSkipVerify = lgd.InsecureSkipVerify
 
-	utilities.OverrideHostTransport(transport, lgd.ConnectToAddr)
+	utilities.OverrideHostTransport(transport, lgd.ConnectToAddr, lgd.bindAddr)
 
 	lgd.client = &http.Client{Transport: transport}
 	lgd.tracer = traceable.GenerateHttpTimingTracer(lgd, lgd.debug)
@@ -388,7 +393,12 @@ func (lgd *LoadGeneratingConnectionDownload) doDownload(ctx context.Context) err
 		fmt.Printf("Content-Encoding header was set (compression not allowed)")
 		return fmt.Errorf("Content-Encoding header was set (compression not allowed)")
 	}
-	cr := &loadGeneratingConnectionDownloadReader{n: &lgd.downloaded, ctx: ctx, lgd: lgd, readable: get.Body}
+	cr := &loadGeneratingConnectionDownloadReader{
+		n:        &lgd.downloaded,
+		ctx:      ctx,
+		lgd:      lgd,
+		readable: get.Body,
+	}
 	_, _ = io.Copy(io.Discard, cr)
 
 	lgd.statusLock.Lock()

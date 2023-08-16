@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -39,7 +40,13 @@ type Config struct {
 	ConnectToAddr string `json:"test_endpoint"`
 }
 
-func (c *Config) Get(configHost string, configPath string, insecureSkipVerify bool, keyLogger io.Writer) error {
+func (c *Config) Get(
+	configHost string,
+	configPath string,
+	insecureSkipVerify bool,
+	bindAddress net.Addr,
+	keyLogger io.Writer,
+) error {
 	configTransport := &http.Transport{
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: insecureSkipVerify,
@@ -50,7 +57,7 @@ func (c *Config) Get(configHost string, configPath string, insecureSkipVerify bo
 		configTransport.TLSClientConfig.KeyLogWriter = keyLogger
 	}
 
-	utilities.OverrideHostTransport(configTransport, c.ConnectToAddr)
+	utilities.OverrideHostTransport(configTransport, c.ConnectToAddr, bindAddress)
 
 	configClient := &http.Client{Transport: configTransport}
 

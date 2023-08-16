@@ -19,6 +19,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptrace"
 	"os"
@@ -49,17 +50,21 @@ type LoadGeneratingConnectionUpload struct {
 	tracer             *httptrace.ClientTrace
 	stats              stats.TraceStats
 	status             LgcStatus
+	bindAddr           net.Addr
 	congestionControl  *string
 	statusLock         *sync.Mutex
 	statusWaiter       *sync.Cond
 }
 
-func NewLoadGeneratingConnectionUpload(url string, keyLogger io.Writer, connectToAddr string, insecureSkipVerify bool, congestionControl *string) LoadGeneratingConnectionUpload {
+func NewLoadGeneratingConnectionUpload(url string, keyLogger io.Writer, connectToAddr string,
+	insecureSkipVerify bool, bindAddr net.Addr, congestionControl *string,
+) LoadGeneratingConnectionUpload {
 	lgu := LoadGeneratingConnectionUpload{
 		URL:                url,
 		KeyLogger:          keyLogger,
 		ConnectToAddr:      connectToAddr,
 		InsecureSkipVerify: insecureSkipVerify,
+		bindAddr:           bindAddr,
 		congestionControl:  congestionControl,
 		statusLock:         &sync.Mutex{},
 	}
@@ -369,7 +374,7 @@ func (lgu *LoadGeneratingConnectionUpload) Start(
 		transport.TLSClientConfig.KeyLogWriter = lgu.KeyLogger
 	}
 
-	utilities.OverrideHostTransport(transport, lgu.ConnectToAddr)
+	utilities.OverrideHostTransport(transport, lgu.ConnectToAddr, lgu.bindAddr)
 
 	lgu.client = &http.Client{Transport: transport}
 	lgu.tracer = traceable.GenerateHttpTimingTracer(lgu, lgu.debug)
