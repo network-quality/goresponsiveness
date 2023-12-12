@@ -340,7 +340,7 @@ func main() {
 			)
 			foreignProbeDataLogger = nil
 		}
-		uploadDirection.ForeignProbeDataLogger = selfProbeDataLogger
+		uploadDirection.ForeignProbeDataLogger = foreignProbeDataLogger
 		downloadDirection.ForeignProbeDataLogger = foreignProbeDataLogger
 
 		downloadDirection.ThroughputDataLogger, err = datalogger.CreateCSVDataLogger[rpm.ThroughputDataPoint](
@@ -1151,5 +1151,5 @@ Gaming QoO: %.0f
 	if *debugCliFlag {
 		fmt.Printf("Closing the foreign data loggers.\n")
 	}
-	uploadDirection.SelfProbeDataLogger.Close()
+	uploadDirection.ForeignProbeDataLogger.Close()
 }
