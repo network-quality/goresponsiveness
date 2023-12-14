@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/network-quality/goresponsiveness/executor"
 	"github.com/network-quality/goresponsiveness/utilities"
 )
 
@@ -31,9 +32,12 @@ type SpecParameters struct {
 	ProbeInterval    time.Duration
 	ProbeCapacityPct float64
 	Percentile       uint
+	ExecutionPolicy  executor.ExecutionMethod
 }
 
-func SpecParametersFromArguments(timeout int, mad int, id int, tmp uint, sdt float64, mnp int, mps int, ptc float64, p int) (*SpecParameters, error) {
+func SpecParametersFromArguments(timeout int, mad int, id int, tmp uint, sdt float64, mnp int,
+	mps int, ptc float64, p int, executionPolicy executor.ExecutionMethod,
+) (*SpecParameters, error) {
 	if timeout <= 0 {
 		return nil, fmt.Errorf("cannot specify a 0 or negative timeout for the test")
 	}
@@ -68,7 +72,8 @@ func SpecParametersFromArguments(timeout int, mad int, id int, tmp uint, sdt flo
 	params := SpecParameters{
 		TestTimeout: testTimeout, MovingAvgDist: mad,
 		EvalInterval: evalInterval, TrimmedMeanPct: tmp, StdDevTolerance: sdt,
-		MaxParallelConns: mnp, ProbeInterval: probeInterval, ProbeCapacityPct: ptc, Percentile: uint(p),
+		MaxParallelConns: mnp, ProbeInterval: probeInterval, ProbeCapacityPct: ptc,
+		Percentile: uint(p), ExecutionPolicy: executionPolicy,
 	}
 	return &params, nil
 }
@@ -82,8 +87,10 @@ Trimmed-Mean Percentage:                     %v,
 Standard-Deviation Tolerance:                %v,
 Maximum number of parallel connections:      %v,
 Probe Interval:                              %v (derived from given maximum-probes-per-second parameter),
-Maximum Percentage Of Throughput For Probes: %v`,
+Maximum Percentage Of Throughput For Probes: %v
+Execution Policy:                            %v`,
 		parameters.TestTimeout, parameters.MovingAvgDist, parameters.EvalInterval, parameters.TrimmedMeanPct,
-		parameters.StdDevTolerance, parameters.MaxParallelConns, parameters.ProbeInterval, parameters.ProbeCapacityPct,
+		parameters.StdDevTolerance, parameters.MaxParallelConns, parameters.ProbeInterval,
+		parameters.ProbeCapacityPct, parameters.ExecutionPolicy.ToString(),
 	)
 }

@@ -68,6 +68,7 @@ def find_earliest(dfs):
     """
     earliest = dfs[0]["CreationTime"].iloc[0]
     for df in dfs:
+        print(f"A data frame: {df['CreationTime']}")
         if df["CreationTime"].iloc[0] < earliest:
             earliest = df["CreationTime"].iloc[0]
     return earliest
@@ -89,7 +90,7 @@ def time_since_start(dfs, start, column_name="TimeSinceStart"):
 
 def probeClean(df):
     # ConnRTT and ConnCongestionWindow refer to Underlying Connection
-    df.columns = ["CreationTime", "NumRTT", "Duration", "ConnRTT", "ConnCongestionWindow", "Type", "Empty"]
+    df.columns = ["CreationTime", "NumRTT", "Duration", "ConnRTT", "ConnCongestionWindow", "Type", "Algorithm", "Empty"]
     df = df.drop(columns=["Empty"])
     df["CreationTime"] = pd.to_datetime(df["CreationTime"], format="%m-%d-%Y-%H-%M-%S.%f")
     df["Type"] = df["Type"].apply(str.strip)
@@ -99,7 +100,7 @@ def probeClean(df):
 
 
 def throughputClean(df):
-    df.columns = ["CreationTime", "Throughput", "NumberConnections", "Empty"]
+    df.columns = ["CreationTime", "Throughput", "NumberActiveConnections", "NumberConnections", "Empty"]
     df = df.drop(columns=["Empty"])
     df["CreationTime"] = pd.to_datetime(df["CreationTime"], format="%m-%d-%Y-%H-%M-%S.%f")
     df["ADJ_Throughput"] = df["Throughput"] / 1000000
@@ -306,6 +307,8 @@ def graph_normal(dfs, xcolumn, ax, title):
     
 
 def stacked_area_throughput(throughput_df, granular, xcolumn, ycolumn, ax, title, label, linecolor="black"):
+
+    print(f"Stacked area throughput!")
     ax.set_title(title)
 
     ax.yaxis.tick_right()
@@ -448,6 +451,7 @@ def make_graphs(files, save):
             if not containsALL:
                 continue
 
+            print(f"About to call main()")
             main(start + " - " + str(x), files[start][end])
             if save:
                 pdf = matplotlib.backends.backend_pdf.PdfPages(f"{start} - {x}.pdf")
