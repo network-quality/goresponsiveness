@@ -14,7 +14,11 @@
 
 package constants
 
-import "time"
+import (
+	"time"
+
+	"github.com/network-quality/goresponsiveness/executor"
+)
 
 var (
 	// The initial number of load-generating connections when attempting to saturate the network.
@@ -38,6 +42,9 @@ var (
 	DefaultInsecureSkipVerify bool = true
 
 	DefaultL4SCongestionControlAlgorithm string = "prague"
+
+	// The default execution policy for running a test (serial)
+	DefaultTestExecutionPolicy = executor.Serial
 )
 
 type SpecParametersCliOptions struct {

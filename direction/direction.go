@@ -15,11 +15,14 @@
 package direction
 
 import (
+	"context"
+
 	"github.com/network-quality/goresponsiveness/datalogger"
 	"github.com/network-quality/goresponsiveness/debug"
 	"github.com/network-quality/goresponsiveness/lgc"
 	"github.com/network-quality/goresponsiveness/probe"
 	"github.com/network-quality/goresponsiveness/rpm"
+	"github.com/network-quality/goresponsiveness/series"
 )
 
 type Direction struct {
@@ -37,4 +40,9 @@ type Direction struct {
 	ExtendedStatsEligible             bool
 	StableThroughput                  bool
 	StableResponsiveness              bool
+	SelfRtts                          series.WindowSeries[float64, uint64]
+	ForeignRtts                       series.WindowSeries[float64, uint64]
+	ThroughputActivityCtx             *context.Context
+	ThroughputActivityCtxCancel       *context.CancelFunc
+	FormattedResults                  string
 }

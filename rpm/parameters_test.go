@@ -17,91 +17,93 @@ package rpm
 import (
 	"strings"
 	"testing"
+
+	"github.com/network-quality/goresponsiveness/executor"
 )
 
 func TestSpecParametersFromArgumentsBadTimeout(t *testing.T) {
-	_, err := SpecParametersFromArguments(0, 0, 0, 0, 0, 0, 0, 0, 0)
+	_, err := SpecParametersFromArguments(0, 0, 0, 0, 0, 0, 0, 0, 0, executor.Parallel)
 	if err == nil || !strings.Contains(err.Error(), "timeout") {
 		t.Fatalf("0 timeout improperly allowed.")
 	}
-	_, err = SpecParametersFromArguments(-1, 0, 0, 0, 0, 0, 0, 0, 0)
+	_, err = SpecParametersFromArguments(-1, 0, 0, 0, 0, 0, 0, 0, 0, executor.Parallel)
 	if err == nil || !strings.Contains(err.Error(), "timeout") {
 		t.Fatalf("negative timeout improperly allowed.")
 	}
 }
 
 func TestSpecParametersFromArgumentsBadMad(t *testing.T) {
-	_, err := SpecParametersFromArguments(1, 0, 0, 0, 0, 0, 0, 0, 0)
+	_, err := SpecParametersFromArguments(1, 0, 0, 0, 0, 0, 0, 0, 0, executor.Parallel)
 	if err == nil || !strings.Contains(err.Error(), "moving-average") {
 		t.Fatalf("0 mad improperly allowed.")
 	}
-	_, err = SpecParametersFromArguments(1, 0, 0, 0, 0, 0, 0, 0, 0)
+	_, err = SpecParametersFromArguments(1, 0, 0, 0, 0, 0, 0, 0, 0, executor.Parallel)
 	if err == nil || !strings.Contains(err.Error(), "moving-average") {
 		t.Fatalf("negative mad improperly allowed.")
 	}
 }
 
 func TestSpecParametersFromArgumentsBadId(t *testing.T) {
-	_, err := SpecParametersFromArguments(1, 1, 0, 0, 0, 0, 0, 0, 0)
+	_, err := SpecParametersFromArguments(1, 1, 0, 0, 0, 0, 0, 0, 0, executor.Parallel)
 	if err == nil || !strings.Contains(err.Error(), "reevaluation") {
 		t.Fatalf("0 id improperly allowed.")
 	}
-	_, err = SpecParametersFromArguments(1, 1, -1, 0, 0, 0, 0, 0, 0)
+	_, err = SpecParametersFromArguments(1, 1, -1, 0, 0, 0, 0, 0, 0, executor.Parallel)
 	if err == nil || !strings.Contains(err.Error(), "reevaluation") {
 		t.Fatalf("negative id improperly allowed.")
 	}
 }
 
 func TestSpecParametersFromArgumentsBadSdt(t *testing.T) {
-	_, err := SpecParametersFromArguments(1, 1, 1, 1, -1, 0, 0, 0, 0)
+	_, err := SpecParametersFromArguments(1, 1, 1, 1, -1, 0, 0, 0, 0, executor.Parallel)
 	if err == nil || !strings.Contains(err.Error(), "deviation") {
 		t.Fatalf("0 sdt improperly allowed.")
 	}
 }
 
 func TestSpecParametersFromArgumentsBadMnp(t *testing.T) {
-	_, err := SpecParametersFromArguments(1, 1, 1, 1, 1, 0, 0, 0, 0)
+	_, err := SpecParametersFromArguments(1, 1, 1, 1, 1, 0, 0, 0, 0, executor.Parallel)
 	if err == nil || !strings.Contains(err.Error(), "parallel") {
 		t.Fatalf("0 mnp improperly allowed.")
 	}
-	_, err = SpecParametersFromArguments(1, 1, 1, 1, 1, -1, 0, 0, 0)
+	_, err = SpecParametersFromArguments(1, 1, 1, 1, 1, -1, 0, 0, 0, executor.Parallel)
 	if err == nil || !strings.Contains(err.Error(), "parallel") {
 		t.Fatalf("negative mnp improperly allowed.")
 	}
 }
 
 func TestSpecParametersFromArgumentsBadMps(t *testing.T) {
-	_, err := SpecParametersFromArguments(1, 1, 1, 1, 1, 1, 0, 0, 0)
+	_, err := SpecParametersFromArguments(1, 1, 1, 1, 1, 1, 0, 0, 0, executor.Parallel)
 	if err == nil || !strings.Contains(err.Error(), "probing interval") {
 		t.Fatalf("0 mps improperly allowed.")
 	}
-	_, err = SpecParametersFromArguments(1, 1, 1, 1, 1, 1, -1, 0, 0)
+	_, err = SpecParametersFromArguments(1, 1, 1, 1, 1, 1, -1, 0, 0, executor.Parallel)
 	if err == nil || !strings.Contains(err.Error(), "probing interval") {
 		t.Fatalf("negative mps improperly allowed.")
 	}
 }
 
 func TestSpecParametersFromArgumentsBadPtc(t *testing.T) {
-	_, err := SpecParametersFromArguments(1, 1, 1, 1, 1, 1, 1, 0, 0)
+	_, err := SpecParametersFromArguments(1, 1, 1, 1, 1, 1, 1, 0, 0, executor.Parallel)
 	if err == nil || !strings.Contains(err.Error(), "capacity") {
 		t.Fatalf("0 ptc improperly allowed.")
 	}
-	_, err = SpecParametersFromArguments(1, 1, 1, 1, 1, 1, 1, -1, 0)
+	_, err = SpecParametersFromArguments(1, 1, 1, 1, 1, 1, 1, -1, 0, executor.Parallel)
 	if err == nil || !strings.Contains(err.Error(), "capacity") {
 		t.Fatalf("negative ptc improperly allowed.")
 	}
 }
 
 func TestSpecParametersFromArgumentsBadP(t *testing.T) {
-	_, err := SpecParametersFromArguments(1, 1, 1, 1, 1, 1, 1, 1, -1)
+	_, err := SpecParametersFromArguments(1, 1, 1, 1, 1, 1, 1, 1, -1, executor.Parallel)
 	if err == nil || !strings.Contains(err.Error(), "percentile") {
 		t.Fatalf("-1 percentile improperly allowed.")
 	}
-	_, err = SpecParametersFromArguments(1, 1, 1, 1, 1, 1, 1, 1, 0)
+	_, err = SpecParametersFromArguments(1, 1, 1, 1, 1, 1, 1, 1, 0, executor.Parallel)
 	if err == nil || !strings.Contains(err.Error(), "percentile") {
 		t.Fatalf("0 percentile improperly allowed.")
 	}
-	_, err = SpecParametersFromArguments(1, 1, 1, 1, 1, 1, 1, 1, 101)
+	_, err = SpecParametersFromArguments(1, 1, 1, 1, 1, 1, 1, 1, 101, executor.Parallel)
 	if err == nil || !strings.Contains(err.Error(), "percentile") {
 		t.Fatalf("percentile greater than 100 improperly allowed.")
 	}
