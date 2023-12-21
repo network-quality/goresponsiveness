@@ -16,8 +16,10 @@ To become a Draft Standard, "at least two independent and interoperable implemen
 
 ### Requirements
 
-1. Go (tested with version 1.16.6)
+1. Go (1.21 -- see below)
 2. The source code
+
+**Note**: When go 1.22 is released, this client will upgrade to that version of go. There is an important fix to the runtime ([see here](https://github.com/golang/go/commit/7830180dcd13c028a1619f41bed0ac5e10a720e7)) that we need to incorporate for correctness.
 
 ### Satisfy Requirements
 
