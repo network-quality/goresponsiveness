@@ -15,13 +15,20 @@ package series
 
 import (
 	"reflect"
+	"sync"
 	"testing"
+	"time"
 
+	RPMTesting "github.com/network-quality/goresponsiveness/testing"
 	"github.com/network-quality/goresponsiveness/utilities"
 )
 
 func TestNextIndex(t *testing.T) {
 	wsi := newWindowSeriesWindowOnlyImpl[int, int](4)
+
+	// Calling internal functions must be done with the lock held!
+	wsi.lock.Lock()
+	defer wsi.lock.Unlock()
 
 	idx := wsi.nextIndex(wsi.latestIndex)
 	if idx != 1 {
@@ -52,6 +59,18 @@ func TestNextIndex(t *testing.T) {
 		t.Fatalf("nextIndex is wrong (1)")
 	}
 	wsi.latestIndex = idx
+}
+
+func TestNextIndexUnlocked(t *testing.T) {
+	wsi := newWindowSeriesWindowOnlyImpl[int, int](4)
+
+	panicingTest := func() {
+		wsi.nextIndex(wsi.latestIndex)
+	}
+
+	if !RPMTesting.DidPanic(panicingTest) {
+		t.Fatalf("Expected a call to nextIndex (without the lock held) to panic but it did not")
+	}
 }
 
 func TestSimpleWindowComplete(t *testing.T) {
@@ -875,5 +894,50 @@ func Test_ForeverStandardDeviationCalculation2(test *testing.T) {
 
 	if _, sd := SeriesStandardDeviation[float64, int](series); !utilities.ApproximatelyEqual(sd, expected, 0.01) {
 		test.Fatalf("Standard deviation(series) max calculation(series) failed: Expected: %v; Actual: %v.", expected, sd)
+	}
+}
+
+func Test_ForeverLocking(test *testing.T) {
+	series := newWindowSeriesForeverImpl[float64, int]()
+	testFail := false
+
+	series.Reserve(1)
+	series.Reserve(2)
+
+	series.Fill(1, 8)
+	series.Fill(2, 9)
+
+	wg := sync.WaitGroup{}
+
+	counter := 0
+
+	wg.Add(2)
+	go func() {
+		series.ForEach(func(b int, d *utilities.Optional[float64]) {
+			// All of these ++s should be done under a single lock of the lock and, therefore,
+			// the ForEach below should not start until both buckets are ForEach'd over!
+			counter++
+			// Make this a long wait so we know that there is no chance for a race and that
+			// we are really testing what we mean to test!
+			time.Sleep(time.Second * 5)
+		})
+		wg.Done()
+	}()
+
+	time.Sleep(1 * time.Second)
+
+	go func() {
+		series.ForEach(func(b int, d *utilities.Optional[float64]) {
+			if counter != 2 {
+				testFail = true
+			}
+		})
+		wg.Done()
+	}()
+
+	wg.Wait()
+
+	if testFail {
+		test.Fatalf("Mutual exclusion checks did not properly lock out parallel ForEach operations.")
 	}
 }

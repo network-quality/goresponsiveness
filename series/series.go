@@ -48,6 +48,7 @@ type windowSeriesWindowOnlyImpl[Data any, Bucket constraints.Ordered] struct {
 	data        []utilities.Pair[Bucket, utilities.Optional[Data]]
 	latestIndex int
 	empty       bool
+	lock        sync.RWMutex
 }
 
 /*
@@ -58,6 +59,8 @@ func (wsi *windowSeriesWindowOnlyImpl[Data, Bucket]) Reserve(b Bucket) error {
 	if !wsi.empty && b <= wsi.data[wsi.latestIndex].First {
 		return fmt.Errorf("reserving must be monotonically increasing")
 	}
+	wsi.lock.Lock()
+	defer wsi.lock.Unlock()
 
 	if wsi.empty {
 		/* Special case if we are empty: The latestIndex is where we want this value to go! */
@@ -76,6 +79,8 @@ func (wsi *windowSeriesWindowOnlyImpl[Data, Bucket]) Reserve(b Bucket) error {
 }
 
 func (wsi *windowSeriesWindowOnlyImpl[Data, Bucket]) Fill(b Bucket, d Data) error {
+	wsi.lock.Lock()
+	defer wsi.lock.Unlock()
 	iterator := wsi.latestIndex
 	for {
 		if wsi.data[iterator].First == b {
@@ -91,6 +96,8 @@ func (wsi *windowSeriesWindowOnlyImpl[Data, Bucket]) Fill(b Bucket, d Data) erro
 }
 
 func (wsi *windowSeriesWindowOnlyImpl[Data, Bucket]) Count() (some int, none int) {
+	wsi.lock.Lock()
+	defer wsi.lock.Unlock()
 	some = 0
 	none = 0
 	for _, v := range wsi.data {
@@ -104,6 +111,8 @@ func (wsi *windowSeriesWindowOnlyImpl[Data, Bucket]) Count() (some int, none int
 }
 
 func (wsi *windowSeriesWindowOnlyImpl[Data, Bucket]) Complete() bool {
+	wsi.lock.Lock()
+	defer wsi.lock.Unlock()
 	for _, v := range wsi.data {
 		if utilities.IsNone(v.Second) {
 			return false
@@ -113,10 +122,18 @@ func (wsi *windowSeriesWindowOnlyImpl[Data, Bucket]) Complete() bool {
 }
 
 func (wsi *windowSeriesWindowOnlyImpl[Data, Bucket]) nextIndex(currentIndex int) int {
+	// Internal functions should be called with the lock held!
+	if wsi.lock.TryLock() {
+		panic("windowSeriesWindowOnlyImpl nextIndex called without lock held.")
+	}
 	return (currentIndex + 1) % wsi.windowSize
 }
 
 func (wsi *windowSeriesWindowOnlyImpl[Data, Bucket]) previousIndex(currentIndex int) int {
+	// Internal functions should be called with the lock held!
+	if wsi.lock.TryLock() {
+		panic("windowSeriesWindowOnlyImpl nextIndex called without lock held.")
+	}
 	nextIndex := currentIndex - 1
 	if nextIndex < 0 {
 		nextIndex += wsi.windowSize
@@ -125,6 +142,10 @@ func (wsi *windowSeriesWindowOnlyImpl[Data, Bucket]) previousIndex(currentIndex 
 }
 
 func (wsi *windowSeriesWindowOnlyImpl[Data, Bucket]) toArray() []utilities.Optional[Data] {
+	// Internal functions should be called with the lock held!
+	if wsi.lock.TryLock() {
+		panic("windowSeriesWindowOnlyImpl nextIndex called without lock held.")
+	}
 	result := make([]utilities.Optional[Data], wsi.windowSize)
 
 	if wsi.empty {
@@ -144,6 +165,8 @@ func (wsi *windowSeriesWindowOnlyImpl[Data, Bucket]) toArray() []utilities.Optio
 }
 
 func (wsi *windowSeriesWindowOnlyImpl[Data, Bucket]) GetValues() []utilities.Optional[Data] {
+	wsi.lock.Lock()
+	defer wsi.lock.Unlock()
 	return wsi.toArray()
 }
 
@@ -152,12 +175,16 @@ func (wsi *windowSeriesWindowOnlyImpl[Data, Bucket]) GetType() WindowSeriesDurat
 }
 
 func (wsi *windowSeriesWindowOnlyImpl[Data, Bucket]) ForEach(eacher func(b Bucket, d *utilities.Optional[Data])) {
+	wsi.lock.Lock()
+	defer wsi.lock.Unlock()
 	for _, v := range wsi.data {
 		eacher(v.First, &v.Second)
 	}
 }
 
 func (wsi *windowSeriesWindowOnlyImpl[Data, Bucket]) String() string {
+	wsi.lock.Lock()
+	defer wsi.lock.Unlock()
 	result := fmt.Sprintf("Window series (window (%d) only, latest index: %v): ", wsi.windowSize, wsi.latestIndex)
 	for _, v := range wsi.data {
 		valueString := "None"
@@ -186,9 +213,12 @@ func newWindowSeriesWindowOnlyImpl[Data any, Bucket constraints.Ordered](
 type windowSeriesForeverImpl[Data any, Bucket constraints.Ordered] struct {
 	data  []utilities.Pair[Bucket, utilities.Optional[Data]]
 	empty bool
+	lock  sync.RWMutex
 }
 
 func (wsi *windowSeriesForeverImpl[Data, Bucket]) Reserve(b Bucket) error {
+	wsi.lock.Lock()
+	defer wsi.lock.Unlock()
 	if !wsi.empty && b <= wsi.data[len(wsi.data)-1].First {
 		return fmt.Errorf("reserving must be monotonically increasing")
 	}
@@ -199,6 +229,8 @@ func (wsi *windowSeriesForeverImpl[Data, Bucket]) Reserve(b Bucket) error {
 }
 
 func (wsi *windowSeriesForeverImpl[Data, Bucket]) Fill(b Bucket, d Data) error {
+	wsi.lock.Lock()
+	defer wsi.lock.Unlock()
 	for i := range wsi.data {
 		if wsi.data[i].First == b {
 			wsi.data[i].Second = utilities.Some[Data](d)
@@ -209,6 +241,8 @@ func (wsi *windowSeriesForeverImpl[Data, Bucket]) Fill(b Bucket, d Data) error {
 }
 
 func (wsi *windowSeriesForeverImpl[Data, Bucket]) GetValues() []utilities.Optional[Data] {
+	wsi.lock.Lock()
+	defer wsi.lock.Unlock()
 	result := make([]utilities.Optional[Data], len(wsi.data))
 
 	for i, v := range utilities.Reverse(wsi.data) {
@@ -219,6 +253,8 @@ func (wsi *windowSeriesForeverImpl[Data, Bucket]) GetValues() []utilities.Option
 }
 
 func (wsi *windowSeriesForeverImpl[Data, Bucket]) Count() (some int, none int) {
+	wsi.lock.Lock()
+	defer wsi.lock.Unlock()
 	some = 0
 	none = 0
 	for _, v := range wsi.data {
@@ -232,6 +268,8 @@ func (wsi *windowSeriesForeverImpl[Data, Bucket]) Count() (some int, none int) {
 }
 
 func (wsi *windowSeriesForeverImpl[Data, Bucket]) Complete() bool {
+	wsi.lock.Lock()
+	defer wsi.lock.Unlock()
 	for _, v := range wsi.data {
 		if utilities.IsNone(v.Second) {
 			return false
@@ -253,12 +291,16 @@ func newWindowSeriesForeverImpl[Data any, Bucket constraints.Ordered]() *windowS
 }
 
 func (wsi *windowSeriesForeverImpl[Data, Bucket]) ForEach(eacher func(b Bucket, d *utilities.Optional[Data])) {
+	wsi.lock.Lock()
+	defer wsi.lock.Unlock()
 	for _, v := range wsi.data {
 		eacher(v.First, &v.Second)
 	}
 }
 
 func (wsi *windowSeriesForeverImpl[Data, Bucket]) String() string {
+	wsi.lock.Lock()
+	defer wsi.lock.Unlock()
 	result := "Window series (forever): "
 	for _, v := range wsi.data {
 		valueString := "None"

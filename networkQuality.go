@@ -663,7 +663,9 @@ func main() {
 	directionExecutionUnits := make([]executor.ExecutionUnit, 0)
 
 	for _, direction := range directions {
+		// Make a copy here to make sure that we do not get go-wierdness in our closure (see https://github.com/golang/go/discussions/56010).
 		direction := direction
+
 		directionExecutionUnit := func() {
 			timeoutDuration := specParameters.TestTimeout
 			timeoutAbsoluteTime := time.Now().Add(timeoutDuration)
@@ -686,7 +688,6 @@ func main() {
 			// all the network connections that are responsible for generating the load.
 			networkActivityCtx, networkActivityCtxCancel := context.WithCancel(operatingCtx)
 
-			// TODO: Check this warning!
 			throughputGeneratorCtx, throughputGeneratorCtxCancel := context.WithCancel(throughputCtx)
 
 			lgStabilizationCommunicationChannel := rpm.LoadGenerator(
@@ -788,9 +789,6 @@ func main() {
 								utilities.Conditional(direction.StableThroughput, "stable", "unstable"))
 						}
 
-						if direction.StableThroughput {
-							throughputGeneratorCtxCancel()
-						}
 						throughputStabilizer.Interval()
 					}
 				case <-timeoutChannel:
@@ -805,7 +803,7 @@ func main() {
 					fmt.Printf("Throughput is stable; beginning responsiveness testing.\n")
 				}
 			} else {
-				fmt.Fprintf(os.Stderr, "Warning: Throughput stability could not be reached. Adding 15 seconds to calculate speculative RPM results.\n")
+				fmt.Fprintf(os.Stderr, "Warning: Throughput stability could not be reached. Making the test 15 seconds longer to calculate speculative RPM results.\n")
 				speculativeTimeoutDuration := time.Second * 15
 				speculativeAbsoluteTimeoutTime := time.Now().Add(speculativeTimeoutDuration)
 				timeoutChannel = timeoutat.TimeoutAt(
@@ -814,6 +812,9 @@ func main() {
 					debugLevel,
 				)
 			}
+
+			// No matter what, we will stop adding additional load-generating connections!
+			throughputGeneratorCtxCancel()
 
 			perDirectionSelfRtts := series.NewWindowSeries[float64, uint64](series.Forever, 0)
 			perDirectionForeignRtts := series.NewWindowSeries[float64, uint64](series.Forever, 0)
