@@ -20,6 +20,7 @@ import (
 	"github.com/network-quality/goresponsiveness/lgc"
 	"github.com/network-quality/goresponsiveness/probe"
 	"github.com/network-quality/goresponsiveness/rpm"
+	"github.com/network-quality/goresponsiveness/series"
 )
 
 type Direction struct {
@@ -37,4 +38,6 @@ type Direction struct {
 	ExtendedStatsEligible             bool
 	StableThroughput                  bool
 	StableResponsiveness              bool
+	SelfRtts                          series.WindowSeries[float64, uint64]
+	ForeignRtts                       series.WindowSeries[float64, uint64]
 }

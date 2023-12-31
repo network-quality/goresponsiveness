@@ -41,6 +41,8 @@ type WindowSeries[Data any, Bucket constraints.Ordered] interface {
 	GetValues() []utilities.Optional[Data]
 	Complete() bool
 	GetType() WindowSeriesDuration
+
+	Append(appended *WindowSeries[Data, Bucket])
 }
 
 type windowSeriesWindowOnlyImpl[Data any, Bucket constraints.Ordered] struct {
@@ -196,6 +198,10 @@ func (wsi *windowSeriesWindowOnlyImpl[Data, Bucket]) String() string {
 	return result
 }
 
+func (wsi *windowSeriesWindowOnlyImpl[Data, Bucket]) Append(appended *WindowSeries[Data, Bucket]) {
+	panic("")
+}
+
 func newWindowSeriesWindowOnlyImpl[Data any, Bucket constraints.Ordered](
 	windowSize int,
 ) *windowSeriesWindowOnlyImpl[Data, Bucket] {
@@ -220,6 +226,7 @@ func (wsi *windowSeriesForeverImpl[Data, Bucket]) Reserve(b Bucket) error {
 	wsi.lock.Lock()
 	defer wsi.lock.Unlock()
 	if !wsi.empty && b <= wsi.data[len(wsi.data)-1].First {
+		fmt.Printf("reserving must be monotonically increasing")
 		return fmt.Errorf("reserving must be monotonically increasing")
 	}
 
@@ -310,6 +317,19 @@ func (wsi *windowSeriesForeverImpl[Data, Bucket]) String() string {
 		result += fmt.Sprintf("%v: %v; ", v.First, valueString)
 	}
 	return result
+}
+
+func (wsi *windowSeriesForeverImpl[Data, Bucket]) Append(appended *WindowSeries[Data, Bucket]) {
+	result, ok := (*appended).(*windowSeriesForeverImpl[Data, Bucket])
+	if !ok {
+		panic("Cannot merge a forever window series with a non-forever window series.")
+	}
+	wsi.lock.Lock()
+	defer wsi.lock.Unlock()
+	result.lock.Lock()
+	defer result.lock.Unlock()
+
+	wsi.data = append(wsi.data, result.data...)
 }
 
 /*

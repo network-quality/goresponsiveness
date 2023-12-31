@@ -651,10 +651,6 @@ func main() {
 
 	}
 
-	// All tests will accumulate data to these series because it will all matter for RPM calculation!
-	selfRtts := series.NewWindowSeries[float64, uint64](series.Forever, 0)
-	foreignRtts := series.NewWindowSeries[float64, uint64](series.Forever, 0)
-
 	var selfRttsQualityAttenuation *qualityattenuation.SimpleQualityAttenuation = nil
 	if *printQualityAttenuation {
 		selfRttsQualityAttenuation = qualityattenuation.NewSimpleQualityAttenuation()
@@ -816,8 +812,8 @@ func main() {
 			// No matter what, we will stop adding additional load-generating connections!
 			throughputGeneratorCtxCancel()
 
-			perDirectionSelfRtts := series.NewWindowSeries[float64, uint64](series.Forever, 0)
-			perDirectionForeignRtts := series.NewWindowSeries[float64, uint64](series.Forever, 0)
+			direction.SelfRtts = series.NewWindowSeries[float64, uint64](series.Forever, 0)
+			direction.ForeignRtts = series.NewWindowSeries[float64, uint64](series.Forever, 0)
 
 			responsivenessStabilizationCommunicationChannel := rpm.ResponsivenessProber(
 				proberOperatorCtx,
@@ -847,10 +843,8 @@ func main() {
 										"%s: Reserving a responsiveness bucket with id %v.\n", direction.DirectionLabel, bucket)
 								}
 								responsivenessStabilizer.Reserve(bucket)
-								selfRtts.Reserve(bucket)
-								foreignRtts.Reserve(bucket)
-								perDirectionForeignRtts.Reserve(bucket)
-								perDirectionSelfRtts.Reserve(bucket)
+								direction.ForeignRtts.Reserve(bucket)
+								direction.SelfRtts.Reserve(bucket)
 							}
 						case series.SeriesMessageMeasure:
 							{
@@ -867,19 +861,12 @@ func main() {
 								responsivenessStabilizer.AddMeasurement(bucket,
 									(foreignDataPoint.Duration + selfDataPoint.Duration).Milliseconds())
 
-								if err := selfRtts.Fill(bucket, selfDataPoint.Duration.Seconds()); err != nil {
-									fmt.Printf("Attempting to fill a bucket (id: %d) that does not exist (selfRtts)\n", bucket)
-								}
-								if err := perDirectionSelfRtts.Fill(bucket,
+								if err := direction.SelfRtts.Fill(bucket,
 									selfDataPoint.Duration.Seconds()); err != nil {
 									fmt.Printf("Attempting to fill a bucket (id: %d) that does not exist (perDirectionSelfRtts)\n", bucket)
 								}
 
-								if err := foreignRtts.Fill(bucket, foreignDataPoint.Duration.Seconds()); err != nil {
-									fmt.Printf("Attempting to fill a bucket (id: %d) that does not exist (foreignRtts)\n", bucket)
-								}
-
-								if err := perDirectionForeignRtts.Fill(bucket,
+								if err := direction.ForeignRtts.Fill(bucket,
 									foreignDataPoint.Duration.Seconds()); err != nil {
 									fmt.Printf("Attempting to fill a bucket (id: %d) that does not exist (perDirectionForeignRtts)\n", bucket)
 								}
@@ -1040,7 +1027,7 @@ func main() {
 			if *calculateExtendedStats {
 				fmt.Println(extendedStats.Repr())
 			}
-			directionResult := rpm.CalculateRpm(perDirectionSelfRtts, perDirectionForeignRtts,
+			directionResult := rpm.CalculateRpm(direction.SelfRtts, direction.ForeignRtts,
 				specParameters.TrimmedMeanPct, specParameters.Percentile)
 			if *debugCliFlag {
 				fmt.Printf("(%s RPM Calculation stats): %v\n",
@@ -1136,7 +1123,15 @@ Gaming QoO: %.0f
 	waiter := executor.Execute(parallelTestExecutionPolicy, directionExecutionUnits)
 	waiter.Wait()
 
-	result := rpm.CalculateRpm(selfRtts, foreignRtts, specParameters.TrimmedMeanPct, specParameters.Percentile)
+	allSelfRtts := series.NewWindowSeries[float64, uint64](series.Forever, 0)
+	allForeignRtts := series.NewWindowSeries[float64, uint64](series.Forever, 0)
+
+	allSelfRtts.Append(&downloadDirection.SelfRtts)
+	allSelfRtts.Append(&uploadDirection.SelfRtts)
+	allForeignRtts.Append(&downloadDirection.ForeignRtts)
+	allForeignRtts.Append(&uploadDirection.ForeignRtts)
+
+	result := rpm.CalculateRpm(allSelfRtts, allForeignRtts, specParameters.TrimmedMeanPct, specParameters.Percentile)
 
 	if *debugCliFlag {
 		fmt.Printf("(Final RPM Calculation stats): %v\n", result.ToString())

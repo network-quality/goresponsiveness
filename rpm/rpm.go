@@ -148,9 +148,8 @@ func ResponsivenessProber[BucketType utilities.Number](
 					)
 				}
 
-				currentBucketId := bucketGenerator.Generate()
-
 				dataPointsLock.Lock()
+				currentBucketId := bucketGenerator.Generate()
 				if dataPoints != nil {
 					dataPoints <- series.SeriesMessage[ResponsivenessProbeResult, BucketType]{
 						Type: series.SeriesMessageReserve, Bucket: currentBucketId,
