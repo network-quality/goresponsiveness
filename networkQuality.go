@@ -676,20 +676,23 @@ func main() {
 					direction.DirectionLabel, timeoutAbsoluteTime)
 			}
 
-			throughputCtx, throughputCtxCancel := context.WithCancel(operatingCtx)
+			throughputOperatorCtx, throughputOperatorCtxCancel := context.WithCancel(operatingCtx)
 			proberOperatorCtx, proberOperatorCtxCancel := context.WithCancel(operatingCtx)
 
 			// This context is used to control the network activity (i.e., it controls all
 			// the connections that are open to do load generation and probing). Cancelling this context will close
 			// all the network connections that are responsible for generating the load.
-			networkActivityCtx, networkActivityCtxCancel := context.WithCancel(operatingCtx)
+			probeNetworkActivityCtx, probeNetworkActivityCtxCancel := context.WithCancel(operatingCtx)
+			throughputCtx, throughputCtxCancel := context.WithCancel(operatingCtx)
+			direction.ThroughputActivityCtx, direction.ThroughputActivityCtxCancel = &throughputCtx, &throughputCtxCancel
 
-			throughputGeneratorCtx, throughputGeneratorCtxCancel := context.WithCancel(throughputCtx)
+			reachWorkingConditionsCtx, reachWorkingConditionsCtxCancel :=
+				context.WithCancel(throughputOperatorCtx)
 
 			lgStabilizationCommunicationChannel := rpm.LoadGenerator(
-				throughputCtx,
-				networkActivityCtx,
-				throughputGeneratorCtx,
+				throughputOperatorCtx,
+				*direction.ThroughputActivityCtx,
+				reachWorkingConditionsCtx,
 				specParameters.EvalInterval,
 				direction.CreateLgdc,
 				&direction.Lgcc,
@@ -810,14 +813,14 @@ func main() {
 			}
 
 			// No matter what, we will stop adding additional load-generating connections!
-			throughputGeneratorCtxCancel()
+			reachWorkingConditionsCtxCancel()
 
 			direction.SelfRtts = series.NewWindowSeries[float64, uint64](series.Forever, 0)
 			direction.ForeignRtts = series.NewWindowSeries[float64, uint64](series.Forever, 0)
 
 			responsivenessStabilizationCommunicationChannel := rpm.ResponsivenessProber(
 				proberOperatorCtx,
-				networkActivityCtx,
+				probeNetworkActivityCtx,
 				generateForeignProbeConfiguration,
 				generateSelfProbeConfiguration,
 				&direction.Lgcc,
@@ -965,7 +968,7 @@ func main() {
 
 			// First, stop the load generator and the probe operators (but *not* the network activity)
 			proberOperatorCtxCancel()
-			throughputCtxCancel()
+			throughputOperatorCtxCancel()
 
 			// Second, calculate the extended stats (if the user requested and they are available for the direction)
 			extendedStats := extendedstats.AggregateExtendedStats{}
@@ -1013,8 +1016,14 @@ func main() {
 				}
 			}
 
-			// Third, stop the network connections opened by the load generators and probers.
-			networkActivityCtxCancel()
+			// *Always* stop the probers! But, conditionally stop the througput.
+			probeNetworkActivityCtxCancel()
+			if parallelTestExecutionPolicy != executor.Parallel {
+				if direction.ThroughputActivityCtxCancel == nil {
+					panic(fmt.Sprintf("The cancellation function for the %v direction's throughput is nil!", direction.DirectionLabel))
+				}
+				(*direction.ThroughputActivityCtxCancel)()
+			}
 
 			fmt.Printf(
 				"%v: %7.3f Mbps (%7.3f MBps), using %d parallel connections.\n",
@@ -1122,6 +1131,34 @@ Gaming QoO: %.0f
 
 	waiter := executor.Execute(parallelTestExecutionPolicy, directionExecutionUnits)
 	waiter.Wait()
+
+	// If we were testing in parallel mode, then the throughputs for each direction are still
+	// running. We left them running in case one of the directions reached stability before the
+	// other!
+	if parallelTestExecutionPolicy == executor.Parallel {
+		for _, direction := range directions {
+			if *debugCliFlag {
+				fmt.Printf("Stopping the throughput connections for the %v test.\n", direction.DirectionLabel)
+			}
+			if direction.ThroughputActivityCtxCancel == nil {
+				panic(fmt.Sprintf("The cancellation function for the %v direction's throughput is nil!", direction.DirectionLabel))
+			}
+			if (*direction.ThroughputActivityCtx).Err() != nil {
+				fmt.Fprintf(os.Stderr, "Warning: The throughput for the %v direction was already cancelled but should have been ongoing.\n", direction.DirectionLabel)
+				continue
+			}
+			(*direction.ThroughputActivityCtxCancel)()
+		}
+	} else {
+		for _, direction := range directions {
+			if direction.ThroughputActivityCtxCancel == nil {
+				panic(fmt.Sprintf("The cancellation function for the %v direction's throughput is nil!", direction.DirectionLabel))
+			}
+			if (*direction.ThroughputActivityCtx).Err() == nil {
+				fmt.Fprintf(os.Stderr, "Warning: The throughput for the %v direction should have already been stopped but it was not.\n", direction.DirectionLabel)
+			}
+		}
+	}
 
 	allSelfRtts := series.NewWindowSeries[float64, uint64](series.Forever, 0)
 	allForeignRtts := series.NewWindowSeries[float64, uint64](series.Forever, 0)

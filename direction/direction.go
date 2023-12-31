@@ -15,6 +15,8 @@
 package direction
 
 import (
+	"context"
+
 	"github.com/network-quality/goresponsiveness/datalogger"
 	"github.com/network-quality/goresponsiveness/debug"
 	"github.com/network-quality/goresponsiveness/lgc"
@@ -40,4 +42,6 @@ type Direction struct {
 	StableResponsiveness              bool
 	SelfRtts                          series.WindowSeries[float64, uint64]
 	ForeignRtts                       series.WindowSeries[float64, uint64]
+	ThroughputActivityCtx             *context.Context
+	ThroughputActivityCtxCancel       *context.CancelFunc
 }
