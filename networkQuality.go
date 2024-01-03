@@ -1025,7 +1025,7 @@ func main() {
 				(*direction.ThroughputActivityCtxCancel)()
 			}
 
-			fmt.Printf(
+			direction.FormattedResults += fmt.Sprintf(
 				"%v: %7.3f Mbps (%7.3f MBps), using %d parallel connections.\n",
 				direction.DirectionLabel,
 				utilities.ToMbps(lastThroughputRate),
@@ -1034,30 +1034,30 @@ func main() {
 			)
 
 			if *calculateExtendedStats {
-				fmt.Println(extendedStats.Repr())
+				direction.FormattedResults += fmt.Sprintf("%v\n", extendedStats.Repr())
 			}
 			directionResult := rpm.CalculateRpm(direction.SelfRtts, direction.ForeignRtts,
 				specParameters.TrimmedMeanPct, specParameters.Percentile)
 			if *debugCliFlag {
-				fmt.Printf("(%s RPM Calculation stats): %v\n",
+				direction.FormattedResults += fmt.Sprintf("(%s RPM Calculation stats): %v\n",
 					direction.DirectionLabel, directionResult.ToString())
 			}
 			if *printQualityAttenuation {
-				fmt.Println("Quality Attenuation Statistics:")
-				fmt.Printf(
-					`Number of losses: %d
-Number of samples: %d
-Min: %.6f s
-Max: %.6f s
-Mean: %.6f s
-Variance: %.6f s
-Standard Deviation: %.6f s
-PDV(90): %.6f s
-PDV(99): %.6f s
-P(90): %.6f s
-P(99): %.6f s
-RPM: %.0f
-Gaming QoO: %.0f
+				direction.FormattedResults += "Quality Attenuation Statistics:\n"
+				direction.FormattedResults += fmt.Sprintf(
+					`	Number of losses: %d
+	Number of samples: %d
+	Min: %.6f s
+	Max: %.6f s
+	Mean: %.6f s
+	Variance: %.6f s
+	Standard Deviation: %.6f s
+	PDV(90): %.6f s
+	PDV(99): %.6f s
+	P(90): %.6f s
+	P(99): %.6f s
+	RPM: %.0f
+	Gaming QoO: %.0f
 `, selfRttsQualityAttenuation.GetNumberOfLosses(),
 					selfRttsQualityAttenuation.GetNumberOfSamples(),
 					selfRttsQualityAttenuation.GetMinimum(),
@@ -1074,12 +1074,13 @@ Gaming QoO: %.0f
 			}
 
 			if !testRanToStability {
-				fmt.Printf("Test did not run to stability, these results are estimates:\n")
+				direction.FormattedResults += "Test did not run to stability, these results are estimates:\n"
 			}
 
-			fmt.Printf("%s RPM: %5.0f (P%d)\n", direction.DirectionLabel,
+			direction.FormattedResults += fmt.Sprintf("%s RPM: %5.0f (P%d)\n", direction.DirectionLabel,
 				directionResult.PNRpm, specParameters.Percentile)
-			fmt.Printf("%s RPM: %5.0f (Single-Sided %v%% Trimmed Mean)\n", direction.DirectionLabel,
+			direction.FormattedResults += fmt.Sprintf(
+				"%s RPM: %5.0f (Single-Sided %v%% Trimmed Mean)\n", direction.DirectionLabel,
 				directionResult.MeanRpm, specParameters.TrimmedMeanPct)
 
 			if len(*prometheusStatsFilename) > 0 {
@@ -1158,6 +1159,14 @@ Gaming QoO: %.0f
 				fmt.Fprintf(os.Stderr, "Warning: The throughput for the %v direction should have already been stopped but it was not.\n", direction.DirectionLabel)
 			}
 		}
+	}
+
+	fmt.Printf("Results:\n")
+	fmt.Printf("========\n")
+	// Print out the formatted results from each of the directions.
+	for _, direction := range directions {
+		fmt.Print(direction.FormattedResults)
+		fmt.Printf("========\n")
 	}
 
 	allSelfRtts := series.NewWindowSeries[float64, uint64](series.Forever, 0)

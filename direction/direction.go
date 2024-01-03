@@ -44,4 +44,5 @@ type Direction struct {
 	ForeignRtts                       series.WindowSeries[float64, uint64]
 	ThroughputActivityCtx             *context.Context
 	ThroughputActivityCtxCancel       *context.CancelFunc
+	FormattedResults                  string
 }
