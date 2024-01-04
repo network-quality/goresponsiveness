@@ -60,12 +60,12 @@ func (es *AggregateExtendedStats) IncorporateConnectionStats(basicConn net.Conn)
 
 func (es *AggregateExtendedStats) Repr() string {
 	return fmt.Sprintf(`Extended Statistics:
-	Maximum Path MTU: %v
-	Maximum Send MSS: %v
-	Maximum Recv MSS: %v
+	Maximum Path MTU:      %v
+	Maximum Send MSS:      %v
+	Maximum Recv MSS:      %v
 	Total Retransmissions: %v
-	Total Reorderings: %v
-	Average RTT: %v
+	Total Reorderings:     %v
+	Average RTT:           %v
 `, es.MaxPathMtu, es.MaxSendMss, es.MaxRecvMss, es.TotalRetransmissions, es.TotalReorderings, es.AverageRtt)
 }
 

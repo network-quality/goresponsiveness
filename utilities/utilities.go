@@ -220,3 +220,20 @@ type Pair[T1, T2 any] struct {
 func PerSecondToInterval(rate int64) time.Duration {
 	return time.Duration(time.Second.Nanoseconds() / rate)
 }
+
+func IndentOutput(output string, depth uint, character string) string {
+	indentedOutput := ""
+	finalNewline := false
+
+	if strings.LastIndex(output, "\n") == len(output)-1 {
+		finalNewline = true
+		output = strings.TrimSuffix(output, "\n")
+	}
+	for _, line := range strings.SplitAfter(output, "\n") {
+		indentedOutput += strings.Repeat(character, int(depth)) + line
+	}
+	if finalNewline {
+		indentedOutput += "\n"
+	}
+	return indentedOutput
+}

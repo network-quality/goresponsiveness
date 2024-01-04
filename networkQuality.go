@@ -1025,39 +1025,48 @@ func main() {
 				(*direction.ThroughputActivityCtxCancel)()
 			}
 
-			direction.FormattedResults += fmt.Sprintf(
-				"%v: %7.3f Mbps (%7.3f MBps), using %d parallel connections.\n",
-				direction.DirectionLabel,
+			// Add a header to the results
+			direction.FormattedResults += fmt.Sprintf("%v:\n", direction.DirectionLabel)
+
+			if !testRanToStability {
+				direction.FormattedResults += utilities.IndentOutput(
+					"Note: Test did not run to stability, these results are estimates.\n", 1, "\t")
+			}
+			direction.FormattedResults += utilities.IndentOutput(fmt.Sprintf(
+				"%7.3f Mbps (%7.3f MBps), using %d parallel connections.\n",
 				utilities.ToMbps(lastThroughputRate),
 				utilities.ToMBps(lastThroughputRate),
 				lastThroughputOpenConnectionCount,
-			)
+			), 1, "\t")
 
 			if *calculateExtendedStats {
-				direction.FormattedResults += fmt.Sprintf("%v\n", extendedStats.Repr())
+				direction.FormattedResults += utilities.IndentOutput(
+					fmt.Sprintf("%v", extendedStats.Repr()), 1, "\t")
 			}
 			directionResult := rpm.CalculateRpm(direction.SelfRtts, direction.ForeignRtts,
 				specParameters.TrimmedMeanPct, specParameters.Percentile)
 			if *debugCliFlag {
-				direction.FormattedResults += fmt.Sprintf("(%s RPM Calculation stats): %v\n",
-					direction.DirectionLabel, directionResult.ToString())
+				direction.FormattedResults += utilities.IndentOutput(
+					"RPM Calculation Statistics:\n", 1, "\t")
+				direction.FormattedResults += utilities.IndentOutput(directionResult.ToString(), 2, "\t")
 			}
 			if *printQualityAttenuation {
-				direction.FormattedResults += "Quality Attenuation Statistics:\n"
-				direction.FormattedResults += fmt.Sprintf(
-					`	Number of losses: %d
-	Number of samples: %d
-	Min: %.6f s
-	Max: %.6f s
-	Mean: %.6f s
-	Variance: %.6f s
-	Standard Deviation: %.6f s
-	PDV(90): %.6f s
-	PDV(99): %.6f s
-	P(90): %.6f s
-	P(99): %.6f s
-	RPM: %.0f
-	Gaming QoO: %.0f
+				direction.FormattedResults += utilities.IndentOutput(
+					"Quality Attenuation Statistics:\n", 1, "\t")
+				direction.FormattedResults += utilities.IndentOutput(fmt.Sprintf(
+					`	Number of losses:   %d
+	Number of samples:  %d
+	Min:                %.6fs
+	Max:                %.6fs
+	Mean:               %.6fs
+	Variance:           %.6fs
+	Standard Deviation: %.6fs
+	PDV(90):            %.6fs
+	PDV(99):            %.6fs
+	P(90):              %.6fs
+	P(99):              %.6fs
+	RPM:                %.0f
+	Gaming QoO:         %.0f
 `, selfRttsQualityAttenuation.GetNumberOfLosses(),
 					selfRttsQualityAttenuation.GetNumberOfSamples(),
 					selfRttsQualityAttenuation.GetMinimum(),
@@ -1070,18 +1079,14 @@ func main() {
 					selfRttsQualityAttenuation.GetPercentile(90),
 					selfRttsQualityAttenuation.GetPercentile(99),
 					selfRttsQualityAttenuation.GetRPM(),
-					selfRttsQualityAttenuation.GetGamingQoO())
+					selfRttsQualityAttenuation.GetGamingQoO()), 1, "\t")
 			}
 
-			if !testRanToStability {
-				direction.FormattedResults += "Test did not run to stability, these results are estimates:\n"
-			}
-
-			direction.FormattedResults += fmt.Sprintf("%s RPM: %5.0f (P%d)\n", direction.DirectionLabel,
-				directionResult.PNRpm, specParameters.Percentile)
-			direction.FormattedResults += fmt.Sprintf(
-				"%s RPM: %5.0f (Single-Sided %v%% Trimmed Mean)\n", direction.DirectionLabel,
-				directionResult.MeanRpm, specParameters.TrimmedMeanPct)
+			direction.FormattedResults += utilities.IndentOutput(fmt.Sprintf(
+				"RPM: %5.0f (P%d)\n", directionResult.PNRpm, specParameters.Percentile), 1, "\t")
+			direction.FormattedResults += utilities.IndentOutput(fmt.Sprintf(
+				"RPM: %5.0f (Single-Sided %v%% Trimmed Mean)\n", directionResult.MeanRpm,
+				specParameters.TrimmedMeanPct), 1, "\t")
 
 			if len(*prometheusStatsFilename) > 0 {
 				var testStable int
