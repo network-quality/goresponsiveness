@@ -1033,7 +1033,7 @@ func main() {
 					"Note: Test did not run to stability, these results are estimates.\n", 1, "\t")
 			}
 			direction.FormattedResults += utilities.IndentOutput(fmt.Sprintf(
-				"%7.3f Mbps (%7.3f MBps), using %d parallel connections.\n",
+				"Throughput: %.3f Mbps (%.3f MBps), using %d parallel connections.\n",
 				utilities.ToMbps(lastThroughputRate),
 				utilities.ToMBps(lastThroughputRate),
 				lastThroughputOpenConnectionCount,
@@ -1188,8 +1188,8 @@ func main() {
 		fmt.Printf("(Final RPM Calculation stats): %v\n", result.ToString())
 	}
 
-	fmt.Printf("Final RPM: %5.0f (P%d)\n", result.PNRpm, specParameters.Percentile)
-	fmt.Printf("Final RPM: %5.0f (Single-Sided %v%% Trimmed Mean)\n",
+	fmt.Printf("Final RPM: %.0f (P%d)\n", result.PNRpm, specParameters.Percentile)
+	fmt.Printf("Final RPM: %.0f (Single-Sided %v%% Trimmed Mean)\n",
 		result.MeanRpm, specParameters.TrimmedMeanPct)
 
 	if *calculateRelativeRpm {

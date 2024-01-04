@@ -222,16 +222,14 @@ func PerSecondToInterval(rate int64) time.Duration {
 }
 
 func IndentOutput(output string, depth uint, character string) string {
-	indentedOutput := ""
 	finalNewline := false
-
 	if strings.LastIndex(output, "\n") == len(output)-1 {
 		finalNewline = true
 		output = strings.TrimSuffix(output, "\n")
 	}
-	for _, line := range strings.SplitAfter(output, "\n") {
-		indentedOutput += strings.Repeat(character, int(depth)) + line
-	}
+	indentedOutput := strings.Join(Fmap[string](strings.SplitAfter(output, "\n"), func(line string) string {
+		return strings.Repeat(character, int(depth)) + line
+	}), "")
 	if finalNewline {
 		indentedOutput += "\n"
 	}
