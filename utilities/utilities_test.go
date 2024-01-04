@@ -188,3 +188,23 @@ func TestTrimmedMean(t *testing.T) {
 		t.Fatalf("The trimmed mean result %v does not match the expected value %v", result, expected)
 	}
 }
+
+func TestIndentStringOneNewline(t *testing.T) {
+	output := "This is my output\n"
+
+	indendentedOutput := IndentOutput(output, 3, "--")
+
+	if indendentedOutput != "------This is my output\n" {
+		t.Fatalf("I expected the indented output to be ####%v#### but got ####%v####!", output, indendentedOutput)
+	}
+}
+
+func TestIndentStringMultipleNewlines(t *testing.T) {
+	output := "This is my output\n\n"
+
+	indendentedOutput := IndentOutput(output, 3, "--")
+
+	if indendentedOutput != "------This is my output\n------\n" {
+		t.Fatalf("I expected the indented output to be ####%v#### but got ####%v####!", output, indendentedOutput)
+	}
+}
