@@ -32,6 +32,10 @@ type Rpm[Data utilities.Number] struct {
 	ForeignProbeRttMean float64
 	PNRpm               float64
 	MeanRpm             float64
+	SelfPNRpm           float64
+	SelfMeanRpm         float64
+	ForeignPNRpm        float64
+	ForeignMeanRpm      float64
 }
 
 func CalculateRpm[Data utilities.Number, Bucket utilities.Number](
@@ -83,12 +87,20 @@ func CalculateRpm[Data utilities.Number, Bucket utilities.Number](
 	pnRpm := 60.0 / (float64(selfProbeRoundTripTimePN+foreignProbeRoundTripTimePN) / 2.0)
 	meanRpm := 60.0 / (float64(selfProbeRoundTripTimeMean+foreignProbeRoundTripTimeMean) / 2.0)
 
+	selfPnRpm := 60.0 / (float64(selfProbeRoundTripTimePN))
+	selfMeanRpm := 60.0 / (float64(selfProbeRoundTripTimeMean))
+
+	foreignPnRpm := 60.0 / (float64(foreignProbeRoundTripTimePN))
+	foreignMeanRpm := 60.0 / (float64(foreignProbeRoundTripTimeMean))
+
 	return &Rpm[Data]{
 		SelfRttsTotal: selfRttsTotalCount, ForeignRttsTotal: foreignRttsTotalCount,
 		SelfRttsTrimmed: selfRttsTrimmedCount, ForeignRttsTrimmed: foreignRttsTrimmedCount,
 		SelfProbeRttPN: selfProbeRoundTripTimePN, ForeignProbeRttPN: foreignProbeRoundTripTimePN,
 		SelfProbeRttMean: selfProbeRoundTripTimeMean, ForeignProbeRttMean: foreignProbeRoundTripTimeMean,
 		PNRpm: pnRpm, MeanRpm: meanRpm,
+		ForeignPNRpm: foreignPnRpm, ForeignMeanRpm: foreignMeanRpm,
+		SelfPNRpm: selfPnRpm, SelfMeanRpm: selfMeanRpm,
 	}
 }
 

@@ -70,6 +70,11 @@ var (
 		constants.DefaultDebug,
 		"Enable debugging.",
 	)
+	detailedCliFlag = flag.Bool(
+		"detailed",
+		constants.DefaultDebug,
+		"Enable detailed result output.",
+	)
 	rpmtimeout = flag.Int(
 		"rpm.timeout",
 		constants.DefaultTestTime,
@@ -1263,13 +1268,24 @@ func main() {
 	result := rpm.CalculateRpm(boundedAllSelfRtts, boundedAllForeignRtts,
 		specParameters.TrimmedMeanPct, specParameters.Percentile)
 
-	if *debugCliFlag {
-		fmt.Printf("Final RPM Calculation stats:\n%v\n", result.ToString())
+	if *debugCliFlag || *detailedCliFlag {
+		fmt.Printf("Final RPM Calculation stats:\n%v\n",
+			utilities.IndentOutput(result.ToString(), 1, "\t"))
 	}
 
 	fmt.Printf("Final RPM: %.0f (P%d)\n", result.PNRpm, specParameters.Percentile)
 	fmt.Printf("Final RPM: %.0f (Single-Sided %v%% Trimmed Mean)\n",
 		result.MeanRpm, specParameters.TrimmedMeanPct)
+
+	if *detailedCliFlag {
+		fmt.Printf("Final RPM (Self Only): %.0f (P%d)\n", result.SelfPNRpm, specParameters.Percentile)
+		fmt.Printf("Final RPM (Self Only): %.0f (Single-Sided %v%% Trimmed Mean)\n",
+			result.SelfMeanRpm, specParameters.TrimmedMeanPct)
+
+		fmt.Printf("Final RPM (Foreign Only): %.0f (P%d)\n", result.ForeignPNRpm, specParameters.Percentile)
+		fmt.Printf("Final RPM (Foreign Only): %.0f (Single-Sided %v%% Trimmed Mean)\n",
+			result.ForeignMeanRpm, specParameters.TrimmedMeanPct)
+	}
 
 	if *calculateRelativeRpm {
 		if baselineRpm == nil {
