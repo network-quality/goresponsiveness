@@ -1196,11 +1196,11 @@ func main() {
 		if baselineRpm == nil {
 			fmt.Printf("User requested relative RPM calculation but an unloaded RPM was not calculated.")
 		} else {
-			relativeRpmFactorP := utilities.AbsPercentDifference(result.PNRpm, baselineRpm.PNRpm)
-			relativeRpmFactorTM := utilities.AbsPercentDifference(result.MeanRpm, baselineRpm.MeanRpm)
-			fmt.Printf("Working Conditions RPM Effect: %5.0f%% (P%d)\n",
+			relativeRpmFactorP := (result.PNRpm / baselineRpm.PNRpm) * 100.0
+			relativeRpmFactorTM := (result.MeanRpm / baselineRpm.MeanRpm) * 100.0
+			fmt.Printf("Working-Conditions Effect: Final RPM is %5.0f%% of baseline RPM (P%d)\n",
 				relativeRpmFactorP, specParameters.Percentile)
-			fmt.Printf("Working Conditions RPM Effect: %5.0f%% (Single-Sided %v%% Trimmed Mean)\n",
+			fmt.Printf("Working-Conditions Effect: Final RPM is %5.0f%% of baseline RPM (Single-Sided %v%% Trimmed Mean)\n",
 				relativeRpmFactorTM, specParameters.TrimmedMeanPct)
 		}
 	}
