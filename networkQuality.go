@@ -1132,6 +1132,11 @@ func main() {
 					selfRttsQualityAttenuation.GetGamingQoO()), 1, "\t")
 			}
 
+			if *detailedCliFlag {
+				direction.FormattedResults += utilities.IndentOutput("RPM Calculation stats:\n", 1, "\t")
+				direction.FormattedResults += utilities.IndentOutput(directionResult.ToString(), 2, "\t")
+			}
+
 			direction.FormattedResults += utilities.IndentOutput(fmt.Sprintf(
 				"RPM: %.0f (P%d)\n", directionResult.PNRpm, specParameters.Percentile), 1, "\t")
 			direction.FormattedResults += utilities.IndentOutput(fmt.Sprintf(
@@ -1273,18 +1278,22 @@ func main() {
 			utilities.IndentOutput(result.ToString(), 1, "\t"))
 	}
 
-	fmt.Printf("Final RPM: %.0f (P%d)\n", result.PNRpm, specParameters.Percentile)
-	fmt.Printf("Final RPM: %.0f (Single-Sided %v%% Trimmed Mean)\n",
-		result.MeanRpm, specParameters.TrimmedMeanPct)
+	fmt.Printf("Final RPM: %.0f (P%d) %s\n", result.PNRpm, specParameters.Percentile,
+		utilities.Conditional(*detailedCliFlag, fmt.Sprintf("RTT: %.6fs", result.ProbeRttPN), ""))
+	fmt.Printf("Final RPM: %.0f (Single-Sided %v%% Trimmed Mean) %s\n",
+		result.MeanRpm, specParameters.TrimmedMeanPct,
+		utilities.Conditional(*detailedCliFlag, fmt.Sprintf("RTT: %.6fs", result.ProbeRttMean), ""))
 
 	if *detailedCliFlag {
-		fmt.Printf("Final RPM (Self Only): %.0f (P%d)\n", result.SelfPNRpm, specParameters.Percentile)
-		fmt.Printf("Final RPM (Self Only): %.0f (Single-Sided %v%% Trimmed Mean)\n",
-			result.SelfMeanRpm, specParameters.TrimmedMeanPct)
+		fmt.Printf("Final RPM (Self Only): %.0f (P%d) RTT: %.6fs\n", result.SelfPNRpm,
+			specParameters.Percentile, result.SelfProbeRttPN)
+		fmt.Printf("Final RPM (Self Only): %.0f (Single-Sided %v%% Trimmed Mean) RTT: %.6fs\n",
+			result.SelfMeanRpm, specParameters.TrimmedMeanPct, result.SelfProbeRttMean)
 
-		fmt.Printf("Final RPM (Foreign Only): %.0f (P%d)\n", result.ForeignPNRpm, specParameters.Percentile)
-		fmt.Printf("Final RPM (Foreign Only): %.0f (Single-Sided %v%% Trimmed Mean)\n",
-			result.ForeignMeanRpm, specParameters.TrimmedMeanPct)
+		fmt.Printf("Final RPM (Foreign Only): %.0f (P%d) RTT: %.6fs\n", result.ForeignPNRpm,
+			specParameters.Percentile, result.ForeignProbeRttPN)
+		fmt.Printf("Final RPM (Foreign Only): %.0f (Single-Sided %v%% Trimmed Mean) RTT: %.6fs\n",
+			result.ForeignMeanRpm, specParameters.TrimmedMeanPct, result.ForeignProbeRttMean)
 	}
 
 	if *calculateRelativeRpm {
