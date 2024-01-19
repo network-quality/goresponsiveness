@@ -123,8 +123,8 @@ func (rpm *Rpm[Data]) ToString() string {
 	return fmt.Sprintf(
 		`Total Self Probes:            %d
 Total Foreign Probes:         %d
-Trimmed Self Probes Count:    %d
-Trimmed Foreign Probes Count: %d
+Trimmed Self Probes Count:    %d of %d
+Trimmed Foreign Probes Count: %d of %d
 P90 Self RTT:                 %.6fs
 P90 Foreign RTT:              %.6fs
 P90 RTT:                      %.6fs
@@ -134,8 +134,8 @@ Trimmed Mean RTT:             %.6fs
 `,
 		rpm.SelfRttsTotal,
 		rpm.ForeignRttsTotal,
-		rpm.SelfRttsTrimmed,
-		rpm.ForeignRttsTrimmed,
+		rpm.SelfRttsTrimmed, rpm.SelfRttsTotal,
+		rpm.ForeignRttsTrimmed, rpm.ForeignRttsTotal,
 		float64(rpm.SelfProbeRttPN),
 		float64(rpm.ForeignProbeRttPN),
 		float64(rpm.ProbeRttPN),
