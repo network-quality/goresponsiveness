@@ -54,7 +54,9 @@ type LoadGeneratingConnectionUpload struct {
 	statusWaiter       *sync.Cond
 }
 
-func NewLoadGeneratingConnectionUpload(url string, keyLogger io.Writer, connectToAddr string, insecureSkipVerify bool, congestionControl *string) LoadGeneratingConnectionUpload {
+func NewLoadGeneratingConnectionUpload(url string, keyLogger io.Writer, connectToAddr string,
+	insecureSkipVerify bool, congestionControl *string,
+) LoadGeneratingConnectionUpload {
 	lgu := LoadGeneratingConnectionUpload{
 		URL:                url,
 		KeyLogger:          keyLogger,
@@ -319,11 +321,6 @@ func (lgu *LoadGeneratingConnectionUpload) doUpload(ctx context.Context) error {
 
 	lgu.uploadStartTime = time.Now()
 	lgu.lastIntervalEnd = 0
-
-	lgu.statusLock.Lock()
-	lgu.status = LGC_STATUS_RUNNING
-	lgu.statusWaiter.Broadcast()
-	lgu.statusLock.Unlock()
 
 	if resp, err = lgu.client.Do(request); err != nil {
 		lgu.statusLock.Lock()
