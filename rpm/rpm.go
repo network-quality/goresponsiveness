@@ -340,12 +340,12 @@ func ResponsivenessProber[BucketType utilities.Number](
 func LoadGenerator[BucketType utilities.Number](
 	throughputCtx context.Context, // Stop our activity when we no longer need any throughput
 	networkActivityCtx context.Context, // Create all network connections in this context.
-	generateLoadCtx context.Context, // Stop adding additional throughput when we are stable.
 	rampupInterval time.Duration,
 	lgcGenerator func() lgc.LoadGeneratingConnection, // Use this to generate a new load-generating connection.
 	loadGeneratingConnectionsCollection *lgc.LoadGeneratingConnectionCollection,
 	bucketGenerator *series.NumericBucketGenerator[BucketType],
 	mnp int,
+	id time.Duration, // the interval to wait to test for stability (it doubles as the time between adding LGCs).
 	captureExtendedStats bool, // do we want to attempt to gather TCP information on these connections?
 	debugging *debug.DebugWithPrefix, // How can we forget debugging?
 ) (seriesCommunicationChannel chan series.SeriesMessage[ThroughputDataPoint, BucketType]) { // Send back all the instantaneous throughputs that we generate.
@@ -383,9 +383,9 @@ func LoadGenerator[BucketType utilities.Number](
 				}
 				time.Sleep(nextSampleStartTime.Sub(now))
 			} else {
-				fmt.Fprintf(os.Stderr, "Warning: Missed a one-second deadline.\n")
+				fmt.Fprintf(os.Stderr, "Warning: Missed a %v deadline.\n", id.Milliseconds())
 			}
-			nextSampleStartTime = time.Now().Add(time.Second)
+			nextSampleStartTime = time.Now().Add(id)
 
 			// Waiting is the hardest part -- that was a long time asleep
 			// and we may have been cancelled during that time!
@@ -511,18 +511,6 @@ func LoadGenerator[BucketType utilities.Number](
 			seriesCommunicationChannel <- series.SeriesMessage[ThroughputDataPoint, BucketType]{
 				Type: series.SeriesMessageMeasure, Bucket: currentBucketId,
 				Measure: utilities.Some[ThroughputDataPoint](throughputDataPoint),
-			}
-
-			if generateLoadCtx.Err() != nil {
-				// No need to add additional data points because the controller told us
-				// that we were stable. But, we want to continue taking measurements!
-				if debug.IsDebug(debugging.Level) {
-					fmt.Printf(
-						"%v: Throughput is stable; not adding any additional load-generating connections.\n",
-						debugging,
-					)
-				}
-				continue
 			}
 
 			loadGeneratingConnectionsCollection.Lock.Lock()

@@ -686,18 +686,15 @@ func main() {
 			throughputCtx, throughputCtxCancel := context.WithCancel(operatingCtx)
 			direction.ThroughputActivityCtx, direction.ThroughputActivityCtxCancel = &throughputCtx, &throughputCtxCancel
 
-			reachWorkingConditionsCtx, reachWorkingConditionsCtxCancel :=
-				context.WithCancel(throughputOperatorCtx)
-
 			lgStabilizationCommunicationChannel := rpm.LoadGenerator(
 				throughputOperatorCtx,
 				*direction.ThroughputActivityCtx,
-				reachWorkingConditionsCtx,
 				specParameters.EvalInterval,
 				direction.CreateLgdc,
 				&direction.Lgcc,
 				&globalNumericBucketGenerator,
 				specParameters.MaxParallelConns,
+				specParameters.EvalInterval,
 				*calculateExtendedStats,
 				direction.DirectionDebugging,
 			)
@@ -811,9 +808,6 @@ func main() {
 					debugLevel,
 				)
 			}
-
-			// No matter what, we will stop adding additional load-generating connections!
-			reachWorkingConditionsCtxCancel()
 
 			direction.SelfRtts = series.NewWindowSeries[float64, uint64](series.Forever, 0)
 			direction.ForeignRtts = series.NewWindowSeries[float64, uint64](series.Forever, 0)
