@@ -24,7 +24,7 @@ import (
 	"golang.org/x/exp/constraints"
 )
 
-type MeasurementStablizer[Data constraints.Float | constraints.Integer, Bucket constraints.Ordered] struct {
+type MeasurementStablizer[Data constraints.Float | constraints.Integer, Bucket utilities.Number] struct {
 	// The number of instantaneous measurements in the current interval could be infinite (Forever).
 	instantaneousses series.WindowSeries[Data, Bucket]
 	// There are a fixed, finite number of aggregates (WindowOnly).
@@ -58,7 +58,7 @@ type MeasurementStablizer[Data constraints.Float | constraints.Integer, Bucket c
 // If the calculated standard deviation of *those* values is less than SDT, we declare
 // stability.
 
-func NewStabilizer[Data constraints.Float | constraints.Integer, Bucket constraints.Ordered](
+func NewStabilizer[Data constraints.Float | constraints.Integer, Bucket utilities.Number](
 	mad int,
 	sdt float64,
 	trimmingLevel uint,
@@ -199,6 +199,7 @@ func (r3 *MeasurementStablizer[Data, Bucket]) IsStable() bool {
 	r3.aggregates.ForEach(func(b int, md *utilities.Optional[series.WindowSeries[Data, Bucket]]) {
 		if utilities.IsSome[series.WindowSeries[Data, Bucket]](*md) {
 			md := utilities.GetSome[series.WindowSeries[Data, Bucket]](*md)
+
 			_, average := series.CalculateAverage(md)
 			averages = append(averages, average)
 		}
@@ -213,4 +214,31 @@ func (r3 *MeasurementStablizer[Data, Bucket]) IsStable() bool {
 	isStable := sd <= stabilityCutoff
 
 	return isStable
+}
+
+func (r3 *MeasurementStablizer[Data, Bucket]) GetBounds() (Bucket, Bucket) {
+	r3.m.Lock()
+	defer r3.m.Unlock()
+
+	haveMinimum := false
+
+	lowerBound := Bucket(0)
+	upperBound := Bucket(0)
+
+	r3.aggregates.ForEach(func(b int, md *utilities.Optional[series.WindowSeries[Data, Bucket]]) {
+		if utilities.IsSome[series.WindowSeries[Data, Bucket]](*md) {
+			md := utilities.GetSome[series.WindowSeries[Data, Bucket]](*md)
+			currentAggregateLowerBound, currentAggregateUpperBound := md.GetBucketBounds()
+
+			if !haveMinimum {
+				lowerBound = currentAggregateLowerBound
+				haveMinimum = true
+			} else {
+				lowerBound = min(lowerBound, currentAggregateLowerBound)
+			}
+			upperBound = max(upperBound, currentAggregateUpperBound)
+		}
+	})
+
+	return lowerBound, upperBound
 }

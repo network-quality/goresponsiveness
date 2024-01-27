@@ -568,6 +568,7 @@ func main() {
 			baselineProbeDebugging,
 		)
 
+		lowerBucketBound, upperBucketBound := uint64(0), uint64(0)
 	baseline_responsiveness_timeout:
 		for !baselineStableResponsiveness {
 			select {
@@ -642,13 +643,23 @@ func main() {
 		baselineNetworkActivityCtxCancel()
 		baselineProberOperatorCtxCancel()
 
-		baselineRpm = rpm.CalculateRpm(baselineFauxSelfDownloadRtts,
-			baselineForeignDownloadRtts, specParameters.TrimmedMeanPct, specParameters.Percentile)
+		lowerBucketBound, upperBucketBound = baselineResponsivenessStabilizer.GetBounds()
 
-		fmt.Printf("Baseline RPM: %5.0f (P%d)\n", baselineRpm.PNRpm, specParameters.Percentile)
-		fmt.Printf("Baseline RPM: %5.0f (Single-Sided %v%% Trimmed Mean)\n",
-			baselineRpm.MeanRpm, specParameters.TrimmedMeanPct)
+		if *debugCliFlag {
+			fmt.Printf("Baseline responsiveness stablizer bucket bounds: (%v, %v)\n", lowerBucketBound, upperBucketBound)
+		}
 
+		for _, label := range []string{"Unbounded ", ""} {
+			baselineRpm = rpm.CalculateRpm(baselineFauxSelfDownloadRtts,
+				baselineForeignDownloadRtts, specParameters.TrimmedMeanPct, specParameters.Percentile)
+
+			fmt.Printf("%vBaseline RPM: %5.0f (P%d)\n", label, baselineRpm.PNRpm, specParameters.Percentile)
+			fmt.Printf("%vBaseline RPM: %5.0f (Single-Sided %v%% Trimmed Mean)\n",
+				label, baselineRpm.MeanRpm, specParameters.TrimmedMeanPct)
+
+			baselineFauxSelfDownloadRtts.SetTrimmingBucketBounds(lowerBucketBound, upperBucketBound)
+			baselineForeignDownloadRtts.SetTrimmingBucketBounds(lowerBucketBound, upperBucketBound)
+		}
 	}
 
 	var selfRttsQualityAttenuation *qualityattenuation.SimpleQualityAttenuation = nil
@@ -911,6 +922,9 @@ func main() {
 					}
 				case <-timeoutChannel:
 					{
+						if *debugCliFlag {
+							fmt.Printf("%v responsiveness seeking interval has expired.\n", direction.DirectionLabel)
+						}
 						break responsiveness_timeout
 					}
 				case <-stabilityCheckTimeChannel:
@@ -933,7 +947,7 @@ func main() {
 
 						if *debugCliFlag {
 							fmt.Printf(
-								"Responsiveness is instantaneously %s.\n",
+								"%v responsiveness is instantaneously %s.\n", direction.DirectionLabel,
 								utilities.Conditional(direction.StableResponsiveness, "stable", "unstable"))
 						}
 
@@ -1019,6 +1033,8 @@ func main() {
 				(*direction.ThroughputActivityCtxCancel)()
 			}
 
+			direction.LowerBucketBound, direction.UpperBucketBound = responsivenessStabilizer.GetBounds()
+
 			// Add a header to the results
 			direction.FormattedResults += fmt.Sprintf("%v:\n", direction.DirectionLabel)
 
@@ -1037,13 +1053,29 @@ func main() {
 				direction.FormattedResults += utilities.IndentOutput(
 					fmt.Sprintf("%v", extendedStats.Repr()), 1, "\t")
 			}
-			directionResult := rpm.CalculateRpm(direction.SelfRtts, direction.ForeignRtts,
-				specParameters.TrimmedMeanPct, specParameters.Percentile)
+
+			var directionResult *rpm.Rpm[float64] = nil
+			for _, label := range []string{"Unbounded ", ""} {
+				directionResult = rpm.CalculateRpm(direction.SelfRtts, direction.ForeignRtts,
+					specParameters.TrimmedMeanPct, specParameters.Percentile)
+				if *debugCliFlag {
+					direction.FormattedResults += utilities.IndentOutput(
+						fmt.Sprintf("%vRPM Calculation Statistics:\n", label), 1, "\t")
+					direction.FormattedResults += utilities.IndentOutput(directionResult.ToString(), 2, "\t")
+				}
+
+				direction.SelfRtts.SetTrimmingBucketBounds(
+					direction.LowerBucketBound, direction.UpperBucketBound)
+				direction.ForeignRtts.SetTrimmingBucketBounds(
+					direction.LowerBucketBound, direction.UpperBucketBound)
+			}
+
 			if *debugCliFlag {
 				direction.FormattedResults += utilities.IndentOutput(
-					"RPM Calculation Statistics:\n", 1, "\t")
-				direction.FormattedResults += utilities.IndentOutput(directionResult.ToString(), 2, "\t")
+					fmt.Sprintf("Bucket bounds: (%v, %v)\n",
+						direction.LowerBucketBound, direction.UpperBucketBound), 1, "\t")
 			}
+
 			if *printQualityAttenuation {
 				direction.FormattedResults += utilities.IndentOutput(
 					"Quality Attenuation Statistics:\n", 1, "\t")
@@ -1121,7 +1153,7 @@ func main() {
 			direction.GranularThroughputDataLogger.Close()
 
 			if *debugCliFlag {
-				fmt.Printf("In debugging mode, we will cool down between tests.\n")
+				fmt.Printf("In debugging mode, we will cool down after tests.\n")
 				time.Sleep(constants.CooldownPeriod)
 				fmt.Printf("Done cooling down.\n")
 			}
@@ -1168,18 +1200,39 @@ func main() {
 		fmt.Printf("========\n")
 	}
 
-	allSelfRtts := series.NewWindowSeries[float64, uint64](series.Forever, 0)
-	allForeignRtts := series.NewWindowSeries[float64, uint64](series.Forever, 0)
+	if *debugCliFlag {
+		unboundedAllSelfRtts := series.NewWindowSeries[float64, uint64](series.Forever, 0)
+		unboundedAllForeignRtts := series.NewWindowSeries[float64, uint64](series.Forever, 0)
 
-	allSelfRtts.Append(&downloadDirection.SelfRtts)
-	allSelfRtts.Append(&uploadDirection.SelfRtts)
-	allForeignRtts.Append(&downloadDirection.ForeignRtts)
-	allForeignRtts.Append(&uploadDirection.ForeignRtts)
+		unboundedAllSelfRtts.Append(&downloadDirection.SelfRtts)
+		unboundedAllSelfRtts.Append(&uploadDirection.SelfRtts)
+		unboundedAllForeignRtts.Append(&downloadDirection.ForeignRtts)
+		unboundedAllForeignRtts.Append(&uploadDirection.ForeignRtts)
 
-	result := rpm.CalculateRpm(allSelfRtts, allForeignRtts, specParameters.TrimmedMeanPct, specParameters.Percentile)
+		result := rpm.CalculateRpm(unboundedAllSelfRtts, unboundedAllForeignRtts,
+			specParameters.TrimmedMeanPct, specParameters.Percentile)
+
+		fmt.Printf("(Unbounded Final RPM Calculation stats):\n%v\n", result.ToString())
+
+		fmt.Printf("Unbounded Final RPM: %.0f (P%d)\n", result.PNRpm, specParameters.Percentile)
+		fmt.Printf("Unbounded Final RPM: %.0f (Single-Sided %v%% Trimmed Mean)\n",
+			result.MeanRpm, specParameters.TrimmedMeanPct)
+		fmt.Printf("\n")
+	}
+
+	boundedAllSelfRtts := series.NewWindowSeries[float64, uint64](series.Forever, 0)
+	boundedAllForeignRtts := series.NewWindowSeries[float64, uint64](series.Forever, 0)
+
+	boundedAllSelfRtts.BoundedAppend(&downloadDirection.SelfRtts)
+	boundedAllSelfRtts.BoundedAppend(&uploadDirection.SelfRtts)
+	boundedAllForeignRtts.BoundedAppend(&downloadDirection.ForeignRtts)
+	boundedAllForeignRtts.BoundedAppend(&uploadDirection.ForeignRtts)
+
+	result := rpm.CalculateRpm(boundedAllSelfRtts, boundedAllForeignRtts,
+		specParameters.TrimmedMeanPct, specParameters.Percentile)
 
 	if *debugCliFlag {
-		fmt.Printf("(Final RPM Calculation stats): %v\n", result.ToString())
+		fmt.Printf("(Final RPM Calculation stats):\n%v\n", result.ToString())
 	}
 
 	fmt.Printf("Final RPM: %.0f (P%d)\n", result.PNRpm, specParameters.Percentile)

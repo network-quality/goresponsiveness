@@ -109,7 +109,7 @@ func Test_ForeverValues(test *testing.T) {
 		shouldMatch = append(shouldMatch, utilities.Some[float64](previous))
 	}
 
-	if !reflect.DeepEqual(utilities.Reverse(shouldMatch), series.GetValues()) {
+	if !reflect.DeepEqual(shouldMatch, series.GetValues()) {
 		test.Fatalf("Values() on infinite mathematical series does not work.")
 	}
 }
@@ -939,5 +939,183 @@ func Test_ForeverLocking(test *testing.T) {
 
 	if testFail {
 		test.Fatalf("Mutual exclusion checks did not properly lock out parallel ForEach operations.")
+	}
+}
+
+func Test_ForeverGetBucketBounds(test *testing.T) {
+	series := newWindowSeriesForeverImpl[float64, int]()
+
+	series.Reserve(1)
+	series.Reserve(2)
+	series.Reserve(3)
+	series.Reserve(4)
+	series.Reserve(5)
+
+	series.Fill(1, 8)
+	series.Fill(2, 9)
+	series.Fill(3, 10)
+	series.Fill(4, 11)
+	series.Fill(5, 12)
+
+	lower, upper := series.GetBucketBounds()
+	if lower != 1 || upper != 5 {
+		test.Fatalf("expected a lower of 1 and upper of 5; got %v and %v, respectively!\n", lower, upper)
+	}
+}
+
+func Test_WindowGetBucketBounds(test *testing.T) {
+	series := newWindowSeriesWindowOnlyImpl[float64, int](3)
+
+	series.Reserve(1)
+	series.Reserve(2)
+	series.Reserve(3)
+	series.Reserve(4)
+	series.Reserve(5)
+
+	series.Fill(3, 10)
+	series.Fill(4, 11)
+	series.Fill(5, 12)
+
+	lower, upper := series.GetBucketBounds()
+	if lower != 3 || upper != 5 {
+		test.Fatalf("expected a lower of 3 and upper of 5; got %v and %v, respectively!\n", lower, upper)
+	}
+}
+
+func Test_ForeverBucketBoundsEmpty(test *testing.T) {
+	series := newWindowSeriesForeverImpl[float64, int]()
+
+	lower, upper := series.GetBucketBounds()
+	if lower != 0 || upper != 0 {
+		test.Fatalf("expected a lower of 0 and upper of 0; got %v and %v, respectively!\n", lower, upper)
+	}
+}
+
+func Test_ForeverTrimmingBucketBounds(test *testing.T) {
+	series := newWindowSeriesForeverImpl[float64, int]()
+
+	series.Reserve(1)
+	series.Reserve(2)
+	series.Reserve(3)
+	series.Reserve(4)
+	series.Reserve(5)
+
+	series.Fill(1, 8)
+	series.Fill(2, 9)
+	series.Fill(3, 10)
+	series.Fill(4, 11)
+	series.Fill(5, 12)
+
+	series.SetTrimmingBucketBounds(3, 5)
+
+	trimmedValues := series.GetValues()
+	if len(trimmedValues) != 3 {
+		test.Fatalf("Expected that the list would have 3 elements but it only had %v!\n", len(trimmedValues))
+	}
+	if utilities.GetSome(trimmedValues[0]) != 10 || utilities.GetSome(trimmedValues[1]) != 11 ||
+		utilities.GetSome(trimmedValues[2]) != 12 {
+		test.Fatalf("Expected values are not the actual values.\n")
+	}
+}
+
+func Test_WindowTrimmingBucketBounds(test *testing.T) {
+	series := newWindowSeriesWindowOnlyImpl[float64, int](5)
+
+	series.Reserve(1)
+	series.Reserve(2)
+	series.Reserve(3)
+	series.Reserve(4)
+	series.Reserve(5)
+
+	series.Fill(1, 8)
+	series.Fill(2, 9)
+	series.Fill(3, 10)
+	series.Fill(4, 11)
+	series.Fill(5, 12)
+
+	series.SetTrimmingBucketBounds(3, 5)
+
+	trimmedValues := series.GetValues()
+	if len(trimmedValues) != 3 {
+		test.Fatalf("Expected that the list would have 3 elements but it only had %v!\n", len(trimmedValues))
+	}
+	if utilities.GetSome(trimmedValues[0]) != 12 || utilities.GetSome(trimmedValues[1]) != 11 ||
+		utilities.GetSome(trimmedValues[2]) != 10 {
+		test.Fatalf("Expected values are not the actual values.\n")
+	}
+}
+
+func Test_ForeverBoundedAppend(test *testing.T) {
+	appending_series := NewWindowSeries[float64, int](Forever, 0)
+	baseSeries := NewWindowSeries[float64, int](Forever, 0)
+
+	baseSeries.Reserve(1)
+	baseSeries.Fill(1, 1)
+	baseSeries.Reserve(2)
+	baseSeries.Fill(2, 2)
+	baseSeries.Reserve(3)
+	baseSeries.Fill(3, 3)
+
+	appending_series.Reserve(4)
+	appending_series.Reserve(5)
+	appending_series.Reserve(6)
+	appending_series.Reserve(7)
+	appending_series.Reserve(8)
+
+	appending_series.Fill(4, 8)
+	appending_series.Fill(5, 9)
+	appending_series.Fill(6, 10)
+	appending_series.Fill(7, 11)
+	appending_series.Fill(8, 12)
+
+	appending_series.SetTrimmingBucketBounds(6, 8)
+
+	baseSeries.BoundedAppend(&appending_series)
+
+	if len(baseSeries.GetValues()) != 6 {
+		test.Fatalf("The base series should have 6 values, but it actually has %v (bounded test)", len(baseSeries.GetValues()))
+	}
+
+	baseSeriesValues := baseSeries.GetValues()
+	if utilities.GetSome(baseSeriesValues[0]) != 1 ||
+		utilities.GetSome(baseSeriesValues[1]) != 2 ||
+		utilities.GetSome(baseSeriesValues[2]) != 3 ||
+		utilities.GetSome(baseSeriesValues[3]) != 10 ||
+		utilities.GetSome(baseSeriesValues[4]) != 11 ||
+		utilities.GetSome(baseSeriesValues[5]) != 12 {
+		test.Fatalf("The values that should be in a series with bounded append are not there.")
+	}
+	baseSeries = NewWindowSeries[float64, int](Forever, 0)
+	baseSeries.Append(&appending_series)
+	if len(baseSeries.GetValues()) != 5 {
+		test.Fatalf("The base series should have 5 values, but it actually has %v (unbounded test)", len(baseSeries.GetValues()))
+	}
+}
+
+func Test_ForeverExtractBounded(test *testing.T) {
+	series := NewWindowSeries[float64, int](Forever, 0)
+
+	series.Reserve(1)
+	series.Reserve(2)
+	series.Reserve(3)
+	series.Reserve(4)
+	series.Reserve(5)
+
+	series.Fill(1, 8)
+	series.Fill(2, 9)
+	series.Fill(3, 10)
+	series.Fill(4, 11)
+	series.Fill(5, 12)
+
+	extracted := series.ExtractBoundedSeries()
+
+	if len(extracted.GetValues()) != 5 {
+		test.Fatalf("Expected the extracted list to have 5 values but it really has %v", len(extracted.GetValues()))
+	}
+
+	series.SetTrimmingBucketBounds(3, 5)
+	extracted = series.ExtractBoundedSeries()
+	if len(extracted.GetValues()) != 3 {
+		test.Fatalf("Expected the extracted list to have 3 values but it really has %v", len(extracted.GetValues()))
 	}
 }

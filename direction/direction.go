@@ -45,4 +45,6 @@ type Direction struct {
 	ThroughputActivityCtx             *context.Context
 	ThroughputActivityCtxCancel       *context.CancelFunc
 	FormattedResults                  string
+	LowerBucketBound                  uint64
+	UpperBucketBound                  uint64
 }

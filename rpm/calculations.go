@@ -19,7 +19,6 @@ import (
 
 	"github.com/network-quality/goresponsiveness/series"
 	"github.com/network-quality/goresponsiveness/utilities"
-	"golang.org/x/exp/constraints"
 )
 
 type Rpm[Data utilities.Number] struct {
@@ -35,7 +34,7 @@ type Rpm[Data utilities.Number] struct {
 	MeanRpm             float64
 }
 
-func CalculateRpm[Data utilities.Number, Bucket constraints.Ordered](
+func CalculateRpm[Data utilities.Number, Bucket utilities.Number](
 	selfRtts series.WindowSeries[Data, Bucket], aggregatedForeignRtts series.WindowSeries[Data, Bucket], trimming uint, percentile uint,
 ) *Rpm[Data] {
 	// There may be more than one round trip accumulated together. If that is the case,
@@ -56,12 +55,14 @@ func CalculateRpm[Data utilities.Number, Bucket constraints.Ordered](
 		}
 	}
 
+	boundedSelfRtts := selfRtts.ExtractBoundedSeries()
+
 	// First, let's do a double-sided trim of the top/bottom 10% of our measurements.
-	selfRttsTotalCount, _ := selfRtts.Count()
+	selfRttsTotalCount, _ := boundedSelfRtts.Count()
 	foreignRttsTotalCount, _ := foreignRtts.Count()
 
 	_, selfProbeRoundTripTimeMean, selfRttsTrimmed :=
-		series.TrimmedMean(selfRtts, int(trimming))
+		series.TrimmedMean(boundedSelfRtts, int(trimming))
 	_, foreignProbeRoundTripTimeMean, foreignRttsTrimmed :=
 		series.TrimmedMean(foreignRtts, int(trimming))
 
@@ -69,7 +70,7 @@ func CalculateRpm[Data utilities.Number, Bucket constraints.Ordered](
 	foreignRttsTrimmedCount := len(foreignRttsTrimmed)
 
 	// Second, let's do the P90 calculations.
-	_, selfProbeRoundTripTimePN := series.Percentile(selfRtts, percentile)
+	_, selfProbeRoundTripTimePN := series.Percentile(boundedSelfRtts, percentile)
 	_, foreignProbeRoundTripTimePN := series.Percentile(foreignRtts, percentile)
 
 	// Note: The specification indicates that we want to calculate the foreign probes as such:

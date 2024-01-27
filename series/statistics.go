@@ -16,10 +16,9 @@ package series
 
 import (
 	"github.com/network-quality/goresponsiveness/utilities"
-	"golang.org/x/exp/constraints"
 )
 
-func SeriesStandardDeviation[Data utilities.Number, Bucket constraints.Ordered](s WindowSeries[Data, Bucket]) (bool, float64) {
+func SeriesStandardDeviation[Data utilities.Number, Bucket utilities.Number](s WindowSeries[Data, Bucket]) (bool, float64) {
 	complete := s.Complete()
 
 	inputValues := s.GetValues()
@@ -32,7 +31,7 @@ func SeriesStandardDeviation[Data utilities.Number, Bucket constraints.Ordered](
 	return complete, utilities.CalculateStandardDeviation[Data](values)
 }
 
-func Percentile[Data utilities.Number, Bucket constraints.Ordered](s WindowSeries[Data, Bucket], p uint) (bool, Data) {
+func Percentile[Data utilities.Number, Bucket utilities.Number](s WindowSeries[Data, Bucket], p uint) (bool, Data) {
 	complete := s.Complete()
 
 	inputValues := s.GetValues()
@@ -45,7 +44,7 @@ func Percentile[Data utilities.Number, Bucket constraints.Ordered](s WindowSerie
 	return complete, utilities.CalculatePercentile(values, p)
 }
 
-func AllSequentialIncreasesLessThan[Data utilities.Number, Bucket constraints.Ordered](s WindowSeries[Data, Bucket], limit float64,
+func AllSequentialIncreasesLessThan[Data utilities.Number, Bucket utilities.Number](s WindowSeries[Data, Bucket], limit float64,
 ) (bool, bool, float64) {
 	complete := s.Complete()
 
@@ -60,7 +59,7 @@ func AllSequentialIncreasesLessThan[Data utilities.Number, Bucket constraints.Or
 	return complete, result, actualLimit
 }
 
-func CalculateAverage[Data utilities.Number, Bucket constraints.Ordered](s WindowSeries[Data, Bucket]) (bool, float64) {
+func CalculateAverage[Data utilities.Number, Bucket utilities.Number](s WindowSeries[Data, Bucket]) (bool, float64) {
 	complete := s.Complete()
 
 	inputValues := s.GetValues()
@@ -73,7 +72,7 @@ func CalculateAverage[Data utilities.Number, Bucket constraints.Ordered](s Windo
 	return complete, utilities.CalculateAverage(values)
 }
 
-func TrimmedMean[Data utilities.Number, Bucket constraints.Ordered](s WindowSeries[Data, Bucket], trim int) (bool, float64, []Data) {
+func TrimmedMean[Data utilities.Number, Bucket utilities.Number](s WindowSeries[Data, Bucket], trim int) (bool, float64, []Data) {
 	complete := s.Complete()
 
 	inputValues := s.GetValues()
