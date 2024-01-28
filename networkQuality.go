@@ -636,7 +636,11 @@ func main() {
 							utilities.Conditional(baselineStableResponsiveness, "stable", "unstable"))
 					}
 
-					baselineResponsivenessStabilizer.Interval()
+					// Do not tick an interval if we are stable. Doing so would expel one of the
+					// intervals that we need for our RPM calculations!
+					if !baselineStableResponsiveness {
+						baselineResponsivenessStabilizer.Interval()
+					}
 				}
 			}
 		}
@@ -951,7 +955,11 @@ func main() {
 								utilities.Conditional(direction.StableResponsiveness, "stable", "unstable"))
 						}
 
-						responsivenessStabilizer.Interval()
+						// Do not tick an interval if we are stable. Doing so would expel one of the
+						// intervals that we need for our RPM calculations!
+						if !direction.StableResponsiveness {
+							responsivenessStabilizer.Interval()
+						}
 					}
 				}
 			}
