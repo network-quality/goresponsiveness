@@ -109,6 +109,12 @@ func (r3 *MeasurementStablizer[Data, Bucket]) AddMeasurement(bucket Bucket, meas
 						r3.dbgConfig.String(),
 						bucket)
 				}
+			} else {
+				if debug.IsDebug(r3.dbgLevel) {
+					fmt.Printf("%s: A bucket (with id %v) does exist in a historical window.\n",
+						r3.dbgConfig.String(),
+						bucket)
+				}
 			}
 		}
 	})
@@ -173,7 +179,7 @@ func (r3 *MeasurementStablizer[Data, Bucket]) IsStable() bool {
 	r3.aggregates.ForEach(func(b int, md *utilities.Optional[series.WindowSeries[Data, Bucket]]) {
 		if utilities.IsSome[series.WindowSeries[Data, Bucket]](*md) {
 			md := utilities.GetSome[series.WindowSeries[Data, Bucket]](*md)
-			allComplete = md.Complete()
+			allComplete = allComplete && md.Complete()
 			if debug.IsDebug(r3.dbgLevel) {
 				fmt.Printf("%s\n", md.String())
 			}
@@ -204,6 +210,17 @@ func (r3 *MeasurementStablizer[Data, Bucket]) IsStable() bool {
 			averages = append(averages, average)
 		}
 	})
+
+	if debug.IsDebug(r3.dbgLevel) {
+		r3.aggregates.ForEach(func(b int, md *utilities.Optional[series.WindowSeries[Data, Bucket]]) {
+			if utilities.IsSome[series.WindowSeries[Data, Bucket]](*md) {
+				md := utilities.GetSome[series.WindowSeries[Data, Bucket]](*md)
+
+				filled, unfilled := md.Count()
+				fmt.Printf("An aggregate has %v filled and %v unfilled buckets.\n", filled, unfilled)
+			}
+		})
+	}
 
 	// Calculate the standard deviation of the averages of the aggregates.
 	sd := utilities.CalculateStandardDeviation(averages)
