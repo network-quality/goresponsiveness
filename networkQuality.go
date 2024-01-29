@@ -1231,10 +1231,23 @@ func main() {
 	boundedAllSelfRtts := series.NewWindowSeries[float64, uint64](series.Forever, 0)
 	boundedAllForeignRtts := series.NewWindowSeries[float64, uint64](series.Forever, 0)
 
-	boundedAllSelfRtts.BoundedAppend(&downloadDirection.SelfRtts)
-	boundedAllSelfRtts.BoundedAppend(&uploadDirection.SelfRtts)
-	boundedAllForeignRtts.BoundedAppend(&downloadDirection.ForeignRtts)
-	boundedAllForeignRtts.BoundedAppend(&uploadDirection.ForeignRtts)
+	// Now, if the test had a stable responsiveness measurement, then only consider the
+	// probe measurements that are in the MAD intervals. On the other hand, if the test
+	// did not stabilize, use all measurements to calculate the RPM.
+	if downloadDirection.StableResponsiveness {
+		boundedAllSelfRtts.BoundedAppend(&downloadDirection.SelfRtts)
+		boundedAllForeignRtts.BoundedAppend(&downloadDirection.ForeignRtts)
+	} else {
+		boundedAllSelfRtts.Append(&downloadDirection.SelfRtts)
+		boundedAllForeignRtts.Append(&downloadDirection.ForeignRtts)
+	}
+	if uploadDirection.StableResponsiveness {
+		boundedAllSelfRtts.BoundedAppend(&uploadDirection.SelfRtts)
+		boundedAllForeignRtts.BoundedAppend(&uploadDirection.ForeignRtts)
+	} else {
+		boundedAllSelfRtts.Append(&uploadDirection.SelfRtts)
+		boundedAllForeignRtts.Append(&uploadDirection.ForeignRtts)
+	}
 
 	result := rpm.CalculateRpm(boundedAllSelfRtts, boundedAllForeignRtts,
 		specParameters.TrimmedMeanPct, specParameters.Percentile)
