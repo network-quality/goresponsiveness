@@ -1047,9 +1047,20 @@ func main() {
 			direction.FormattedResults += fmt.Sprintf("%v:\n", direction.DirectionLabel)
 
 			if !testRanToStability {
+				why := ""
+				if !direction.StableThroughput {
+					why += "throughput"
+				}
+				if !direction.StableResponsiveness {
+					if len(why) != 0 {
+						why += ", "
+					}
+					why += "responsiveness"
+				}
 				direction.FormattedResults += utilities.IndentOutput(
-					"Note: Test did not run to stability, these results are estimates.\n", 1, "\t")
+					fmt.Sprintf("Note: Test did not run to stability (%v), these results are estimates.\n", why), 1, "\t")
 			}
+
 			direction.FormattedResults += utilities.IndentOutput(fmt.Sprintf(
 				"Throughput: %.3f Mbps (%.3f MBps), using %d parallel connections.\n",
 				utilities.ToMbps(lastThroughputRate),
@@ -1220,7 +1231,7 @@ func main() {
 		result := rpm.CalculateRpm(unboundedAllSelfRtts, unboundedAllForeignRtts,
 			specParameters.TrimmedMeanPct, specParameters.Percentile)
 
-		fmt.Printf("(Unbounded Final RPM Calculation stats):\n%v\n", result.ToString())
+		fmt.Printf("Unbounded Final RPM Calculation stats:\n%v\n", result.ToString())
 
 		fmt.Printf("Unbounded Final RPM: %.0f (P%d)\n", result.PNRpm, specParameters.Percentile)
 		fmt.Printf("Unbounded Final RPM: %.0f (Single-Sided %v%% Trimmed Mean)\n",
@@ -1253,7 +1264,7 @@ func main() {
 		specParameters.TrimmedMeanPct, specParameters.Percentile)
 
 	if *debugCliFlag {
-		fmt.Printf("(Final RPM Calculation stats):\n%v\n", result.ToString())
+		fmt.Printf("Final RPM Calculation stats:\n%v\n", result.ToString())
 	}
 
 	fmt.Printf("Final RPM: %.0f (P%d)\n", result.PNRpm, specParameters.Percentile)
