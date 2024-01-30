@@ -1132,11 +1132,6 @@ func main() {
 					selfRttsQualityAttenuation.GetGamingQoO()), 1, "\t")
 			}
 
-			if *detailedCliFlag {
-				direction.FormattedResults += utilities.IndentOutput("RPM Calculation stats:\n", 1, "\t")
-				direction.FormattedResults += utilities.IndentOutput(directionResult.ToString(), 2, "\t")
-			}
-
 			direction.FormattedResults += utilities.IndentOutput(fmt.Sprintf(
 				"RPM: %.0f (P%d)\n", directionResult.PNRpm, specParameters.Percentile), 1, "\t")
 			direction.FormattedResults += utilities.IndentOutput(fmt.Sprintf(
