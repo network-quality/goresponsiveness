@@ -70,6 +70,11 @@ var (
 		constants.DefaultDebug,
 		"Enable debugging.",
 	)
+	detailedCliFlag = flag.Bool(
+		"detailed",
+		constants.DefaultDebug,
+		"Enable detailed result output.",
+	)
 	rpmtimeout = flag.Int(
 		"rpm.timeout",
 		constants.DefaultTestTime,
@@ -1077,7 +1082,7 @@ func main() {
 			for _, label := range []string{"Unbounded ", ""} {
 				directionResult = rpm.CalculateRpm(direction.SelfRtts, direction.ForeignRtts,
 					specParameters.TrimmedMeanPct, specParameters.Percentile)
-				if *debugCliFlag {
+				if *debugCliFlag || *detailedCliFlag {
 					direction.FormattedResults += utilities.IndentOutput(
 						fmt.Sprintf("%vRPM Calculation Statistics:\n", label), 1, "\t")
 					direction.FormattedResults += utilities.IndentOutput(directionResult.ToString(), 2, "\t")
@@ -1219,7 +1224,7 @@ func main() {
 		fmt.Printf("========\n")
 	}
 
-	if *debugCliFlag {
+	if *detailedCliFlag || *debugCliFlag {
 		unboundedAllSelfRtts := series.NewWindowSeries[float64, uint64](series.Forever, 0)
 		unboundedAllForeignRtts := series.NewWindowSeries[float64, uint64](series.Forever, 0)
 
@@ -1231,7 +1236,8 @@ func main() {
 		result := rpm.CalculateRpm(unboundedAllSelfRtts, unboundedAllForeignRtts,
 			specParameters.TrimmedMeanPct, specParameters.Percentile)
 
-		fmt.Printf("Unbounded Final RPM Calculation stats:\n%v\n", result.ToString())
+		fmt.Printf("Unbounded Final RPM Calculation stats:\n%v\n",
+			utilities.IndentOutput(result.ToString(), 1, "\t"))
 
 		fmt.Printf("Unbounded Final RPM: %.0f (P%d)\n", result.PNRpm, specParameters.Percentile)
 		fmt.Printf("Unbounded Final RPM: %.0f (Single-Sided %v%% Trimmed Mean)\n",
@@ -1263,13 +1269,28 @@ func main() {
 	result := rpm.CalculateRpm(boundedAllSelfRtts, boundedAllForeignRtts,
 		specParameters.TrimmedMeanPct, specParameters.Percentile)
 
-	if *debugCliFlag {
-		fmt.Printf("Final RPM Calculation stats:\n%v\n", result.ToString())
+	if *debugCliFlag || *detailedCliFlag {
+		fmt.Printf("Final RPM Calculation stats:\n%v\n",
+			utilities.IndentOutput(result.ToString(), 1, "\t"))
 	}
 
-	fmt.Printf("Final RPM: %.0f (P%d)\n", result.PNRpm, specParameters.Percentile)
-	fmt.Printf("Final RPM: %.0f (Single-Sided %v%% Trimmed Mean)\n",
-		result.MeanRpm, specParameters.TrimmedMeanPct)
+	fmt.Printf("Final RPM: %.0f (P%d) %s\n", result.PNRpm, specParameters.Percentile,
+		utilities.Conditional(*detailedCliFlag, fmt.Sprintf("RTT: %.6fs", result.ProbeRttPN), ""))
+	fmt.Printf("Final RPM: %.0f (Single-Sided %v%% Trimmed Mean) %s\n",
+		result.MeanRpm, specParameters.TrimmedMeanPct,
+		utilities.Conditional(*detailedCliFlag, fmt.Sprintf("RTT: %.6fs", result.ProbeRttMean), ""))
+
+	if *detailedCliFlag || *debugCliFlag {
+		fmt.Printf("Final RPM (Self Only): %.0f (P%d) RTT: %.6fs\n", result.SelfPNRpm,
+			specParameters.Percentile, result.SelfProbeRttPN)
+		fmt.Printf("Final RPM (Self Only): %.0f (Single-Sided %v%% Trimmed Mean) RTT: %.6fs\n",
+			result.SelfMeanRpm, specParameters.TrimmedMeanPct, result.SelfProbeRttMean)
+
+		fmt.Printf("Final RPM (Foreign Only): %.0f (P%d) RTT: %.6fs\n", result.ForeignPNRpm,
+			specParameters.Percentile, result.ForeignProbeRttPN)
+		fmt.Printf("Final RPM (Foreign Only): %.0f (Single-Sided %v%% Trimmed Mean) RTT: %.6fs\n",
+			result.ForeignMeanRpm, specParameters.TrimmedMeanPct, result.ForeignProbeRttMean)
+	}
 
 	if *calculateRelativeRpm {
 		if baselineRpm == nil {

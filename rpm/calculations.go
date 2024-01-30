@@ -30,8 +30,14 @@ type Rpm[Data utilities.Number] struct {
 	ForeignProbeRttPN   Data
 	SelfProbeRttMean    float64
 	ForeignProbeRttMean float64
+	ProbeRttPN          float64
+	ProbeRttMean        float64
 	PNRpm               float64
 	MeanRpm             float64
+	SelfPNRpm           float64
+	SelfMeanRpm         float64
+	ForeignPNRpm        float64
+	ForeignMeanRpm      float64
 }
 
 func CalculateRpm[Data utilities.Number, Bucket utilities.Number](
@@ -61,9 +67,9 @@ func CalculateRpm[Data utilities.Number, Bucket utilities.Number](
 	selfRttsTotalCount, _ := boundedSelfRtts.Count()
 	foreignRttsTotalCount, _ := foreignRtts.Count()
 
-	_, selfProbeRoundTripTimeMean, selfRttsTrimmed :=
+	_, selfProbeRoundTripTimeTrimmedMean, selfRttsTrimmed :=
 		series.TrimmedMean(boundedSelfRtts, int(trimming))
-	_, foreignProbeRoundTripTimeMean, foreignRttsTrimmed :=
+	_, foreignProbeRoundTripTimeTrimmedMean, foreignRttsTrimmed :=
 		series.TrimmedMean(foreignRtts, int(trimming))
 
 	selfRttsTrimmedCount := len(selfRttsTrimmed)
@@ -79,16 +85,37 @@ func CalculateRpm[Data utilities.Number, Bucket utilities.Number](
 	// of the tcp, tls and http connections, respectively. However, we cannot break out
 	// the individual RTTs so we assume that they are roughly equal.
 
+	probeRoundTripTimePN := (float64(selfProbeRoundTripTimePN+foreignProbeRoundTripTimePN) / 2.0)
+	probeRoundTripTimeTrimmedMean := (float64(selfProbeRoundTripTimeTrimmedMean+
+		foreignProbeRoundTripTimeTrimmedMean) / 2.0)
+
 	// This is 60 because we measure in seconds not ms
-	pnRpm := 60.0 / (float64(selfProbeRoundTripTimePN+foreignProbeRoundTripTimePN) / 2.0)
-	meanRpm := 60.0 / (float64(selfProbeRoundTripTimeMean+foreignProbeRoundTripTimeMean) / 2.0)
+	pnRpm := 60.0 / probeRoundTripTimePN
+	meanRpm := 60.0 / probeRoundTripTimeTrimmedMean
+
+	selfPnRpm := 60.0 / (float64(selfProbeRoundTripTimePN))
+	selfMeanRpm := 60.0 / (float64(selfProbeRoundTripTimeTrimmedMean))
+
+	foreignPnRpm := 60.0 / (float64(foreignProbeRoundTripTimePN))
+	foreignMeanRpm := 60.0 / (float64(foreignProbeRoundTripTimeTrimmedMean))
 
 	return &Rpm[Data]{
-		SelfRttsTotal: selfRttsTotalCount, ForeignRttsTotal: foreignRttsTotalCount,
-		SelfRttsTrimmed: selfRttsTrimmedCount, ForeignRttsTrimmed: foreignRttsTrimmedCount,
-		SelfProbeRttPN: selfProbeRoundTripTimePN, ForeignProbeRttPN: foreignProbeRoundTripTimePN,
-		SelfProbeRttMean: selfProbeRoundTripTimeMean, ForeignProbeRttMean: foreignProbeRoundTripTimeMean,
-		PNRpm: pnRpm, MeanRpm: meanRpm,
+		SelfRttsTotal:       selfRttsTotalCount,
+		ForeignRttsTotal:    foreignRttsTotalCount,
+		SelfRttsTrimmed:     selfRttsTrimmedCount,
+		ForeignRttsTrimmed:  foreignRttsTrimmedCount,
+		SelfProbeRttPN:      selfProbeRoundTripTimePN,
+		ForeignProbeRttPN:   foreignProbeRoundTripTimePN,
+		SelfProbeRttMean:    selfProbeRoundTripTimeTrimmedMean,
+		ForeignProbeRttMean: foreignProbeRoundTripTimeTrimmedMean,
+		ProbeRttPN:          probeRoundTripTimePN,
+		ProbeRttMean:        probeRoundTripTimeTrimmedMean,
+		PNRpm:               pnRpm,
+		MeanRpm:             meanRpm,
+		ForeignPNRpm:        foreignPnRpm,
+		ForeignMeanRpm:      foreignMeanRpm,
+		SelfPNRpm:           selfPnRpm,
+		SelfMeanRpm:         selfMeanRpm,
 	}
 }
 
@@ -96,20 +123,24 @@ func (rpm *Rpm[Data]) ToString() string {
 	return fmt.Sprintf(
 		`Total Self Probes:            %d
 Total Foreign Probes:         %d
-Trimmed Self Probes Count:    %d
-Trimmed Foreign Probes Count: %d
-P90 Self RTT:                 %v
-P90 Foreign RTT:              %v
-Trimmed Mean Self RTT:        %f
-Trimmed Mean Foreign RTT:     %f
+Trimmed Self Probes Count:    %d of %d
+Trimmed Foreign Probes Count: %d of %d
+P90 Self RTT:                 %.6fs
+P90 Foreign RTT:              %.6fs
+P90 RTT:                      %.6fs
+Trimmed Mean Self RTT:        %.6fs
+Trimmed Mean Foreign RTT:     %.6fs
+Trimmed Mean RTT:             %.6fs
 `,
 		rpm.SelfRttsTotal,
 		rpm.ForeignRttsTotal,
-		rpm.SelfRttsTrimmed,
-		rpm.ForeignRttsTrimmed,
-		rpm.SelfProbeRttPN,
-		rpm.ForeignProbeRttPN,
-		rpm.SelfProbeRttMean,
-		rpm.ForeignProbeRttMean,
+		rpm.SelfRttsTrimmed, rpm.SelfRttsTotal,
+		rpm.ForeignRttsTrimmed, rpm.ForeignRttsTotal,
+		float64(rpm.SelfProbeRttPN),
+		float64(rpm.ForeignProbeRttPN),
+		float64(rpm.ProbeRttPN),
+		float64(rpm.SelfProbeRttMean),
+		float64(rpm.ForeignProbeRttMean),
+		float64(rpm.ProbeRttMean),
 	)
 }
